@@ -57,15 +57,22 @@ var INFO =
 
 
 function update(){
-    if (pterosaurCleanupCheck != options["fullVim"])
+    if (pterosaurCleanupCheck !== options["fullVim"])
       cleanupPterosaur();
 
-    if (!options["fullVim"] || modes.main != modes.INSERT && modes.main != modes.AUTOCOMPLETE) {
+    if (!options["fullVim"] || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE) {
+      if(pterFocused !== null)
+      {
+        cleanupForTextbox();
+        pterFocused = null
+      }
       return;
     }
 
-    if (dactyl.focusedElement != pterFocused)
+    if (dactyl.focusedElement !== pterFocused)
     {
+      if(pterFocused !== null)
+        cleanupForTextbox();
       setupForTextbox();
     }
     //TODO: these need to be faster, maybe vim can write them to a file when they change
@@ -75,7 +82,7 @@ function update(){
     let val = tmpfile.read();
     if (textBox) {
         textBox.value = val;
-        if (vimMode == 'n') {
+        if (vimMode === 'n') {
           textBox.setSelectionRange(cursorPos-1, cursorPos);
         }
         else {
@@ -94,6 +101,12 @@ function update(){
             editor_.rootElement.removeChild(editor_.rootElement.firstChild);
         editor_.rootElement.innerHTML = val;
     }
+}
+
+function cleanupForTextbox() { 
+    if (tmpfile && tmpfile.exists())
+        tmpfile.remove(false);
+    tmpfile = null
 }
 
 function setupForTextbox() {
@@ -142,7 +155,10 @@ function setupForTextbox() {
     if (!tmpfile.write(text))
         throw Error(_("io.cantEncode"));
 
-    let vimCommand = 'sh -c \'vim --servername pterosaur -f +<line> +"sil! call cursor(0, <column>)" +"set autoread" +"set shortmess+=A" +"autocmd TextChanged * write!" +"autocmd CursorMovedI * write!" --remote <file> </tmp/pterosaur_fifo > /dev/pts/6 2>/dev/pts/6\' &'
+    io.system("$(while [ -f "+tmpfile.path+" ]; do sleep 2; done) | cat > /tmp/pterosaur_fifo &");
+    //window.alert("$(while [ -f "+tmpfile.path+" ]; do sleep 5; done) > /tmp/pterosaur_fifo &");
+    let vimCommand = 'sh -c \'vim --servername pterosaur -f +<line> +"sil! call cursor(0, <column>)" +"set autoread" +"autocmd FileChangedShell * echon \'changed\'" +"set noswapfile" +"set shortmess+=A" +"autocmd TextChanged * write!" +"autocmd CursorMovedI * write!" +"startinsert" <file> </tmp/pterosaur_fifo > /dev/pts/3 2>/dev/pts/3\' &'
+    needsCleaning = true;
     vimCommand = vimCommand.replace('<line>', line);
     vimCommand = vimCommand.replace('<column>', column);
     vimCommand = vimCommand.replace('<file>', tmpfile.path);
@@ -190,7 +206,6 @@ function cleanupPterosaur()
 }
 
 io.system("mkfifo /tmp/pterosaur_fifo");
-io.system("sleep 10000 > /tmp/pterosaur_fifo &");
 
 //If this doesn't match options["fullVim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
@@ -202,5 +217,6 @@ var cursorPos = '0';
 var pterFocused = null; 
 var tmpfile = null;
 var textBox;
+var needsCleaning = false;
 
 let timer =  window.setInterval(update, 100);
