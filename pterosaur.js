@@ -156,9 +156,12 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     if (!options["fullVim"])
       return PASS
 
-    if (/^<(?:.-)*(?:BS|Del|Tab|C-h|C-w|C-u|C-k)>$/.test(DOM.Event.stringify(eventList[0]))) {
+    if (/^<(?:.-)*(?:BS|Return|Del|Tab|C-h|C-w|C-u|C-k)>$/.test(DOM.Event.stringify(eventList[0]))) {
       if (DOM.Event.stringify(eventList[0])==="<BS>")
         io.system('printf "\b" > /tmp/pterosaur_fifo')
+      if (DOM.Event.stringify(eventList[0])==="<Return>")
+        io.system('printf "\r" > /tmp/pterosaur_fifo')
+        return PASS
       if (DOM.Event.stringify(eventList[0])==="<Tab>")
         return PASS
     }
