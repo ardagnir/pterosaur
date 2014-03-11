@@ -23,13 +23,10 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 
 ##Bugs
 - Slow
-- Defaults to normal mode instead of insert mode when clicking on a text field.
 - No mouse support
 - Users can't see the selection from Vim's visual mode.
 - Users can't see Vim's command mode.
-- Users can't send carriage returns.
 - The cursor disapears if on an empty line in normal mode.
-- Stops working after 10000 seconds (I'm using a sleep 10000 as a placeholder for real code)
 - Doesn't cleanup spawned processes
 - Password text-fields are still sent to Vim.
 
