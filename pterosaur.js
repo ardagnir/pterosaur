@@ -157,7 +157,7 @@ function setupForTextbox() {
 
     io.system("$(while [ -f "+tmpfile.path+" ]; do sleep 2; done) | cat > /tmp/pterosaur_fifo &");
     //window.alert("$(while [ -f "+tmpfile.path+" ]; do sleep 5; done) > /tmp/pterosaur_fifo &");
-    let vimCommand = 'sh -c \'vim --servername pterosaur -f +<line> +"sil! call cursor(0, <column>)" +"set autoread" +"autocmd FileChangedShell * echon \'changed\'" +"set noswapfile" +"set shortmess+=A" +"autocmd TextChanged * write!" +"autocmd CursorMovedI * write!" +"startinsert" <file> </tmp/pterosaur_fifo > /dev/pts/3 2>/dev/pts/3\' &'
+    let vimCommand = 'sh -c \'vim --servername pterosaur -f +<line> +"sil! call cursor(0, <column>)" +"set autoread" +"autocmd FileChangedShell * echon \'changed\'" +"set noswapfile" +"set shortmess+=A" +"autocmd TextChanged * write!" +"autocmd CursorMovedI * write!" +"startinsert" <file> </tmp/pterosaur_fifo > /dev/null\' &'
     needsCleaning = true;
     vimCommand = vimCommand.replace('<line>', line);
     vimCommand = vimCommand.replace('<column>', column);
