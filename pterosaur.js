@@ -61,7 +61,7 @@ function update(){
       cleanupPterosaur();
 
     if (!options["fullVim"] || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE) {
-      if(pterFocused !== null)
+      if(pterFocused && modes.main !== modes.EX)
       {
         cleanupForTextbox();
         pterFocused = null
@@ -71,23 +71,19 @@ function update(){
 
     if (dactyl.focusedElement !== pterFocused)
     {
-      if(pterFocused !== null)
+      if(pterFocused)
         cleanupForTextbox();
       setupForTextbox();
     }
-    //TODO: these need to be faster, maybe vim can write them to a file when they change
-    vimMode = io.system('vim --servername pterosaur --remote-expr "mode()"');
-    //TODO Handle multibyte characters?
-    cursorPos = io.system('vim --servername pterosaur --remote-expr "col(\'.\')+line2byte(line(\'.\'))-1"');
+
     let val = tmpfile.read();
+    let metadata = metaTmpfile.read().split('\n');
+    vimMode = metadata[0]
     if (textBox) {
         textBox.value = val;
-        if (vimMode === 'n') {
-          textBox.setSelectionRange(cursorPos-1, cursorPos);
-        }
-        else {
-          textBox.setSelectionRange(cursorPos-1, cursorPos-1);
-        }
+
+        if(metadata.length>2)
+          textBox.setSelectionRange(metadata[1], metadata[2]);
 
         if (true) {
             let elem = DOM(textBox);
@@ -106,6 +102,8 @@ function update(){
 function cleanupForTextbox() { 
     if (tmpfile && tmpfile.exists())
         tmpfile.remove(false);
+    if (metaTmpfile && metaTmpfile.exists())
+        metaTmpfile.remove(false);
     tmpfile = null
 }
 
@@ -148,41 +146,60 @@ function setupForTextbox() {
     column = 1 + pre.replace(/[^]*\n/, "").length;
 
     let origGroup = DOM(textBox).highlight.toString();
-    tmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host)
+    tmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host);
+    metaTmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host+"-meta");
     if (!tmpfile)
+        throw Error(_("io.cantCreateTempFile"));
+
+    if (!metaTmpfile)
         throw Error(_("io.cantCreateTempFile"));
 
     if (!tmpfile.write(text))
         throw Error(_("io.cantEncode"));
 
-    io.system("$(while [ -f "+tmpfile.path+" ]; do sleep 2; done) | cat > /tmp/pterosaur_fifo &");
-    //window.alert("$(while [ -f "+tmpfile.path+" ]; do sleep 5; done) > /tmp/pterosaur_fifo &");
-    let vimCommand = 'sh -c \'vim --servername pterosaur -f +<line> +"sil! call cursor(0, <column>)" +"set autoread" +"autocmd FileChangedShell * echon \'changed\'" +"set noswapfile" +"set shortmess+=A" +"autocmd TextChanged * write!" +"autocmd CursorMovedI * write!" +"startinsert" <file> </tmp/pterosaur_fifo > /dev/null\' &'
-    needsCleaning = true;
-    vimCommand = vimCommand.replace('<line>', line);
-    vimCommand = vimCommand.replace('<column>', column);
-    vimCommand = vimCommand.replace('<file>', tmpfile.path);
+    let vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterodactylFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
+
+    vimCommand = vimCommand.replace(/<metaFile>/, metaTmpfile.path);
+    vimCommand = vimCommand.replace(/<file>/, tmpfile.path);
+    vimCommand = vimCommand.replace(/<column>/, column);
+    vimCommand = vimCommand.replace(/<line>/, line);
+
     io.system(vimCommand);
 }
-
 
 modes.INSERT.params.onKeyPress = function(eventList) {
     const KILL = false, PASS = true;
 
     if (!options["fullVim"])
-      return PASS
+      return PASS;
 
-    if (/^<(?:.-)*(?:BS|Return|Del|Tab|C-h|C-w|C-u|C-k)>$/.test(DOM.Event.stringify(eventList[0]))) {
-      if (DOM.Event.stringify(eventList[0])==="<BS>")
-        io.system('printf "\b" > /tmp/pterosaur_fifo')
-      if (DOM.Event.stringify(eventList[0])==="<Return>")
-        io.system('printf "\r" > /tmp/pterosaur_fifo')
-        return PASS
-      if (DOM.Event.stringify(eventList[0])==="<Tab>")
-        return PASS
+    let inputChar = DOM.Event.stringify(eventList[0])
+
+    if (/^<(?:.-)*(?:BS|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+      //Currently, this also refreshes. I need to disable that.
+      if (inputChar==="<C-r>")
+        io.system('printf "\x12" > /tmp/pterosaur_fifo');
+      if (inputChar==="<Space>")
+        io.system('printf " " > /tmp/pterosaur_fifo');
+      if (inputChar==="<BS>")
+        io.system('printf "\b" > /tmp/pterosaur_fifo');
+      if (inputChar==="<Return>")
+        io.system('printf "\r" > /tmp/pterosaur_fifo');
+        return PASS;
+      if (inputChar==="<Tab>")
+        return PASS;
+    }
+    else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
+    {
+      CommandExMode().open("vimdo " + inputChar);
     }
     else {
-      io.system('printf "'.concat(String.fromCharCode(eventList[0].charCode).concat('" > /tmp/pterosaur_fifo')));
+      if (inputChar == '%')
+        io.system('printf "%%" > /tmp/pterosaur_fifo');
+      else if (inputChar == '\\')
+        io.system("printf '\\\\' > /tmp/pterosaur_fifo");
+      else
+        io.system('printf "' + inputChar + '" > /tmp/pterosaur_fifo');
     }
       
     return KILL;
@@ -207,16 +224,31 @@ function cleanupPterosaur()
 
 io.system("mkfifo /tmp/pterosaur_fifo");
 
+//TODO: This is an ugly hack. Also, the cat is necessary
+io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
+io.system('sh -c \'vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/pts/3 2>/dev/pts/3\' &');
+
 //If this doesn't match options["fullVim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
 
 options.add(["fullVim"], "Edit all text inputs using vim", "boolean", false);
 
+commands.add(["vim[do]"],
+    "Send command to vim",
+    function (args) {
+        dactyl.focus(pterFocused);
+        let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
+        io.system("printf '" + command + "\r' > /tmp/pterosaur_fifo");
+    }, {
+      argCount: "+",
+      literal: 0
+    });
+
+
 var vimMode = 'i';
-var cursorPos = '0';
 var pterFocused = null; 
 var tmpfile = null;
+var metaTmpfile = null;
 var textBox;
-var needsCleaning = false;
 
 let timer =  window.setInterval(update, 100);
