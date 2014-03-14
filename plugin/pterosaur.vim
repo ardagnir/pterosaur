@@ -38,10 +38,8 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
   augroup END
   startinsert
 
-  "Without this, we can't undo the first change.
-  call feedkeys('<C-G>u','n')
-
   sil exec "edit! "a:file
+
 endfunction
 
 function! s:GetByteNum(pos)
