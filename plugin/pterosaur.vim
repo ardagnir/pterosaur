@@ -39,7 +39,7 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
   startinsert
 
   "Without this, we can't undo the first change.
-  feedkeys('<C-G>u','n')
+  call feedkeys('<C-G>u','n')
 
   sil exec "edit! "a:file
 endfunction

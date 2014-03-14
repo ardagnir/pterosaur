@@ -227,7 +227,7 @@ io.system("mkfifo /tmp/pterosaur_fifo");
 
 //TODO: This is an ugly hack. Also, the cat is necessary
 io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
-io.system('sh -c \'vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/pts/3 2>/dev/pts/3\' &');
+io.system('sh -c \'vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null\' &');
 
 //If this doesn't match options["fullVim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
