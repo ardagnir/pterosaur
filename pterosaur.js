@@ -1,4 +1,5 @@
-/*
+/* This is part of Pterosaur.
+ *
  * Copyright (c) 2014 James Kolb <jck1089@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -157,7 +158,7 @@ function setupForTextbox() {
     if (!tmpfile.write(text))
         throw Error(_("io.cantEncode"));
 
-    let vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterodactylFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
+    let vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
 
     vimCommand = vimCommand.replace(/<metaFile>/, metaTmpfile.path);
     vimCommand = vimCommand.replace(/<file>/, tmpfile.path);
