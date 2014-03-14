@@ -61,7 +61,7 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullVim"])
       cleanupPterosaur();
 
-    if (!options["fullVim"] || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE) {
+    if (!options["fullVim"] || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
       if(pterFocused && modes.main !== modes.EX)
       {
         cleanupForTextbox();
@@ -80,6 +80,11 @@ function update(){
     let val = tmpfile.read();
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0]
+    if (vimMode === "n" && modes.main == modes.INSERT)
+      modes.push(modes.VIM_NORMAL)
+
+    if (vimMode === "i" && modes.main == modes.VIM_NORMAL)
+      modes.pop()
     if (textBox) {
         textBox.value = val;
 
@@ -178,8 +183,6 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     if (/^<(?:.-)*(?:BS|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
-      if (inputChar==="<C-r>")
-        io.system('printf "\x12" > /tmp/pterosaur_fifo');
       if (inputChar==="<Space>")
         io.system('printf " " > /tmp/pterosaur_fifo');
       if (inputChar==="<BS>")
@@ -233,6 +236,21 @@ io.system('sh -c \'vim --servername pterosaur -f +"set autoread" +"set noswapfil
 var pterosaurCleanupCheck = false;
 
 options.add(["fullVim"], "Edit all text inputs using vim", "boolean", false);
+
+modes.addMode("VIM_NORMAL", {
+  char: "N",
+  desription: "Vim normal mode",
+  bases: [modes.INSERT]
+})
+
+mappings.builtin.add(
+    [modes.INSERT, modes.VIM_NORMAL],
+    ["<C-r>"],
+    "Override refresh and send <C-r> to vim.",
+    function(){
+      io.system('printf "\x12" > /tmp/pterosaur_fifo');
+    },
+    {noTransaction: true});
 
 commands.add(["vim[do]"],
     "Send command to vim",
