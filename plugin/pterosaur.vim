@@ -30,11 +30,12 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
 
     "Adding text in insert mode calls this, but not TextChangedI
     sil autocmd CursorMovedI * write!
-    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."')"
-    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."')"
-    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".a:metaFile."')"
-    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."')"
-    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."')"
+    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
+    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
+
+    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".a:metaFile."', 1)"
+    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."', 0)"
+    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
   augroup END
   startinsert
 
@@ -48,8 +49,13 @@ endfunction
 
 let s:lastPos = 0
 
-function! s:WriteMetaFile(fileName)
-  let vim_mode = mode()
+function! s:WriteMetaFile(fileName, checkInsert)
+  if a:checkInsert
+    let vim_mode = v:insertmode
+  else
+    let vim_mode = mode()
+  endif
+
   sil exec '!echo '.vim_mode.' > '.a:fileName
 
   let pos = s:GetByteNum('.')

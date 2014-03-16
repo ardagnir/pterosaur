@@ -80,10 +80,10 @@ function update(){
     let val = tmpfile.read();
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0]
-    if (vimMode === "n" && modes.main == modes.INSERT)
+    if (vimMode === "n" && modes.main === modes.INSERT)
       modes.push(modes.VIM_NORMAL)
 
-    if (vimMode === "i" && modes.main == modes.VIM_NORMAL)
+    if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
       modes.pop()
     if (textBox) {
         textBox.value = val;
