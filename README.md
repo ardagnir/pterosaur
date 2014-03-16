@@ -34,7 +34,6 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 - No mouse support
 - Pterosaur sometimes eats the first key you enter into a textbox
 - Password text-fields are still sent to Vim.
-- Arrow keys don't work
 - If you map another key to /, :, or ? in normal mode, pterosaur won't show you the ex command you are typing until you hit enter.
 
 ##License

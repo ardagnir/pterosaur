@@ -181,17 +181,26 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     let inputChar = DOM.Event.stringify(eventList[0])
 
-    if (/^<(?:.-)*(?:BS|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
-        io.system('printf " " > /tmp/pterosaur_fifo');
+        io.system("printf ' ' > /tmp/pterosaur_fifo");
       if (inputChar==="<BS>")
-        io.system('printf "\b" > /tmp/pterosaur_fifo');
-      if (inputChar==="<Return>")
-        io.system('printf "\r" > /tmp/pterosaur_fifo');
+        io.system("printf '\\b' > /tmp/pterosaur_fifo");
+      if (inputChar==="<Return>") {
+        io.system("printf '\\r' > /tmp/pterosaur_fifo");
         return PASS;
+      }
       if (inputChar==="<Tab>")
         return PASS;
+      if (inputChar==="<Up>")
+        io.system("printf '\\e[A' > /tmp/pterosaur_fifo");
+      if (inputChar==="<Down>")
+        io.system("printf '\\e[B' > /tmp/pterosaur_fifo");
+      if (inputChar==="<Right>")
+        io.system("printf '\\e[C' > /tmp/pterosaur_fifo");
+      if (inputChar==="<Left>")
+        io.system("printf '\\e[D' > /tmp/pterosaur_fifo");
     }
     else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
     {
