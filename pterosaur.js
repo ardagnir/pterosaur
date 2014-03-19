@@ -181,26 +181,28 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     let inputChar = DOM.Event.stringify(eventList[0])
 
-    if (/^<(?:.-)*(?:BS|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
         io.system("printf ' ' > /tmp/pterosaur_fifo");
-      if (inputChar==="<BS>")
+      else if (inputChar==="<BS>")
         io.system("printf '\\b' > /tmp/pterosaur_fifo");
-      if (inputChar==="<Return>") {
+      else if (inputChar==="<Return>") {
         io.system("printf '\\r' > /tmp/pterosaur_fifo");
         return PASS;
       }
-      if (inputChar==="<Tab>")
+      else if (inputChar==="<Tab>")
         return PASS;
-      if (inputChar==="<Up>")
+      else if (inputChar==="<Up>")
         io.system("printf '\\e[A' > /tmp/pterosaur_fifo");
-      if (inputChar==="<Down>")
+      else if (inputChar==="<Down>")
         io.system("printf '\\e[B' > /tmp/pterosaur_fifo");
-      if (inputChar==="<Right>")
+      else if (inputChar==="<Right>")
         io.system("printf '\\e[C' > /tmp/pterosaur_fifo");
-      if (inputChar==="<Left>")
+      else if (inputChar==="<Left>")
         io.system("printf '\\e[D' > /tmp/pterosaur_fifo");
+      else if (inputChar==="<lt>")
+        io.system("printf '<' > /tmp/pterosaur_fifo");
     }
     else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
     {
@@ -239,7 +241,7 @@ io.system("mkfifo /tmp/pterosaur_fifo");
 
 //TODO: This is an ugly hack. Also, the cat is necessary
 io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
-io.system('sh -c \'vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null\' &');
+io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null; done\' &');
 
 //If this doesn't match options["fullVim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
