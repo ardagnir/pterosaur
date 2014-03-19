@@ -3,15 +3,17 @@ Pterosaur
 
 Pterosaur is a Pentadactyl/Vim extension that gives you the full power of Vim in each Firefox text field.
 
+![Demo](/pterosaur_demo.gif?raw=true)
+
 Pterosaur is at more of an alpha/proof-of-concept stage right now, but it's already somewhat useful.
 
 
 ##Requirements
-- Pterosaur requires pentadactyl.
+- Pterosaur requires Pentadactyl and Vim.
 - Pterosaur assumes you are using Linux. It might work on OS X.
 
 ##Setup
-**Step 1:** Install pterosaur using your vim plugin-manager. For pathogen-compatible managers:
+**Step 1:** Install pterosaur using your Vim plugin-manager. For pathogen-compatible managers:
 
     cd ~/.vim/bundle
     git clone http://github.com/ardagnir/pterosaur
