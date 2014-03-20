@@ -43,7 +43,7 @@
 
 "use strict";
 var INFO =
-["plugin", { name: "fullVim",
+["plugin", { name: "fullvim",
              version: "0.1",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
@@ -58,12 +58,11 @@ var INFO =
 
 
 function update(){
-    if (pterosaurCleanupCheck !== options["fullVim"])
+    if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
-    if (!options["fullVim"] || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
-      if(pterFocused && modes.main !== modes.EX)
-      {
+    if (!options["fullvim"] || dactyl.focusedElement.type === "password" || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
+      if(pterFocused && modes.main !== modes.EX) {
         cleanupForTextbox();
         pterFocused = null
       }
@@ -122,7 +121,6 @@ function setupForTextbox() {
         textBox = null;
     let line, column;
 
-    //TODO: Handle password stuff
     if (textBox) {
         var text = textBox.value;
         var pre = text.substr(0, textBox.selectionStart);
@@ -176,7 +174,7 @@ function setupForTextbox() {
 modes.INSERT.params.onKeyPress = function(eventList) {
     const KILL = false, PASS = true;
 
-    if (!options["fullVim"])
+    if (!options["fullvim"] || dactyl.focusedElement.type === "password")
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0])
@@ -222,7 +220,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
 function cleanupPterosaur()
 {
-    if (options["fullVim"]) {
+    if (options["fullvim"]) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
     }
@@ -234,7 +232,7 @@ function cleanupPterosaur()
                 return Events.PASS_THROUGH;
         });
     }
-    pterosaurCleanupCheck = options["fullVim"];
+    pterosaurCleanupCheck = options["fullvim"];
 }
 
 io.system("mkfifo /tmp/pterosaur_fifo");
@@ -243,10 +241,10 @@ io.system("mkfifo /tmp/pterosaur_fifo");
 io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
 io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null; done\' &');
 
-//If this doesn't match options["fullVim"] we need to perform cleanup
+//If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
 
-options.add(["fullVim"], "Edit all text inputs using vim", "boolean", false);
+options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
