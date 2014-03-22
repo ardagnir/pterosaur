@@ -241,7 +241,7 @@ io.system("mkfifo /tmp/pterosaur_fifo");
 io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
 
 //TODO: Also an ugly hack
-io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/pts/1; done\' &');
+io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null; done\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
