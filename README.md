@@ -35,9 +35,9 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ##Bugs
 - No mouse support
 - Escape leaves textboxes while in insert mode, but does nothing in normal mode.
-- Pterosaur sometimes eats the first key you enter into a textbox
 - Some editors (like github outside of zen-mode) do weird things with text that break pterasaur. Pterosaur needs to be changed so that it falls through to normal editing in these cases.
 - If you map another key to /, :, or ? in vim's normal mode, pterosaur won't show you the ex command you are typing until you hit enter.
+- The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
 
 ##License
 AGPL v3

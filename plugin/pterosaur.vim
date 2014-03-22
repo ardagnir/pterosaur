@@ -36,6 +36,7 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
     sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
   augroup END
+  bd!
 
   sil exec "edit! "a:file
   call cursor(a:line, a:column)

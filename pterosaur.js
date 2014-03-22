@@ -240,8 +240,8 @@ io.system("mkfifo /tmp/pterosaur_fifo");
 //TODO: This is an ugly hack. Also, the cat is necessary
 io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
 
-//TODO: Also an ugly hack
-io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur -f +"set autoread" +"set noswapfile" +"set shortmess+=A" </tmp/pterosaur_fifo > /dev/null; done\' &');
+//TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
+io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur +"set autoread" +"set noswapfile" +"set shortmess+=A" --remote /tmp/pentatdactyl-pterosuar </tmp/pterosaur_fifo > /dev/null; done\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
