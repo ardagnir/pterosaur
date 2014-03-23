@@ -40,7 +40,7 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
 ##Troubleshooting
-- If you can't enter text in fullvim mode, make sure the vim server is running. Type `vim --serverlist` at the commandline. You should see a `PTEROSAUR` server.
+- If you can't enter text in fullvim mode, type `vim --serverlist` in your commandline. You should see a `PTEROSAUR` server. If you don't, you probably don't have support for vim servers (check `vim --version | grep server`) or pterosaur doesn't think firefox is running. If you do see it, either pterosaur isn't able to communicate with vim, or you're using a text-field that can't handle pterosaur (most search engines, including duckduckgo, start-page, and google search CAN handle pterosaur, so they make good tests).
 - If `:set usevim` doesn't even work in pentadactyl, there's a problem on the pentadactyl side. Type `:messages` in pentadactyl and it should tell you the error.
 
 ##License
