@@ -33,12 +33,11 @@ If you haven't set up something like `inoremap kj <ESC>`, you might want to cons
 Pterosaur runs an actual vim instance in the background and routes keystrokes through vim.
 
 ##Bugs
-- No mouse support
 - Escape leaves textboxes while in insert mode, but does nothing in normal mode.
-- Some editors (like github outside of zen-mode) do weird things with text that break pterasaur. Pterosaur needs to be changed so that it falls through to normal editing in these cases.
+- Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult. Usually, pterosaur will fail into normal(vimless) text entry, but for some types of weirdness it will completly refuse to enter text at all.
 - If you map another key to /, :, or ? in vim's normal mode, pterosaur won't show you the ex command you are typing until you hit enter.
 - The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
+- Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
 ##License
 AGPL v3
-(I'm considering changing this)

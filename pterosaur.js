@@ -77,6 +77,12 @@ function update(){
     }
 
     let val = tmpfile.read();
+
+    //Remove trailing newline. It messes up some textareas that run their own special code.
+    if (val.slice(-1) === '\n')
+    {
+      val = val.slice(0,-1)
+    }
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0]
     if (vimMode === "n" && modes.main === modes.INSERT)
@@ -84,11 +90,26 @@ function update(){
 
     if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
       modes.pop()
+
     if (textBox) {
+        if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
+          pterFocused = null;
+          return;
+        }
+
+        if (savedText!=null && textBox.value != savedText) {
+          pterFocused = null;
+          return;
+        }
+
         textBox.value = val;
+        savedText = textBox.value;
 
         if(metadata.length>2)
           textBox.setSelectionRange(metadata[1], metadata[2]);
+
+        savedCursorStart = textBox.selectionStart;
+        savedCursorEnd = textBox.selectionEnd;
 
         if (true) {
             let elem = DOM(textBox);
@@ -114,6 +135,9 @@ function cleanupForTextbox() {
 
 function setupForTextbox() {
     pterFocused = dactyl.focusedElement;
+    savedText = null;
+    savedCursorStart = null;
+    savedCursorEnd = null;
 
     textBox = config.isComposeWindow ? null : dactyl.focusedElement;
 
@@ -161,7 +185,9 @@ function setupForTextbox() {
     if (!tmpfile.write(text))
         throw Error(_("io.cantEncode"));
 
-    let vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
+    var vimCommand;
+
+    vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
 
     vimCommand = vimCommand.replace(/<metaFile>/, metaTmpfile.path);
     vimCommand = vimCommand.replace(/<file>/, tmpfile.path);
@@ -276,6 +302,9 @@ commands.add(["vim[do]"],
     });
 
 
+var savedText = null;
+var savedCursorStart = null;
+var savedCursorEnd = null;
 var vimMode = 'i';
 var pterFocused = null; 
 var tmpfile = null;

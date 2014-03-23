@@ -41,7 +41,9 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
   sil exec "edit! "a:file
   call cursor(a:line, a:column)
 
-  call feedkeys("\<ESC>i",'n')
+  if mode()=="n" || mode()=="v" || mode()=="V"
+    call feedkeys("\<ESC>i",'n')
+  endif
 
 endfunction
 
