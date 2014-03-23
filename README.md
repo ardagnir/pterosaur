@@ -9,7 +9,7 @@ Pterosaur is at more of an alpha/proof-of-concept stage right now, but it's alre
 
 
 ##Requirements
-- Pterosaur requires Pentadactyl and Vim(compiled with +clientserver).
+- Pterosaur requires Pentadactyl and Vim(your version needs to have +clientserver).
 - Pterosaur assumes you are using Linux. It might work on OS X.
 
 ##Setup
