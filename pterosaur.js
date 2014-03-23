@@ -78,11 +78,6 @@ function update(){
 
     let val = tmpfile.read();
 
-    //Remove trailing newline. It messes up some textareas that run their own special code.
-    if (val.slice(-1) === '\n')
-    {
-      val = val.slice(0,-1)
-    }
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0]
     if (vimMode === "n" && modes.main === modes.INSERT)
