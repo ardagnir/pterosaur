@@ -9,7 +9,7 @@ Pterosaur is at more of an alpha/proof-of-concept stage right now, but it's alre
 
 
 ##Requirements
-- Pterosaur requires Pentadactyl and Vim.
+- Pterosaur requires Pentadactyl and Vim(compiled with +clientserver).
 - Pterosaur assumes you are using Linux. It might work on OS X.
 
 ##Setup
@@ -38,6 +38,10 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 - If you map another key to /, :, or ? in vim's normal mode, pterosaur won't show you the ex command you are typing until you hit enter.
 - The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
+
+##Troubleshooting
+- If you can't enter text in fullvim mode, make sure the vim server is running. Type `vim --serverlist` at the commandline. You should see a `PTEROSAUR` server.
+- If `:set usevim` doesn't even work in pentadactyl, there's a problem on the pentadactyl side. Type `:messages` in pentadactyl and it should tell you the error.
 
 ##License
 AGPL v3
