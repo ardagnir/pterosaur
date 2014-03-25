@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "fullvim",
-             version: "0.1",
+             version: "0.2",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
