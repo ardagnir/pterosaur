@@ -232,6 +232,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         io.system('printf "%%" > /tmp/pterosaur_fifo');
       else if (inputChar == '\\')
         io.system("printf '\\\\' > /tmp/pterosaur_fifo");
+      else if (inputChar == '"')
+        io.system("printf '\"' > /tmp/pterosaur_fifo");
       else
         io.system('printf "' + inputChar + '" > /tmp/pterosaur_fifo');
     }
