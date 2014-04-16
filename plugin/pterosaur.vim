@@ -27,10 +27,10 @@ function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * silent write!
+    sil autocmd TextChanged * call VerySilent("write!")
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * silent write!
+    sil autocmd CursorMovedI * call VerySilent("write!")
     sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
 
@@ -39,14 +39,18 @@ function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
     sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
   augroup END
 
-  ElGroup! pterosaur
+  try
+    ElGroup! pterosaur
 
-  ElGroup pterosaur
-    ElSetting timer 4
-    ElCmd call CheckConsole()
-    ElCmd call OutputMessages()
-  ElGroup END
-  exec "set verbosefile ".a:messageFile
+    ElGroup pterosaur
+      ElSetting timer 4
+      ElCmd call CheckConsole()
+      ElCmd call OutputMessages()
+    ElGroup END
+  catch
+    call system('echo e > '.a:metaFile)
+    call system('echo Pterosaur requires eventloop.vim to read the VIM commandline. >> '.a:metaFile)
+  endtry
 
   let s:metaFile = a:metaFile
   let s:messageFile = a:messageFile
@@ -112,11 +116,20 @@ function! CheckConsole()
     endif
 endfunction
 
+"Don't even redirect the output
+function! VerySilent(args)
+  redir END
+  silent exec a:args
+  exec "redir! >> ".s:messageFile
+endfunction
+
 "This repeatedly flushes because messages aren't written until the redir ends.
-function OutputMessages()
+function! OutputMessages()
   redir END
   exec "redir! >> ".s:messageFile
 endfunction
+
+let g:loaded_pterosaur = 1
 
 let &cpo = g:save_cpo
 unlet g:save_cpo

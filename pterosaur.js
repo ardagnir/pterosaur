@@ -79,7 +79,7 @@ function update(){
     let val = tmpfile.read();
 
     let messages = messageTmpfile.read();
-    if (messages)
+    if (messages && messages!=="\n")
     {
       //window.alert(messages)
       //TODO: If another message is written right now, we could lose it.
@@ -92,10 +92,15 @@ function update(){
     }
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
-    if (vimMode === "n" && modes.main === modes.INSERT)
+    if (vimMode === "e")
+      dactyl.echo("ERROR: "+metadata[1])
+    else if (vimMode === "n" && modes.main === modes.INSERT)
+    {
+      //Clear --INSERT-- echoed from vim messages
+      dactyl.echo("")
       modes.push(modes.VIM_NORMAL);
-
-    if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
+    }
+    else if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
       modes.pop();
 
     if (vimMode === "c") {
