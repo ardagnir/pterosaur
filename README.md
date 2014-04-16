@@ -10,12 +10,14 @@ Pterosaur is at an alpha stage right now. It is already useful if you do a lot o
 
 ##Requirements
 - Pterosaur requires Pentadactyl and Vim(your version needs to have +clientserver).
+- Pterosaur requires [eventloop.vim](https://github.com/ardagnir/eventloop.vim)
 - Pterosaur assumes you are using Linux. It might work on OS X.
 
 ##Setup
-**Step 1:** Install pterosaur using your Vim plugin-manager. For pathogen-compatible managers:
+**Step 1:** Install pterosaur and eventloop.vim using your Vim plugin-manager. For pathogen-compatible managers:
 
     cd ~/.vim/bundle
+    git clone http://github.com/ardagnir/eventloop.vim
     git clone http://github.com/ardagnir/pterosaur
     
 **Step 2:** Add pterosaur.js to ~/.pentadactyl/plugins/
@@ -37,7 +39,6 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 
 - Escape leaves textboxes while in insert mode, but does nothing in normal mode.
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult. Usually, pterosaur will fail into normal(vimless) text entry, but for some types of weirdness it will completly refuse to enter text at all.
-- If you map another key to /, :, or ? in vim's normal mode, pterosaur won't show you the ex command you are typing until you hit enter.
 - The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
