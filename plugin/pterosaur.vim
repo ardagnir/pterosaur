@@ -21,14 +21,16 @@ if exists("g:loaded_pterosaur")
   finish
 endif
 
-function! SwitchPterosaurFile(line, column, file, metaFile)
+let s:fromCommand = 0
+
+function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * write!
+    sil autocmd TextChanged * silent write!
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * write!
+    sil autocmd CursorMovedI * silent write!
     sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
 
@@ -36,6 +38,19 @@ function! SwitchPterosaurFile(line, column, file, metaFile)
     sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
   augroup END
+
+  ElGroup! pterosaur
+
+  ElGroup pterosaur
+    ElSetting timer 4
+    ElCmd call CheckConsole()
+    ElCmd call OutputMessages()
+  ElGroup END
+  exec "set verbosefile ".a:messageFile
+
+  let s:metaFile = a:metaFile
+  let s:messageFile = a:messageFile
+
   bd!
 
   sil exec "edit! "a:file
@@ -60,22 +75,47 @@ function! s:WriteMetaFile(fileName, checkInsert)
     let vim_mode = mode()
   endif
 
-  sil exec '!echo '.vim_mode.' > '.a:fileName
+  call system('echo '.vim_mode.' > '.a:fileName)
 
   let pos = s:GetByteNum('.')
   if  vim_mode ==# 'v'
-    sil exec '!echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName
+    call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
   elseif vim_mode ==# 'V'
     let start = line2byte(byte2line(min([pos,s:lastPos])))
     let end = line2byte(byte2line(max([pos,s:lastPos]))+1)
-    sil exec '!echo -e "'.start."\\n".end.'" >> '.a:fileName
+    call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
   elseif (vim_mode == 'n' || vim_mode == 'R') && getline('.')!=''
-    sil exec '!echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName
+    call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
     let s:lastPos = pos
   else
-    sil exec '!echo -e "'.(pos-1)."\\n".(pos-1).'" >> '.a:fileName
+    call system('echo -e "'.(pos-1)."\\n".(pos-1).'" >> '.a:fileName)
     let s:lastPos = pos
   endif
+endfunction
+
+function! CheckConsole()
+    if mode()=="c"
+      call system('echo c > '.s:metaFile)
+      call system('echo '.shellescape(getcmdtype().getcmdline(), 1).' >> '.s:metaFile)
+      if s:fromCommand == 0
+        ElGroup pterosaur
+          ElSetting timer 2
+        ElGroup END
+      endif
+      let s:fromCommand = 1
+    elseif s:fromCommand
+      call system('echo '.mode().' > '.s:metaFile)
+      let s:fromCommand = 0
+      ElGroup pterosaur
+        ElSetting timer 4
+      ElGroup END
+    endif
+endfunction
+
+"This repeatedly flushes because messages aren't written until the redir ends.
+function OutputMessages()
+  redir END
+  exec "redir! >> ".s:messageFile
 endfunction
 
 let &cpo = g:save_cpo

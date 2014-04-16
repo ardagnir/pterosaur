@@ -61,7 +61,7 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
-    if (!options["fullvim"] || dactyl.focusedElement.type === "password" || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
+    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
       if(pterFocused && modes.main !== modes.EX) {
         cleanupForTextbox();
         pterFocused = null
@@ -78,13 +78,37 @@ function update(){
 
     let val = tmpfile.read();
 
+    let messages = messageTmpfile.read();
+    if (messages)
+    {
+      //window.alert(messages)
+      //TODO: If another message is written right now, we could lose it.
+      messageTmpfile.write("");
+      //TODO: We don't neccesarily want singleline, but without it we lose focus.
+      dactyl.echo(messages,commandline.FORCE_SINGLELINE);
+
+      //We've clearing the entered command. Don't need/want to clear it later and lose our message.
+      lastVimCommand=""
+    }
     let metadata = metaTmpfile.read().split('\n');
-    vimMode = metadata[0]
+    vimMode = metadata[0];
     if (vimMode === "n" && modes.main === modes.INSERT)
-      modes.push(modes.VIM_NORMAL)
+      modes.push(modes.VIM_NORMAL);
 
     if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
-      modes.pop()
+      modes.pop();
+
+    if (vimMode === "c") {
+      if(metadata[1] !=="" && metadata[1] != lastVimCommand)
+      {
+        lastVimCommand = metadata[1]
+        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
+      }
+    }
+    else if(lastVimCommand) {
+        dactyl.echo("")
+        lastVimCommand=""
+    }
 
     if (textBox) {
         if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
@@ -125,10 +149,16 @@ function cleanupForTextbox() {
         tmpfile.remove(false);
     if (metaTmpfile && metaTmpfile.exists())
         metaTmpfile.remove(false);
+    if (messageTmpfile && messageTmpfile.exists())
+        messageTmpfile.remove(false);
     tmpfile = null
 }
 
 function setupForTextbox() {
+    //Clear lingering command text
+    if (vimMode === "c")
+      io.system("printf '\\x1bi' > /tmp/pterosaur_fifo"); //<ESC>i
+
     pterFocused = dactyl.focusedElement;
     savedText = null;
     savedCursorStart = null;
@@ -171,10 +201,14 @@ function setupForTextbox() {
     let origGroup = DOM(textBox).highlight.toString();
     tmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host);
     metaTmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host+"-meta");
+    messageTmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host+"-messages");
     if (!tmpfile)
         throw Error(_("io.cantCreateTempFile"));
 
     if (!metaTmpfile)
+        throw Error(_("io.cantCreateTempFile"));
+
+    if (!messageTmpfile)
         throw Error(_("io.cantCreateTempFile"));
 
     if (!tmpfile.write(text))
@@ -182,9 +216,10 @@ function setupForTextbox() {
 
     var vimCommand;
 
-    vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\')"';
+    vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
 
     vimCommand = vimCommand.replace(/<metaFile>/, metaTmpfile.path);
+    vimCommand = vimCommand.replace(/<messageFile>/, messageTmpfile.path);
     vimCommand = vimCommand.replace(/<file>/, tmpfile.path);
     vimCommand = vimCommand.replace(/<column>/, column);
     vimCommand = vimCommand.replace(/<line>/, line);
@@ -200,7 +235,14 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     let inputChar = DOM.Event.stringify(eventList[0])
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    /*if (commandLock > COMMAND_MODE_SYNC)
+    {
+      commandBuffer += inputChar;
+      return;
+    }
+    */
+
+    if (/^<(?:.-)*(?:BS|Esc|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
         io.system("printf ' ' > /tmp/pterosaur_fifo");
@@ -208,7 +250,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         io.system("printf '\\b' > /tmp/pterosaur_fifo");
       else if (inputChar==="<Return>") {
         io.system("printf '\\r' > /tmp/pterosaur_fifo");
-        return PASS;
+        if (vimMode !== "c")
+          return PASS;
       }
       else if (inputChar==="<Tab>")
         return PASS;
@@ -223,10 +266,11 @@ modes.INSERT.params.onKeyPress = function(eventList) {
       else if (inputChar==="<lt>")
         io.system("printf '<' > /tmp/pterosaur_fifo");
     }
-    else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
+    /*else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
     {
       CommandExMode().open("vimdo " + inputChar);
     }
+    */
     else {
       if (inputChar == '%')
         io.system('printf "%%" > /tmp/pterosaur_fifo');
@@ -260,8 +304,8 @@ function cleanupPterosaur()
 
 io.system("mkfifo /tmp/pterosaur_fifo");
 
-//TODO: This is an ugly hack. Also, the cat is necessary
-io.system("$(while killall -0 firefox; do sleep 1; done) | cat > /tmp/pterosaur_fifo &");
+//TODO: This is an ugly hack.
+io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur_fifo &");
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
 io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur +"set autoread" +"set noswapfile" +"set shortmess+=A" --remote /tmp/pentatdactyl-pterosuar </tmp/pterosaur_fifo > /dev/null; done\' &');
@@ -306,6 +350,9 @@ var vimMode = 'i';
 var pterFocused = null; 
 var tmpfile = null;
 var metaTmpfile = null;
+var messageTmpfile = null;
 var textBox;
+var lastVimCommand = "";
+
 
 let timer =  window.setInterval(update, 100);
