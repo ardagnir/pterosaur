@@ -142,7 +142,7 @@ function update(){
         textBox.value = val;
         savedText = textBox.value;
 
-        if(metadata.length>2)
+        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e")
           textBox.setSelectionRange(metadata[1], metadata[2]);
 
         savedCursorStart = textBox.selectionStart;
