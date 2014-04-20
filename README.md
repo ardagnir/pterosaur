@@ -38,8 +38,10 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ( If you find a bug that isn't listed here, please create a github issue. )
 
 - Escape leaves textboxes while in insert mode, but does nothing in normal mode.
-- Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult. Usually, pterosaur will fail into normal(vimless) text entry, but for some types of weirdness it will completly refuse to enter text at all.
+- Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
 - The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
+- The cursor jumps to the beginning of text while typing an ex command or search.
+- Pterosaur's keygrabbing gets overriden by websites that bind keypresses. This means that ex commands/searches won't work in google searches because it immediately searches as soon as you hit the enter key.
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
 ##Troubleshooting
