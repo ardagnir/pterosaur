@@ -61,7 +61,7 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
+    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
       if(pterFocused && modes.main !== modes.EX) {
         cleanupForTextbox();
         pterFocused = null
@@ -78,6 +78,32 @@ function update(){
 
     let val = tmpfile.read();
 
+    let metadata = metaTmpfile.read().split('\n');
+    vimMode = metadata[0];
+
+    if (vimMode === "c") {
+      if ( modes.main !== modes.VIM_COMMAND)
+      {
+        modes.push(modes.VIM_COMMAND);
+      }
+      if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
+      {
+        lastVimCommand = metadata[1]
+        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
+      }
+    }
+    else{
+        if (modes.main === modes.VIM_COMMAND)
+        {
+          modes.pop();
+        }
+        if (lastVimCommand)
+        {
+          dactyl.echo("")
+          lastVimCommand=""
+        }
+    }
+
     let messages = messageTmpfile.read();
     if (messages && messages!=="\n")
     {
@@ -90,8 +116,7 @@ function update(){
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
       lastVimCommand=""
     }
-    let metadata = metaTmpfile.read().split('\n');
-    vimMode = metadata[0];
+
     if (vimMode === "e")
       dactyl.echo("ERROR: "+metadata[1])
     else if (vimMode === "n" && modes.main === modes.INSERT)
@@ -102,18 +127,6 @@ function update(){
     }
     else if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
       modes.pop();
-
-    if (vimMode === "c") {
-      if(metadata[1] !=="" && metadata[1] != lastVimCommand)
-      {
-        lastVimCommand = metadata[1]
-        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
-      }
-    }
-    else if(lastVimCommand) {
-        dactyl.echo("")
-        lastVimCommand=""
-    }
 
     if (textBox) {
         if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
@@ -255,8 +268,6 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         io.system("printf '\\b' > /tmp/pterosaur_fifo");
       else if (inputChar==="<Return>") {
         io.system("printf '\\r' > /tmp/pterosaur_fifo");
-        if (vimMode !== "c")
-          return PASS;
       }
       else if (inputChar==="<Tab>")
         return PASS;
@@ -325,13 +336,20 @@ modes.addMode("VIM_NORMAL", {
   char: "N",
   desription: "Vim normal mode",
   bases: [modes.INSERT]
-})
+});
+
+
+modes.addMode("VIM_COMMAND", {
+  char: "e",
+  desription: "Vim normal mode",
+  bases: [modes.VIM_NORMAL]
+});
 
 //TODO: Fix these when fullvim is not set
 mappings.builtin.add(
     [modes.INSERT],
     ["<ESC>"],
-    ["Override websites' carriage return behavior"],
+    ["Send escape key"],
     function(){
       io.system("printf '\\e' > /tmp/pterosaur_fifo");
     },
@@ -340,9 +358,18 @@ mappings.builtin.add(
 mappings.builtin.add(
     [modes.VIM_NORMAL],
     ["<ESC>"],
-    ["Override websites' carriage return behavior"],
+    ["Leave textfield"],
     function(){
       modes.reset()
+    },
+    {});
+
+mappings.builtin.add(
+    [modes.VIM_COMMAND],
+    ["<ESC>"],
+    ["Send escape key"],
+    function(){
+      io.system("printf '\\e' > /tmp/pterosaur_fifo");
     },
     {});
 
@@ -354,6 +381,16 @@ mappings.builtin.add(
       io.system('printf "\x12" > /tmp/pterosaur_fifo');
     },
     {noTransaction: true});
+
+mappings.builtin.add(
+    [modes.VIM_COMMAND],
+    ["<Return>"],
+    ["Override websites' carriage return behavior when in command mode"],
+    function(){
+      io.system('printf "\\r" > /tmp/pterosaur_fifo');
+    },
+    {});
+
 
 commands.add(["vim[do]"],
     "Send command to vim",
