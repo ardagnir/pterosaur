@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "fullvim",
-             version: "0.3",
+             version: "0.4",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -247,7 +247,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|Esc|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
         io.system("printf ' ' > /tmp/pterosaur_fifo");
@@ -326,6 +326,25 @@ modes.addMode("VIM_NORMAL", {
   desription: "Vim normal mode",
   bases: [modes.INSERT]
 })
+
+//TODO: Fix these when fullvim is not set
+mappings.builtin.add(
+    [modes.INSERT],
+    ["<ESC>"],
+    ["Override websites' carriage return behavior"],
+    function(){
+      io.system("printf '\\e' > /tmp/pterosaur_fifo");
+    },
+    {});
+
+mappings.builtin.add(
+    [modes.VIM_NORMAL],
+    ["<ESC>"],
+    ["Override websites' carriage return behavior"],
+    function(){
+      modes.reset()
+    },
+    {});
 
 mappings.builtin.add(
     [modes.INSERT, modes.VIM_NORMAL],
