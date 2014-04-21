@@ -23,13 +23,10 @@ Pterosaur is at an alpha stage right now. It is already useful if you do a lot o
 **Step 2:** Add pterosaur.js to ~/.pentadactyl/plugins/
 
     mkdir ~/.pentadactyl/plugins
-    cd ~/.pentadactyl/plugins
+    cd ~/.pentadactyl/plugin
     ln -s ~/.vim/bundle/pterosaur/pterosaur.js pterosaur.js
 
 **Step 3:** Pterosaur's full-vim editing is disabled by default. Type `:set fullvim` in firefox to enable it.
-
-**Step 4:** Your default vim setup will need a mapping to get out of vim's insert mode, since \<ESC\> is handled by pentadactyl (and currently broken).
-If you haven't set up something like `inoremap kj <ESC>`, you might want to consider it. This mappping alone will change your life.
 
 ##How it works
 Pterosaur runs an actual vim instance in the background and routes keystrokes through vim.
@@ -37,11 +34,11 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ##Bugs
 ( If you find a bug that isn't listed here, please create a github issue. )
 
-- Escape leaves textboxes while in insert mode, but does nothing in normal mode.
+- In visual mode, escape will exit editing instead of leaving visual mode.
+- If you hold a key long enough in norml mode, pterosur will switch to insert mode.
+- Pterosaur sometimes displays old vim modes instead of the current pterosaur mode.
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
 - The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
-- The cursor jumps to the beginning of text while typing an ex command or search.
-- Pterosaur's keygrabbing gets overriden by websites that bind keypresses. This means that ex commands/searches won't work in google searches because it immediately searches as soon as you hit the enter key.
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
 ##Troubleshooting
