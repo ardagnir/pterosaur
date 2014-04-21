@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "fullvim",
-             version: "0.3",
+             version: "0.4",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -61,7 +61,7 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL) {
+    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
       if(pterFocused && modes.main !== modes.EX) {
         cleanupForTextbox();
         pterFocused = null
@@ -78,6 +78,32 @@ function update(){
 
     let val = tmpfile.read();
 
+    let metadata = metaTmpfile.read().split('\n');
+    vimMode = metadata[0];
+
+    if (vimMode === "c") {
+      if ( modes.main !== modes.VIM_COMMAND)
+      {
+        modes.push(modes.VIM_COMMAND);
+      }
+      if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
+      {
+        lastVimCommand = metadata[1]
+        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
+      }
+    }
+    else{
+        if (modes.main === modes.VIM_COMMAND)
+        {
+          modes.pop();
+        }
+        if (lastVimCommand)
+        {
+          dactyl.echo("")
+          lastVimCommand=""
+        }
+    }
+
     let messages = messageTmpfile.read();
     if (messages && messages!=="\n")
     {
@@ -90,8 +116,7 @@ function update(){
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
       lastVimCommand=""
     }
-    let metadata = metaTmpfile.read().split('\n');
-    vimMode = metadata[0];
+
     if (vimMode === "e")
       dactyl.echo("ERROR: "+metadata[1])
     else if (vimMode === "n" && modes.main === modes.INSERT)
@@ -102,18 +127,6 @@ function update(){
     }
     else if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
       modes.pop();
-
-    if (vimMode === "c") {
-      if(metadata[1] !=="" && metadata[1] != lastVimCommand)
-      {
-        lastVimCommand = metadata[1]
-        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
-      }
-    }
-    else if(lastVimCommand) {
-        dactyl.echo("")
-        lastVimCommand=""
-    }
 
     if (textBox) {
         if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
@@ -129,7 +142,7 @@ function update(){
         textBox.value = val;
         savedText = textBox.value;
 
-        if(metadata.length>2)
+        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e")
           textBox.setSelectionRange(metadata[1], metadata[2]);
 
         savedCursorStart = textBox.selectionStart;
@@ -162,7 +175,7 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\x1bi' > /tmp/pterosaur_fifo"); //<ESC>i
+      io.system("printf '\\ei' > /tmp/pterosaur_fifo");
 
     pterFocused = dactyl.focusedElement;
     savedText = null;
@@ -247,7 +260,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|Esc|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
         io.system("printf ' ' > /tmp/pterosaur_fifo");
@@ -255,8 +268,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         io.system("printf '\\b' > /tmp/pterosaur_fifo");
       else if (inputChar==="<Return>") {
         io.system("printf '\\r' > /tmp/pterosaur_fifo");
-        if (vimMode !== "c")
-          return PASS;
+        return PASS;
       }
       else if (inputChar==="<Tab>")
         return PASS;
@@ -295,6 +307,46 @@ function cleanupPterosaur()
     if (options["fullvim"]) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<Esc>"],
+            ["Send escape key"],
+            function(){
+              io.system("printf '\\e' > /tmp/pterosaur_fifo");
+            });
+
+        mappings.builtin.add(
+            [modes.VIM_NORMAL],
+            ["<Esc>"],
+            ["Leave textfield"],
+            function(){
+              modes.reset()
+            });
+
+        mappings.builtin.add(
+            [modes.VIM_COMMAND],
+            ["<Esc>"],
+            ["Send escape key"],
+            function(){
+              io.system("printf '\\e' > /tmp/pterosaur_fifo");
+            });
+
+        mappings.builtin.add(
+            [modes.INSERT, modes.VIM_NORMAL],
+            ["<C-r>"],
+            "Override refresh and send <C-r> to vim.",
+            function(){
+              io.system('printf "\x12" > /tmp/pterosaur_fifo');
+            },
+            {noTransaction: true});
+
+        mappings.builtin.add(
+            [modes.VIM_COMMAND],
+            ["<Return>"],
+            ["Override websites' carriage return behavior when in command mode"],
+            function(){
+              io.system('printf "\\r" > /tmp/pterosaur_fifo');
+            });
     }
     else {
         mappings.builtin.add([modes.INSERT],
@@ -303,6 +355,13 @@ function cleanupPterosaur()
                 editor.expandAbbreviation(modes.INSERT);
                 return Events.PASS_THROUGH;
         });
+
+        mappings.builtin.remove( modes.INSERT, "<Esc>");
+        mappings.builtin.remove( modes.VIM_NORMAL, "<Esc>");
+        mappings.builtin.remove( modes.VIM_COMMAND, "<Esc>");
+        mappings.builtin.remove( modes.INSERT, "<C-r>");
+        mappings.builtin.remove( modes.VIM_NORMAL, "<C-r>");
+        mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
     }
     pterosaurCleanupCheck = options["fullvim"];
 }
@@ -325,16 +384,16 @@ modes.addMode("VIM_NORMAL", {
   char: "N",
   desription: "Vim normal mode",
   bases: [modes.INSERT]
-})
+});
 
-mappings.builtin.add(
-    [modes.INSERT, modes.VIM_NORMAL],
-    ["<C-r>"],
-    "Override refresh and send <C-r> to vim.",
-    function(){
-      io.system('printf "\x12" > /tmp/pterosaur_fifo');
-    },
-    {noTransaction: true});
+
+modes.addMode("VIM_COMMAND", {
+  char: "e",
+  desription: "Vim normal mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+
 
 commands.add(["vim[do]"],
     "Send command to vim",

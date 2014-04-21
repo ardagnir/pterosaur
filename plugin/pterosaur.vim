@@ -97,10 +97,17 @@ function! s:WriteMetaFile(fileName, checkInsert)
   endif
 endfunction
 
+function s:BetterShellEscape(text)
+  let returnVal = shellescape(a:text, 1)
+  let returnVal = substitute(returnVal, '\\%', '%', 'g')
+  let returnVal = substitute(returnVal, '\\#', '#', 'g')
+  return returnVal
+endfunction
+
 function! CheckConsole()
     if mode()=="c"
       call system('echo c > '.s:metaFile)
-      call system('echo '.shellescape(getcmdtype().getcmdline(), 1).' >> '.s:metaFile)
+      call system('echo '.s:BetterShellEscape(getcmdtype().getcmdline()).' >> '.s:metaFile)
       if s:fromCommand == 0
         ElGroup pterosaur
           ElSetting timer 2
