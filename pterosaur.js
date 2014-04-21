@@ -175,7 +175,7 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\x1bi' > /tmp/pterosaur_fifo"); //<ESC>i
+      io.system("printf '\\ei' > /tmp/pterosaur_fifo");
 
     pterFocused = dactyl.focusedElement;
     savedText = null;
@@ -307,6 +307,46 @@ function cleanupPterosaur()
     if (options["fullvim"]) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<Esc>"],
+            ["Send escape key"],
+            function(){
+              io.system("printf '\\e' > /tmp/pterosaur_fifo");
+            });
+
+        mappings.builtin.add(
+            [modes.VIM_NORMAL],
+            ["<Esc>"],
+            ["Leave textfield"],
+            function(){
+              modes.reset()
+            });
+
+        mappings.builtin.add(
+            [modes.VIM_COMMAND],
+            ["<Esc>"],
+            ["Send escape key"],
+            function(){
+              io.system("printf '\\e' > /tmp/pterosaur_fifo");
+            });
+
+        mappings.builtin.add(
+            [modes.INSERT, modes.VIM_NORMAL],
+            ["<C-r>"],
+            "Override refresh and send <C-r> to vim.",
+            function(){
+              io.system('printf "\x12" > /tmp/pterosaur_fifo');
+            },
+            {noTransaction: true});
+
+        mappings.builtin.add(
+            [modes.VIM_COMMAND],
+            ["<Return>"],
+            ["Override websites' carriage return behavior when in command mode"],
+            function(){
+              io.system('printf "\\r" > /tmp/pterosaur_fifo');
+            });
     }
     else {
         mappings.builtin.add([modes.INSERT],
@@ -315,6 +355,13 @@ function cleanupPterosaur()
                 editor.expandAbbreviation(modes.INSERT);
                 return Events.PASS_THROUGH;
         });
+
+        mappings.builtin.remove( modes.INSERT, "<Esc>");
+        mappings.builtin.remove( modes.VIM_NORMAL, "<Esc>");
+        mappings.builtin.remove( modes.VIM_COMMAND, "<Esc>");
+        mappings.builtin.remove( modes.INSERT, "<C-r>");
+        mappings.builtin.remove( modes.VIM_NORMAL, "<C-r>");
+        mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
     }
     pterosaurCleanupCheck = options["fullvim"];
 }
@@ -346,51 +393,6 @@ modes.addMode("VIM_COMMAND", {
   bases: [modes.VIM_NORMAL]
 });
 
-//TODO: Fix these when fullvim is not set
-mappings.builtin.add(
-    [modes.INSERT],
-    ["<ESC>"],
-    ["Send escape key"],
-    function(){
-      io.system("printf '\\e' > /tmp/pterosaur_fifo");
-    },
-    {});
-
-mappings.builtin.add(
-    [modes.VIM_NORMAL],
-    ["<ESC>"],
-    ["Leave textfield"],
-    function(){
-      modes.reset()
-    },
-    {});
-
-mappings.builtin.add(
-    [modes.VIM_COMMAND],
-    ["<ESC>"],
-    ["Send escape key"],
-    function(){
-      io.system("printf '\\e' > /tmp/pterosaur_fifo");
-    },
-    {});
-
-mappings.builtin.add(
-    [modes.INSERT, modes.VIM_NORMAL],
-    ["<C-r>"],
-    "Override refresh and send <C-r> to vim.",
-    function(){
-      io.system('printf "\x12" > /tmp/pterosaur_fifo');
-    },
-    {noTransaction: true});
-
-mappings.builtin.add(
-    [modes.VIM_COMMAND],
-    ["<Return>"],
-    ["Override websites' carriage return behavior when in command mode"],
-    function(){
-      io.system('printf "\\r" > /tmp/pterosaur_fifo');
-    },
-    {});
 
 
 commands.add(["vim[do]"],
