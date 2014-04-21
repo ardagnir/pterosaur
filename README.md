@@ -23,7 +23,7 @@ Pterosaur is at an alpha stage right now. It is already useful if you do a lot o
 **Step 2:** Add pterosaur.js to ~/.pentadactyl/plugins/
 
     mkdir ~/.pentadactyl/plugins
-    cd ~/.pentadactyl/plugin
+    cd ~/.pentadactyl/plugins
     ln -s ~/.vim/bundle/pterosaur/pterosaur.js pterosaur.js
 
 **Step 3:** Pterosaur's full-vim editing is disabled by default. Type `:set fullvim` in firefox to enable it.
