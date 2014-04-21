@@ -268,6 +268,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         io.system("printf '\\b' > /tmp/pterosaur_fifo");
       else if (inputChar==="<Return>") {
         io.system("printf '\\r' > /tmp/pterosaur_fifo");
+        return PASS;
       }
       else if (inputChar==="<Tab>")
         return PASS;
