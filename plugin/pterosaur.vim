@@ -74,21 +74,21 @@ let s:lastPos = 0
 
 function! s:WriteMetaFile(fileName, checkInsert)
   if a:checkInsert
-    let vim_mode = v:insertmode
+    let s:vim_mode = v:insertmode
   else
-    let vim_mode = mode()
+    let s:vim_mode = mode()
   endif
 
-  call system('echo '.vim_mode.' > '.a:fileName)
+  call system('echo '.s:vim_mode.' > '.a:fileName)
 
   let pos = s:GetByteNum('.')
-  if  vim_mode ==# 'v'
+  if s:vim_mode ==# 'v'
     call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
-  elseif vim_mode ==# 'V'
+  elseif s:vim_mode ==# 'V'
     let start = line2byte(byte2line(min([pos,s:lastPos])))
     let end = line2byte(byte2line(max([pos,s:lastPos]))+1)
     call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
-  elseif (vim_mode == 'n' || vim_mode == 'R') && getline('.')!=''
+  elseif (s:vim_mode == 'n' || s:vim_mode == 'R') && getline('.')!=''
     call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
     let s:lastPos = pos
   else
@@ -105,7 +105,8 @@ function s:BetterShellEscape(text)
 endfunction
 
 function! CheckConsole()
-    if mode()=="c"
+    let tempMode = mode()
+    if tempMode == "c"
       call system('echo c > '.s:metaFile)
       call system('echo '.s:BetterShellEscape(getcmdtype().getcmdline()).' >> '.s:metaFile)
       if s:fromCommand == 0
@@ -114,12 +115,16 @@ function! CheckConsole()
         ElGroup END
       endif
       let s:fromCommand = 1
-    elseif s:fromCommand
-      call system('echo '.mode().' > '.s:metaFile)
-      let s:fromCommand = 0
-      ElGroup pterosaur
-        ElSetting timer 4
-      ElGroup END
+    else
+      if s:fromCommand
+        let s:fromCommand = 0
+        ElGroup pterosaur
+          ElSetting timer 4
+        ElGroup END
+      endif
+      if tempMode != s:vim_mode
+        call s:WriteMetaFile(s:metaFile, 0)
+      endif
     endif
 endfunction
 

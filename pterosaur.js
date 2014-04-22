@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "fullvim",
-             version: "0.4",
+             version: "0.5",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -310,29 +310,19 @@ function cleanupPterosaur()
         mappings.builtin.add(
             [modes.INSERT],
             ["<Esc>"],
-            ["Send escape key"],
+            ["Handle escape key"],
             function(){
-              io.system("printf '\\e' > /tmp/pterosaur_fifo");
+              if (vimMode==="n") //This is more specific than VIM_NORMAL which currently includes things like visual
+              {
+                modes.reset()
+              }
+              else {
+                io.system("printf '\\e' > /tmp/pterosaur_fifo");
+              }
             });
 
         mappings.builtin.add(
-            [modes.VIM_NORMAL],
-            ["<Esc>"],
-            ["Leave textfield"],
-            function(){
-              modes.reset()
-            });
-
-        mappings.builtin.add(
-            [modes.VIM_COMMAND],
-            ["<Esc>"],
-            ["Send escape key"],
-            function(){
-              io.system("printf '\\e' > /tmp/pterosaur_fifo");
-            });
-
-        mappings.builtin.add(
-            [modes.INSERT, modes.VIM_NORMAL],
+            [modes.INSERT],
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
@@ -357,10 +347,7 @@ function cleanupPterosaur()
         });
 
         mappings.builtin.remove( modes.INSERT, "<Esc>");
-        mappings.builtin.remove( modes.VIM_NORMAL, "<Esc>");
-        mappings.builtin.remove( modes.VIM_COMMAND, "<Esc>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
-        mappings.builtin.remove( modes.VIM_NORMAL, "<C-r>");
         mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
     }
     pterosaurCleanupCheck = options["fullvim"];
