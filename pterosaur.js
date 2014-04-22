@@ -61,6 +61,20 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
+    //This has to be up here for vimdo to work. This should probably be changed eventually.
+    if (writeInsteadOfRead)
+    {
+      if(sendToVim !== "")
+      {
+        let tempSendToVim=sendToVim
+        sendToVim = ""
+        io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur_fifo");
+      }
+      writeInsteadOfRead = 0;
+      return;
+    }
+
+
     if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
       if(pterFocused && modes.main !== modes.EX) {
         cleanupForTextbox();
@@ -68,6 +82,8 @@ function update(){
       }
       return;
     }
+
+    writeInsteadOfRead = 1; //For next time around
 
     if (dactyl.focusedElement !== pterFocused)
     {
@@ -263,25 +279,25 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>")
-        io.system("printf ' ' > /tmp/pterosaur_fifo");
+        sendToVim += ' '
       else if (inputChar==="<BS>")
-        io.system("printf '\\b' > /tmp/pterosaur_fifo");
+        sendToVim += '\\b'
       else if (inputChar==="<Return>") {
-        io.system("printf '\\r' > /tmp/pterosaur_fifo");
+        sendToVim += '\\r'
         return PASS;
       }
       else if (inputChar==="<Tab>")
         return PASS;
       else if (inputChar==="<Up>")
-        io.system("printf '\\e[A' > /tmp/pterosaur_fifo");
+        sendToVim += '\\e[A'
       else if (inputChar==="<Down>")
-        io.system("printf '\\e[B' > /tmp/pterosaur_fifo");
+        sendToVim += '\\e[B'
       else if (inputChar==="<Right>")
-        io.system("printf '\\e[C' > /tmp/pterosaur_fifo");
+        sendToVim += '\\e[C'
       else if (inputChar==="<Left>")
-        io.system("printf '\\e[D' > /tmp/pterosaur_fifo");
+        sendToVim += '\\e[D'
       else if (inputChar==="<lt>")
-        io.system("printf '<' > /tmp/pterosaur_fifo");
+        sendToVim += '<'
     }
     /*else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
     {
@@ -290,13 +306,13 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     */
     else {
       if (inputChar == '%')
-        io.system('printf "%%" > /tmp/pterosaur_fifo');
+        sendToVim += '%%'
       else if (inputChar == '\\')
-        io.system("printf '\\\\' > /tmp/pterosaur_fifo");
+        sendToVim += '\\\\'
       else if (inputChar == '"')
-        io.system("printf '\"' > /tmp/pterosaur_fifo");
+        sendToVim += '\"'
       else
-        io.system('printf "' + inputChar + '" > /tmp/pterosaur_fifo');
+        sendToVim += inputChar
     }
       
     return KILL;
@@ -317,7 +333,7 @@ function cleanupPterosaur()
                 modes.reset()
               }
               else {
-                io.system("printf '\\e' > /tmp/pterosaur_fifo");
+                sendToVim+="\\e"
               }
             });
 
@@ -326,7 +342,7 @@ function cleanupPterosaur()
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
-              io.system('printf "\x12" > /tmp/pterosaur_fifo');
+              sendToVim+="\x12"
             },
             {noTransaction: true});
 
@@ -335,7 +351,7 @@ function cleanupPterosaur()
             ["<Return>"],
             ["Override websites' carriage return behavior when in command mode"],
             function(){
-              io.system('printf "\\r" > /tmp/pterosaur_fifo');
+              sendToVim+="\\r"
             });
     }
     else {
@@ -387,7 +403,7 @@ commands.add(["vim[do]"],
     function (args) {
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        io.system("printf '" + command + "\r' > /tmp/pterosaur_fifo");
+        sendToVim += command +"\r"
     }, {
       argCount: "+",
       literal: 0
@@ -404,6 +420,10 @@ var metaTmpfile = null;
 var messageTmpfile = null;
 var textBox;
 var lastVimCommand = "";
+var sendToVim = "";
+
+//We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
+var writeInsteadOfRead = 0;
 
 
-let timer =  window.setInterval(update, 100);
+let timer =  window.setInterval(update, 50);
