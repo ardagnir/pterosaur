@@ -34,11 +34,8 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ##Bugs
 ( If you find a bug that isn't listed here, please create a github issue. )
 
-- In visual mode, escape will exit editing instead of leaving visual mode.
-- If you hold a key long enough in norml mode, pterosur will switch to insert mode.
 - Pterosaur sometimes displays old vim modes instead of the current pterosaur mode.
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
-- The code to handle multiple windows is hacky. If you create multiple windows at the same time, pterosaur might break and lose some of your keys.
 - Mouse support is limited. Currently, you can click anywhere in a textbox to move the cursor there in insert mode. Eventually, mouse selection will be supported as well.
 
 ##Troubleshooting
