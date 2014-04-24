@@ -68,7 +68,7 @@ function update(){
       {
         let tempSendToVim=sendToVim
         sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur_fifo");
+        io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur/fifo_"+uid);
       }
       writeInsteadOfRead = 0;
       return;
@@ -76,7 +76,7 @@ function update(){
 
 
     if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
-      if(pterFocused && modes.main !== modes.EX) {
+      if(pterFocused) {
         cleanupForTextbox();
         pterFocused = null
       }
@@ -179,19 +179,13 @@ function update(){
 }
 
 function cleanupForTextbox() { 
-    if (tmpfile && tmpfile.exists())
-        tmpfile.remove(false);
-    if (metaTmpfile && metaTmpfile.exists())
-        metaTmpfile.remove(false);
-    if (messageTmpfile && messageTmpfile.exists())
-        messageTmpfile.remove(false);
-    tmpfile = null
+    io.system('vim --servername pterosaur_'+uid+' --remote-expr "LoseTextbox()"');
 }
 
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\ei' > /tmp/pterosaur_fifo");
+      io.system("printf '\\ei' > /tmp/pterosaur/fifo_"+uid);
 
     pterFocused = dactyl.focusedElement;
     savedText = null;
@@ -233,32 +227,19 @@ function setupForTextbox() {
     column = 1 + pre.replace(/[^]*\n/, "").length;
 
     let origGroup = DOM(textBox).highlight.toString();
-    tmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host);
-    metaTmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host+"-meta");
-    messageTmpfile = io.createTempFile("txt", "-pterosaur"+buffer.uri.host+"-messages");
-    if (!tmpfile)
-        throw Error(_("io.cantCreateTempFile"));
-
-    if (!metaTmpfile)
-        throw Error(_("io.cantCreateTempFile"));
-
-    if (!messageTmpfile)
-        throw Error(_("io.cantCreateTempFile"));
 
     if (!tmpfile.write(text))
-        throw Error(_("io.cantEncode"));
+      throw Error(_("io.cantEncode"));
 
-    var vimCommand;
+    var ioCommand;
 
-    vimCommand = 'vim --servername pterosaur --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
+    //vimCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<line>,<column>)"';
 
-    vimCommand = vimCommand.replace(/<metaFile>/, metaTmpfile.path);
-    vimCommand = vimCommand.replace(/<messageFile>/, messageTmpfile.path);
-    vimCommand = vimCommand.replace(/<file>/, tmpfile.path);
-    vimCommand = vimCommand.replace(/<column>/, column);
-    vimCommand = vimCommand.replace(/<line>/, line);
+    ioCommand = ioCommand.replace(/<column>/, column);
+    ioCommand = ioCommand.replace(/<line>/, line);
 
-    io.system(vimCommand);
+    io.system(ioCommand);
 }
 
 modes.INSERT.params.onKeyPress = function(eventList) {
@@ -311,6 +292,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '\\\\'
       else if (inputChar == '"')
         sendToVim += '\"'
+      else if (inputChar == "'")
+        sendToVim += "\'\\'\'"
       else
         sendToVim += inputChar
     }
@@ -369,13 +352,42 @@ function cleanupPterosaur()
     pterosaurCleanupCheck = options["fullvim"];
 }
 
-io.system("mkfifo /tmp/pterosaur_fifo");
+var savedText = null;
+var savedCursorStart = null;
+var savedCursorEnd = null;
+var vimMode = 'i';
+var pterFocused = null;
+var textBox;
+var lastVimCommand = "";
+var sendToVim = "";
+//To prevent collisions TODO: get sequentually, rather than randomly
+var uid = Math.floor(Math.random()*0x100000000).toString(16)
+var tmpfile = io.createTempFile("txt", "_pterosaur_"+uid);
+var metaTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"-meta");
+var messageTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"-messages");
+if (!tmpfile)
+    throw Error(_("io.cantCreateTempFile"));
+
+if (!metaTmpfile)
+    throw Error(_("io.cantCreateTempFile"));
+
+if (!messageTmpfile)
+    throw Error(_("io.cantCreateTempFile"));
+
+
+
+//We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
+var writeInsteadOfRead = 0;
+
+io.system("mkdir /tmp/pterosaur");
+io.system("mkfifo /tmp/pterosaur/fifo_"+uid);
 
 //TODO: This is an ugly hack.
-io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur_fifo &");
+io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur/fifo_"+uid+" &");
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
-io.system('sh -c \'while [ "$(vim --servername pterosaur --remote-expr 1)" != 1 ] && killall -0 firefox; do vim --servername pterosaur +"set autoread" +"set noswapfile" +"set shortmess+=A" --remote /tmp/pentatdactyl-pterosuar </tmp/pterosaur_fifo > /dev/null; done\' &');
+//TODO: Try getting rid of loop now that thigns are stabler
+io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur("'+tmpfile.path+'","'+metaTmpfile.path+'","'+messageTmpfile.path+'")\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/pts/3; done\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
@@ -410,20 +422,6 @@ commands.add(["vim[do]"],
     });
 
 
-var savedText = null;
-var savedCursorStart = null;
-var savedCursorEnd = null;
-var vimMode = 'i';
-var pterFocused = null; 
-var tmpfile = null;
-var metaTmpfile = null;
-var messageTmpfile = null;
-var textBox;
-var lastVimCommand = "";
-var sendToVim = "";
-
-//We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
-var writeInsteadOfRead = 0;
 
 
 let timer =  window.setInterval(update, 50);

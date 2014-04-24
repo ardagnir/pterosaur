@@ -22,8 +22,36 @@ if exists("g:loaded_pterosaur")
 endif
 
 let s:fromCommand = 0
+let s:vim_mode = "n"
 
-function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
+function! LoseTextbox()
+  ElGroup pterosaur!
+  bd
+endfunction
+
+function! FocusTextbox(line, column)
+  exec "edit! ".s:file
+
+  call cursor(a:line, a:column)
+
+  if mode()=="n" || mode()=="v" || mode()=="V"
+    call feedkeys("\<ESC>i",'n')
+  endif
+
+  call system("echo '' > ".s:metaFile)
+
+  ElGroup pterosaur
+    ElSetting timer 4
+    ElCmd call CheckConsole()
+    ElCmd call OutputMessages()
+  ElGroup END
+endfunction
+
+function! SetupPterosaur(file, metaFile, messageFile)
+  set autoread
+  set noswapfile
+  set shortmess+=A
+
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
@@ -52,18 +80,9 @@ function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
     call system('echo Pterosaur requires eventloop.vim to read the VIM commandline. >> '.a:metaFile)
   endtry
 
+  let s:file = a:file
   let s:metaFile = a:metaFile
   let s:messageFile = a:messageFile
-
-  bd!
-
-  sil exec "edit! "a:file
-  call cursor(a:line, a:column)
-
-  if mode()=="n" || mode()=="v" || mode()=="V"
-    call feedkeys("\<ESC>i",'n')
-  endif
-
 endfunction
 
 function! s:GetByteNum(pos)
