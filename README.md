@@ -35,6 +35,7 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ( If you find a bug that isn't listed here, please create a github issue. )
 
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
+- Pterosaur's modeline isn't accurate in visual or selection mode.
 
 ##Troubleshooting
 - If you can't enter text in fullvim mode, type `vim --serverlist` in your commandline. You should see a `PTEROSAUR` server. If you don't, you probably don't have support for vim servers (check `vim --version | grep server`) or pterosaur doesn't think firefox is running. If you do see it, either pterosaur isn't able to communicate with vim, or you're using a text-field that can't handle pterosaur (most search engines, including duckduckgo, start-page, and google search CAN handle pterosaur, so they make good tests).

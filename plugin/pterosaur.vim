@@ -30,7 +30,7 @@ function! LoseTextbox()
 endfunction
 
 function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
-  exec "edit! ".s:file
+  call s:VerySilent( "edit! ".s:file )
 
   if a:lineStart==a:lineEnd && a:columnStart==a:columnEnd
     call cursor(a:lineStart, a:columnStart)
@@ -78,10 +78,10 @@ function! SetupPterosaur(file, metaFile, messageFile)
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * call VerySilent("write!")
+    sil autocmd TextChanged * call <SID>VerySilent("write!")
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * call VerySilent("write!")
+    sil autocmd CursorMovedI * call <SID>VerySilent("write!")
     sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
 
@@ -171,7 +171,7 @@ function! CheckConsole()
 endfunction
 
 "Don't even redirect the output
-function! VerySilent(args)
+function! s:VerySilent(args)
   redir END
   silent exec a:args
   exec "redir! >> ".s:messageFile
