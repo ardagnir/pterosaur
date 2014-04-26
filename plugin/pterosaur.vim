@@ -155,6 +155,7 @@ function! CheckConsole()
     if tempMode == "c"
       call system('echo c > '.s:metaFile)
       call system('echo '.s:BetterShellEscape(getcmdtype().getcmdline()).' >> '.s:metaFile)
+      let s:vim_mode="c"
       if s:fromCommand == 0
         ElGroup pterosaur
           ElSetting timer 2
