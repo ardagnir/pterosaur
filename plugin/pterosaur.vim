@@ -131,8 +131,8 @@ function! s:WriteMetaFile(fileName, checkInsert)
   if s:vim_mode ==# 'v' || s:vim_mode ==# 's'
     call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
   elseif s:vim_mode ==# 'V' || s:vim_mode ==# 'S'
-    let start = line2byte(byte2line(min([pos,s:lastPos])))
-    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)
+    let start = line2byte(byte2line(min([pos,s:lastPos])))-1
+    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)-1
     call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
   elseif (s:vim_mode == 'n' || s:vim_mode == 'R') && getline('.')!=''
     call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
