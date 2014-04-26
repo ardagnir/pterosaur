@@ -72,6 +72,7 @@ function! SetupPterosaur(file, metaFile, messageFile)
   set autoread
   set noswapfile
   set shortmess+=A
+  set noshowmode
   snoremap <bs> <C-G>c
 
   augroup Pterosaur

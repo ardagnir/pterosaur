@@ -34,7 +34,6 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ##Bugs
 ( If you find a bug that isn't listed here, please create a github issue. )
 
-- Pterosaur sometimes displays old vim modes instead of the current pterosaur mode.
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
 
 ##Troubleshooting
