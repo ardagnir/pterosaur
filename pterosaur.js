@@ -157,6 +157,11 @@ function update(){
           cleanupForTextbox();
           return;
         }
+        //We only get one line for inputs
+        if(textBox.tagName == "input")
+        {
+          val = val.replace(/\n/g," ")
+        }
 
         textBox.value = val;
         savedText = textBox.value;
