@@ -29,16 +29,37 @@ function! LoseTextbox()
   bd
 endfunction
 
-function! FocusTextbox(line, column)
+function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
   exec "edit! ".s:file
 
-  call cursor(a:line, a:column)
+  if a:lineStart==a:lineEnd && a:columnStart==a:columnEnd
+    call cursor(a:lineStart, a:columnStart)
 
-  if mode()=="n" || mode()=="v" || mode()=="V"
-    call feedkeys("\<ESC>i",'n')
+    if mode()=="n" || mode()=="v" || mode()=="V" || mode()=="s" || mode()=="S"
+      call feedkeys("\<ESC>i",'n')
+    endif
+  else
+    call cursor(a:lineStart, a:columnStart+1)
+    "normal! v
+    call feedkeys ("\<ESC>0",'n')
+    if a:columnStart>1
+      call feedkeys ((a:columnStart-1)."l",'n')
+    endif
+    call feedkeys("\<ESC>v",'n')
+    if a:columnEnd-a:columnStart > 1
+      call feedkeys((a:columnEnd-a:columnStart-1)."l",'n')
+    elseif a:columnStart-a:columnEnd > -1
+      call feedkeys((a:columnStart-a:columnEnd+1)."k",'n')
+    endif
+    if a:lineEnd-a:lineStart > 0
+      call feedkeys((a:LineEnd-a:LineStart)."j",'n')
+    "call cursor(a:lineEnd, a:columnEnd)
+    endif
+    call feedkeys("\<C-G>",'n')
   endif
 
   call system("echo '' > ".s:metaFile)
+  let s:vim_mode=''
 
   ElGroup pterosaur
     ElSetting timer 4
@@ -51,6 +72,7 @@ function! SetupPterosaur(file, metaFile, messageFile)
   set autoread
   set noswapfile
   set shortmess+=A
+  snoremap <bs> <C-G>c
 
   augroup Pterosaur
     sil autocmd!
@@ -101,9 +123,9 @@ function! s:WriteMetaFile(fileName, checkInsert)
   call system('echo '.s:vim_mode.' > '.a:fileName)
 
   let pos = s:GetByteNum('.')
-  if s:vim_mode ==# 'v'
+  if s:vim_mode ==# 'v' || s:vim_mode ==# 's'
     call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
-  elseif s:vim_mode ==# 'V'
+  elseif s:vim_mode ==# 'V' || s:vim_mode ==# 'S'
     let start = line2byte(byte2line(min([pos,s:lastPos])))
     let end = line2byte(byte2line(max([pos,s:lastPos]))+1)
     call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)

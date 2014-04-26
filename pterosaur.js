@@ -69,6 +69,7 @@ function update(){
         let tempSendToVim=sendToVim
         sendToVim = ""
         io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur/fifo_"+uid);
+        unsent=0;
       }
       writeInsteadOfRead = 0;
       return;
@@ -147,18 +148,20 @@ function update(){
     if (textBox) {
         if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
           pterFocused = null;
+          cleanupForTextbox();
           return;
         }
 
         if (savedText!=null && textBox.value != savedText) {
           pterFocused = null;
+          cleanupForTextbox();
           return;
         }
 
         textBox.value = val;
         savedText = textBox.value;
 
-        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e")
+        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
           textBox.setSelectionRange(metadata[1], metadata[2]);
 
         savedCursorStart = textBox.selectionStart;
@@ -180,6 +183,7 @@ function update(){
 
 function cleanupForTextbox() { 
     io.system('vim --servername pterosaur_'+uid+' --remote-expr "LoseTextbox()"');
+    unsent=1;
 }
 
 function setupForTextbox() {
@@ -196,11 +200,14 @@ function setupForTextbox() {
 
     if (!DOM(textBox).isInput)
         textBox = null;
-    let line, column;
+    let lineStart, columnStart, lineEnd, columnEnd;
 
     if (textBox) {
         var text = textBox.value;
-        var pre = text.substr(0, textBox.selectionStart);
+        var preStart = text.substr(0, textBox.selectionStart);
+        var preEnd = text.substr(0, textBox.selectionEnd);
+        savedCursorStart = textBox.selectionStart;
+        savedCursorEnd = textBox.selectionEnd;
     }
     else {
         var editor_ = window.GetCurrentEditor ? GetCurrentEditor()
@@ -221,23 +228,31 @@ function setupForTextbox() {
                 pre = pre.replace(/^(?:<[^>"]+>)+/, "");
             if (range.endContainer instanceof Text)
                 pre = pre.replace(/(?:<\/[^>"]+>)+$/, "");
+            //TODO: support selection here 
+            preStart = pre
+            preEnd = pre
         }
     }
-    line = 1 + pre.replace(/[^\n]/g, "").length;
-    column = 1 + pre.replace(/[^]*\n/, "").length;
+    lineStart = 1 + preStart.replace(/[^\n]/g, "").length;
+    columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+    lineEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
+    columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
 
     let origGroup = DOM(textBox).highlight.toString();
 
     if (!tmpfile.write(text))
       throw Error(_("io.cantEncode"));
 
+
     var ioCommand;
 
     //vimCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<line>,<column>)"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
 
-    ioCommand = ioCommand.replace(/<column>/, column);
-    ioCommand = ioCommand.replace(/<line>/, line);
+    ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
+    ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
+    ioCommand = ioCommand.replace(/<columnEnd>/, columnEnd);
+    ioCommand = ioCommand.replace(/<lineEnd>/, lineEnd);
 
     io.system(ioCommand);
 }
@@ -363,8 +378,10 @@ var sendToVim = "";
 //To prevent collisions TODO: get sequentually, rather than randomly
 var uid = Math.floor(Math.random()*0x100000000).toString(16)
 var tmpfile = io.createTempFile("txt", "_pterosaur_"+uid);
-var metaTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"-meta");
-var messageTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"-messages");
+var metaTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_meta");
+var messageTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_messages");
+var unsent = 0;
+
 if (!tmpfile)
     throw Error(_("io.cantCreateTempFile"));
 
@@ -387,7 +404,7 @@ io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur/fifo_"+
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
 //TODO: Try getting rid of loop now that thigns are stabler
-io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur("'+tmpfile.path+'","'+metaTmpfile.path+'","'+messageTmpfile.path+'")\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/pts/3; done\' &');
+io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur("'+tmpfile.path+'","'+metaTmpfile.path+'","'+messageTmpfile.path+'")\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/null; done\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
