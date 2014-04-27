@@ -22,15 +22,70 @@ if exists("g:loaded_pterosaur")
 endif
 
 let s:fromCommand = 0
+let s:vim_mode = "n"
 
-function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
+function! LoseTextbox()
+  ElGroup pterosaur!
+  bd
+endfunction
+
+function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
+  call s:VerySilent( "edit! ".s:file )
+
+  if a:lineStart==a:lineEnd && a:columnStart==a:columnEnd
+    call cursor(a:lineStart, a:columnStart)
+
+    if mode()=="n" || mode()=="v" || mode()=="V" || mode()=="s" || mode()=="S"
+      if a:columnStart<len(line('.'))+1
+        call feedkeys("\<ESC>i",'n')
+      else
+        call feedkeys("\<ESC>a",'n')
+      endif
+    endif
+  else
+    call cursor(a:lineStart, a:columnStart+1)
+    "normal! v
+    call feedkeys ("\<ESC>0",'n')
+    if a:columnStart>1
+      call feedkeys ((a:columnStart-1)."l",'n')
+    endif
+    call feedkeys("\<ESC>v",'n')
+    if a:columnEnd-a:columnStart > 1
+      call feedkeys((a:columnEnd-a:columnStart-1)."l",'n')
+    elseif a:columnStart-a:columnEnd > -1
+      call feedkeys((a:columnStart-a:columnEnd+1)."k",'n')
+    endif
+    if a:lineEnd-a:lineStart > 0
+      call feedkeys((a:LineEnd-a:LineStart)."j",'n')
+    "call cursor(a:lineEnd, a:columnEnd)
+    endif
+    call feedkeys("\<C-G>",'n')
+  endif
+
+  call system("echo '' > ".s:metaFile)
+  let s:vim_mode=''
+
+  ElGroup pterosaur
+    ElSetting timer 4
+    ElCmd call CheckConsole()
+    ElCmd call OutputMessages()
+  ElGroup END
+endfunction
+
+function! SetupPterosaur(file, metaFile, messageFile)
+  set autoread
+  set noswapfile
+  set shortmess+=A
+  set noshowmode
+  snoremap <bs> <C-G>c
+
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * call VerySilent("write!")
+    sil autocmd TextChanged * call <SID>VerySilent("write!")
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * call VerySilent("write!")
+    sil autocmd CursorMovedI * call <SID>VerySilent("write!")
     sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
     sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
 
@@ -52,18 +107,9 @@ function! SwitchPterosaurFile(line, column, file, metaFile, messageFile)
     call system('echo Pterosaur requires eventloop.vim to read the VIM commandline. >> '.a:metaFile)
   endtry
 
+  let s:file = a:file
   let s:metaFile = a:metaFile
   let s:messageFile = a:messageFile
-
-  bd!
-
-  sil exec "edit! "a:file
-  call cursor(a:line, a:column)
-
-  if mode()=="n" || mode()=="v" || mode()=="V"
-    call feedkeys("\<ESC>i",'n')
-  endif
-
 endfunction
 
 function! s:GetByteNum(pos)
@@ -74,21 +120,21 @@ let s:lastPos = 0
 
 function! s:WriteMetaFile(fileName, checkInsert)
   if a:checkInsert
-    let vim_mode = v:insertmode
+    let s:vim_mode = v:insertmode
   else
-    let vim_mode = mode()
+    let s:vim_mode = mode()
   endif
 
-  call system('echo '.vim_mode.' > '.a:fileName)
+  call system('echo '.s:vim_mode.' > '.a:fileName)
 
   let pos = s:GetByteNum('.')
-  if  vim_mode ==# 'v'
+  if s:vim_mode ==# 'v' || s:vim_mode ==# 's'
     call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
-  elseif vim_mode ==# 'V'
-    let start = line2byte(byte2line(min([pos,s:lastPos])))
-    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)
+  elseif s:vim_mode ==# 'V' || s:vim_mode ==# 'S'
+    let start = line2byte(byte2line(min([pos,s:lastPos])))-1
+    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)-1
     call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
-  elseif (vim_mode == 'n' || vim_mode == 'R') && getline('.')!=''
+  elseif (s:vim_mode == 'n' || s:vim_mode == 'R') && getline('.')!=''
     call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
     let s:lastPos = pos
   else
@@ -105,26 +151,32 @@ function s:BetterShellEscape(text)
 endfunction
 
 function! CheckConsole()
-    if mode()=="c"
+    let tempMode = mode()
+    if tempMode == "c"
       call system('echo c > '.s:metaFile)
       call system('echo '.s:BetterShellEscape(getcmdtype().getcmdline()).' >> '.s:metaFile)
+      let s:vim_mode="c"
       if s:fromCommand == 0
         ElGroup pterosaur
           ElSetting timer 2
         ElGroup END
       endif
       let s:fromCommand = 1
-    elseif s:fromCommand
-      call system('echo '.mode().' > '.s:metaFile)
-      let s:fromCommand = 0
-      ElGroup pterosaur
-        ElSetting timer 4
-      ElGroup END
+    else
+      if s:fromCommand
+        let s:fromCommand = 0
+        ElGroup pterosaur
+          ElSetting timer 4
+        ElGroup END
+      endif
+      if tempMode != s:vim_mode
+        call s:WriteMetaFile(s:metaFile, 0)
+      endif
     endif
 endfunction
 
 "Don't even redirect the output
-function! VerySilent(args)
+function! s:VerySilent(args)
   redir END
   silent exec a:args
   exec "redir! >> ".s:messageFile
