@@ -158,7 +158,7 @@ function update(){
           return;
         }
         //We only get one line for inputs
-        if(textBox.tagName == "input")
+        if(textBox.tagName.toLowerCase() === "input")
         {
           val = val.replace(/\n/g," ")
         }
