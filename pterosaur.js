@@ -277,9 +277,9 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
-      if (inputChar==="<Space>")
+      if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' '
       else if (inputChar==="<BS>")
         sendToVim += '\\b'
