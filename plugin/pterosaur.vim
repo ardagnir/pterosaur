@@ -37,10 +37,12 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
 
     if mode()=="n" || mode()=="v" || mode()=="V" || mode()=="s" || mode()=="S"
       if a:columnStart<len(line('.'))+1
-        call feedkeys("\<ESC>i",'n')
+        call feedkeys("\<ESC>i\<C-G>u",'n')
       else
-        call feedkeys("\<ESC>a",'n')
+        call feedkeys("\<ESC>a\<C-G>u",'n')
       endif
+    else
+        call feedkeys("\<C-G>u",'n')
     endif
   else
     call cursor(a:lineStart, a:columnStart+1)
