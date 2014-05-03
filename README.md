@@ -10,7 +10,7 @@ Pterosaur is a Pentadactyl/Vim extension that gives you the full power of Vim in
 - Pterosaur requires Pentadactyl and Vim(your version needs to have +clientserver).
 - Pterosaur requires [eventloop.vim](https://github.com/ardagnir/eventloop.vim)
 - Pterosaur works best in GNU/Linux.
-- Pterosaur also works in OSX, but doing so requires XQuartz, and you must run firefox from a terminal, e.g. `/Applications/Firefox.app/Contents/MacOS/firefox`. *(This is a requirement of vim's +clientserver functionality.)*
+- Pterosaur also works in OSX, but doing so requires XQuartz. *(This is a requirement of vim's +clientserver functionality.)*
 
 ##Setup
 **Step 1:** Install pterosaur and eventloop.vim using your Vim plugin-manager. For pathogen-compatible managers:
