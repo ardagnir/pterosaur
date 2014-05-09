@@ -26,7 +26,22 @@ let s:vim_mode = "n"
 
 function! LoseTextbox()
   ElGroup pterosaur!
-  bd
+endfunction
+
+"Replacement for 'edit! s:file' that is undo joined
+function! UndoJoinedEdit()
+  undojoin | normal! gg"_dG
+  undojoin | exec "read ".s:file
+  undojoin | normal! k"_dd
+  write!
+endfunction
+
+function! UpdateTextbox(lineStart, columnStart, lineEnd, columnEnd)
+  "call s:VerySilent("edit! ".s:file)
+  call s:VerySilent("call UndoJoinedEdit()")
+  call cursor(a:lineStart, a:columnStart)
+  call system("echo '' > ".s:metaFile)
+  let s:vim_mode=''
 endfunction
 
 function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
@@ -68,7 +83,7 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
   let s:vim_mode=''
 
   ElGroup pterosaur
-    ElSetting timer 4
+    ElSetting timer 2
     ElCmd call CheckConsole()
     ElCmd call OutputMessages()
   ElGroup END
@@ -100,7 +115,7 @@ function! SetupPterosaur(file, metaFile, messageFile)
     ElGroup! pterosaur
 
     ElGroup pterosaur
-      ElSetting timer 4
+      ElSetting timer 2
       ElCmd call CheckConsole()
       ElCmd call OutputMessages()
     ElGroup END
@@ -160,7 +175,7 @@ function! CheckConsole()
       let s:vim_mode="c"
       if s:fromCommand == 0
         ElGroup pterosaur
-          ElSetting timer 2
+          ElSetting timer 1 "Same as 2 right now. This is for once eventloop can handle shorter time periods.
         ElGroup END
       endif
       let s:fromCommand = 1
@@ -168,7 +183,7 @@ function! CheckConsole()
       if s:fromCommand
         let s:fromCommand = 0
         ElGroup pterosaur
-          ElSetting timer 4
+          ElSetting timer 2
         ElGroup END
       endif
       if tempMode != s:vim_mode

@@ -94,6 +94,9 @@ function update(){
     }
 
     let val = tmpfile.read();
+    //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
+    if (val.slice(-1) == '\n')
+      val = val.slice(0,-1)
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
@@ -153,18 +156,12 @@ function update(){
         }
 
         if (savedText!=null && textBox.value != savedText) {
-          pterFocused = null;
-          cleanupForTextbox();
+          updateTextbox(0);
           return;
-        }
-        //We only get one line for inputs
-        if(textBox.tagName.toLowerCase() === "input")
-        {
-          val = val.replace(/\n/g," ")
         }
 
         textBox.value = val;
-        savedText = textBox.value;
+        savedText = val;
 
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
           textBox.setSelectionRange(metadata[1], metadata[2]);
@@ -197,6 +194,12 @@ function setupForTextbox() {
       io.system("printf '\\ei' > /tmp/pterosaur/fifo_"+uid);
 
     pterFocused = dactyl.focusedElement;
+
+    updateTextbox(1);
+}
+
+function updateTextbox(fullSetup) {
+
     savedText = null;
     savedCursorStart = null;
     savedCursorEnd = null;
@@ -245,14 +248,18 @@ function setupForTextbox() {
 
     let origGroup = DOM(textBox).highlight.toString();
 
-    if (!tmpfile.write(text))
+    if (!tmpfile.write(text+"\n"))
       throw Error(_("io.cantEncode"));
 
 
     var ioCommand;
 
-    //vimCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    if (fullSetup){
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    }
+    else {
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "UpdateTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    }
 
     ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
     ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
@@ -265,7 +272,7 @@ function setupForTextbox() {
 modes.INSERT.params.onKeyPress = function(eventList) {
     const KILL = false, PASS = true;
 
-    if (!options["fullvim"] || dactyl.focusedElement.type === "password")
+    if (!options["fullvim"] || dactyl.focusedElement && dactyl.focusedElement.type === "password")
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0])
@@ -405,7 +412,7 @@ io.system("mkdir /tmp/pterosaur");
 io.system("mkfifo /tmp/pterosaur/fifo_"+uid);
 
 //TODO: This is an ugly hack.
-io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur/fifo_"+uid+" &");
+io.system("(while killall -0 firefox; do sleep 5; done) > /tmp/pterosaur/fifo_"+uid+" &");
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
 //TODO: Try getting rid of loop now that thigns are stabler
@@ -446,4 +453,4 @@ commands.add(["vim[do]"],
 
 
 
-let timer =  window.setInterval(update, 50);
+let timer =  window.setInterval(update, 30);
