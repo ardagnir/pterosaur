@@ -389,9 +389,21 @@ var lastVimCommand = "";
 var sendToVim = "";
 //To prevent collisions TODO: get sequentually, rather than randomly
 var uid = Math.floor(Math.random()*0x100000000).toString(16)
-var tmpfile = io.createTempFile("txt", "_pterosaur_"+uid);
-var metaTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_meta");
-var messageTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_messages");
+
+var dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid)
+var tmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt")
+var metaTmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt")
+var messageTmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt")
+
+dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
+tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+
+tmpfile=File(tmpfile);
+metaTmpfile=File(metaTmpfile);
+messageTmpfile=File(messageTmpfile);
+
 var unsent = 0;
 
 if (!tmpfile)
@@ -416,7 +428,7 @@ io.system("(while killall -0 firefox; do sleep 5; done) > /tmp/pterosaur/fifo_"+
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
 //TODO: Try getting rid of loop now that thigns are stabler
-io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur("'+tmpfile.path+'","'+metaTmpfile.path+'","'+messageTmpfile.path+'")\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/null; done\' &');
+io.system('sh -c \'vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur()\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/null\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;

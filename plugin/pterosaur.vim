@@ -89,12 +89,16 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
   ElGroup END
 endfunction
 
-function! SetupPterosaur(file, metaFile, messageFile)
+function! SetupPterosaur()
   set autoread
   set noswapfile
   set shortmess+=A
   set noshowmode
   snoremap <bs> <C-G>c
+
+  let s:file = "/tmp/shadowvim/".tolower(v:servername)."/contents.txt"
+  let s:metaFile = "/tmp/shadowvim/".tolower(v:servername)."/meta.txt"
+  let s:messageFile = "/tmp/shadowvim/".tolower(v:servername)."/messages.txt"
 
   augroup Pterosaur
     sil autocmd!
@@ -103,12 +107,12 @@ function! SetupPterosaur(file, metaFile, messageFile)
 
     "Adding text in insert mode calls this, but not TextChangedI
     sil autocmd CursorMovedI * call <SID>VerySilent("write!")
-    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
-    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
+    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".s:metaFile."', 0)"
+    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".s:metaFile."', 0)"
 
-    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".a:metaFile."', 1)"
-    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."', 0)"
-    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
+    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".s:metaFile."', 1)"
+    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".s:metaFile."', 0)"
+    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".s:metaFile."', 1)"
   augroup END
 
   try
@@ -120,13 +124,9 @@ function! SetupPterosaur(file, metaFile, messageFile)
       ElCmd call OutputMessages()
     ElGroup END
   catch
-    call system('echo e > '.a:metaFile)
-    call system('echo Pterosaur requires eventloop.vim to read the VIM commandline. >> '.a:metaFile)
+    call system('echo -e "e\nPterosaur requires eventloop.vim to read the VIM commandline. > '.s:metaFile)
   endtry
 
-  let s:file = a:file
-  let s:metaFile = a:metaFile
-  let s:messageFile = a:messageFile
 endfunction
 
 function! s:GetByteNum(pos)
