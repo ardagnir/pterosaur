@@ -28,16 +28,15 @@ function! LoseTextbox()
   ElGroup pterosaur!
 endfunction
 
-"Replacement for 'edit! s:file' that is undo joined
+"Replacement for 'edit! s:file' that is undo joined (and doesn't leave the
+"scratch buffer)
 function! UndoJoinedEdit()
   undojoin | normal! gg"_dG
   undojoin | exec "read ".s:file
   undojoin | normal! k"_dd
-  write!
 endfunction
 
 function! UpdateTextbox(lineStart, columnStart, lineEnd, columnEnd)
-  "call s:VerySilent("edit! ".s:file)
   call s:VerySilent("call UndoJoinedEdit()")
   call cursor(a:lineStart, a:columnStart)
   call system("echo '' > ".s:metaFile)
@@ -45,7 +44,7 @@ function! UpdateTextbox(lineStart, columnStart, lineEnd, columnEnd)
 endfunction
 
 function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
-  call s:VerySilent( "edit! ".s:file )
+  call s:VerySilent("call UndoJoinedEdit()")
 
   if a:lineStart==a:lineEnd && a:columnStart==a:columnEnd
     call cursor(a:lineStart, a:columnStart)
@@ -90,7 +89,8 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
 endfunction
 
 function! SetupPterosaur()
-  set autoread
+  set buftype=nofile
+  set bufhidden=hide
   set noswapfile
   set shortmess+=A
   set noshowmode
@@ -103,10 +103,14 @@ function! SetupPterosaur()
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * call <SID>VerySilent("write!")
+
+    "I'm piping through cat, because write! can still trigger vim's
+    "clippy-style 'are you sure?' messages.
+    sil exec "sil autocmd TextChanged * call <SID>VerySilent('write !cat >".s:file."')"
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * call <SID>VerySilent("write!")
+    sil exec "sil autocmd CursorMovedI * call <SID>VerySilent('write !cat >".s:file."')"
+
     sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".s:metaFile."', 0)"
     sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".s:metaFile."', 0)"
 
