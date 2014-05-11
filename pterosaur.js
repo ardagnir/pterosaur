@@ -61,6 +61,23 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
+    if(pterFocused && textBox)
+    {
+      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
+        pterFocused = null;
+        cleanupForTextbox();
+        setupForTextbox();
+        writeInsteadOfRead=0;
+        return;
+      }
+
+      if (savedText!=null && textBox.value != savedText) {
+        updateTextbox(0);
+        writeInsteadOfRead=0;
+        return;
+      }
+    }
+
     //This has to be up here for vimdo to work. This should probably be changed eventually.
     if (writeInsteadOfRead)
     {
@@ -149,16 +166,6 @@ function update(){
       modes.pop();
 
     if (textBox) {
-        if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
-          pterFocused = null;
-          cleanupForTextbox();
-          return;
-        }
-
-        if (savedText!=null && textBox.value != savedText) {
-          updateTextbox(0);
-          return;
-        }
 
         textBox.value = val;
         savedText = val;
