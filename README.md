@@ -33,7 +33,6 @@ Pterosaur runs an actual vim instance in the background and routes keystrokes th
 ( If you find a bug that isn't listed here, please create a github issue. )
 
 - Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
-- Pterosaur's modeline isn't accurate in visual or selection mode.
 
 ##Notes
 - Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
