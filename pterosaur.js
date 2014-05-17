@@ -463,6 +463,9 @@ if (!metaTmpfile)
 if (!messageTmpfile)
     throw Error(_("io.cantCreateTempFile"));
 
+let onUnload = function(event) {
+  dir.remove(true)
+}
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
 var writeInsteadOfRead = 0;
