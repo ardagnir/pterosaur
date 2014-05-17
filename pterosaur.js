@@ -93,12 +93,13 @@ function update(){
     }
 
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
-      if(pterFocused) {
-        cleanupForTextbox();
-        pterFocused = null
-      }
-      return;
+    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || 
+      pterosaurModes.indexOf(modes.main)=== -1)  {
+        if(pterFocused) {
+          cleanupForTextbox();
+          pterFocused = null
+        }
+        return;
     }
 
     writeInsteadOfRead = 1; //For next time around
@@ -112,11 +113,15 @@ function update(){
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
-    if (val.slice(-1) == '\n')
+    if (val.slice(-1) === '\n')
       val = val.slice(0,-1)
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
+    for (var i=1, len=metadata.length; i<len; i++)
+    {
+      metadata[i]=metadata[i].replace(/,.*/, "")
+    }
 
     if (vimMode === "c") {
       if ( modes.main !== modes.VIM_COMMAND)
@@ -144,26 +149,65 @@ function update(){
     let messages = messageTmpfile.read();
     if (messages && messages!=="\n")
     {
-      //window.alert(messages)
       //TODO: If another message is written right now, we could lose it.
       messageTmpfile.write("");
-      //TODO: We don't neccesarily want singleline, but without it we lose focus.
-      dactyl.echo(messages,commandline.FORCE_SINGLELINE);
+
+      if(!unsent)
+      {
+        //TODO: We don't neccesarily want singleline, but without it we lose focus.
+        dactyl.echo(messages,commandline.FORCE_SINGLELINE);
+      }
 
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
       lastVimCommand=""
     }
 
     if (vimMode === "e")
-      dactyl.echo("ERROR: "+metadata[1])
-    else if (vimMode === "n" && modes.main === modes.INSERT)
     {
-      //Clear --INSERT-- echoed from vim messages
-      dactyl.echo("")
+      dactyl.echo("ERROR: "+metadata[1])
+    }
+    else if (vimMode === "n" && modes.main !== modes.VIM_NORMAL)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
       modes.push(modes.VIM_NORMAL);
     }
-    else if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
+    else if ((vimMode === "v" || vimMode ==="V") && modes.main !==modes.VIM_VISUAL)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_VISUAL);
+    }
+    else if ((vimMode === "s" || vimMode ==="S") && modes.main !==modes.VIM_SELECT)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_SELECT);
+    }
+    //The vimdocs say this is R and Rv, but vim actually sends r
+    else if ((vimMode === "r") && modes.main !==modes.VIM_REPLACE)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_REPLACE);
+    }
+    else if (vimMode === "i" && modes.main !== modes.INSERT)
+    {
+      dactyl.echo("");
       modes.pop();
+    }
 
     if (textBox) {
 
@@ -291,7 +335,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' '
@@ -313,12 +357,9 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '\\e[D'
       else if (inputChar==="<lt>")
         sendToVim += '<'
+      else if (inputChar==="<C-v>")
+        sendToVim += '\x16'
     }
-    /*else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
-    {
-      CommandExMode().open("vimdo " + inputChar);
-    }
-    */
     else {
       if (inputChar == '%')
         sendToVim += '%%'
@@ -411,7 +452,7 @@ tmpfile=File(tmpfile);
 metaTmpfile=File(metaTmpfile);
 messageTmpfile=File(messageTmpfile);
 
-var unsent = 0;
+var unsent = 1;
 
 if (!tmpfile)
     throw Error(_("io.cantCreateTempFile"));
@@ -421,7 +462,6 @@ if (!metaTmpfile)
 
 if (!messageTmpfile)
     throw Error(_("io.cantCreateTempFile"));
-
 
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
@@ -435,7 +475,7 @@ io.system("(while killall -0 firefox; do sleep 5; done) > /tmp/pterosaur/fifo_"+
 
 //TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
 //TODO: Try getting rid of loop now that thigns are stabler
-io.system('sh -c \'vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur()\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/null\' &');
+io.system('sh -c \'vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur()\'\\\'\'  --remote /tmp/shadowvim/.scratch </tmp/pterosaur/fifo_'+uid+' > /dev/null\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
@@ -456,6 +496,25 @@ modes.addMode("VIM_COMMAND", {
   bases: [modes.VIM_NORMAL]
 });
 
+modes.addMode("VIM_SELECT", {
+  char: "s",
+  desription: "Vim selection mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+modes.addMode("VIM_VISUAL", {
+  char: "V",
+  desription: "Vim visual mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+modes.addMode("VIM_REPLACE", {
+  char: "R",
+  desription: "Vim replace mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+var pterosaurModes = [modes.INSERT, modes.AUTOCOMPLETE, modes.VIM_NORMAL, modes.VIM_COMMAND, modes.VIM_SELECT, modes.VIM_VISUAL, modes.VIM_REPLACE]
 
 
 commands.add(["vim[do]"],

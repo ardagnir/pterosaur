@@ -146,20 +146,26 @@ function! s:WriteMetaFile(fileName, checkInsert)
     let s:vim_mode = mode()
   endif
 
-  call system('echo '.s:vim_mode.' > '.a:fileName)
+  let line1 = s:vim_mode."\\n"
 
   let pos = s:GetByteNum('.')
   if s:vim_mode ==# 'v' || s:vim_mode ==# 's'
-    call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
+    let line2 = (min([pos,s:lastPos])-1).",".col('.').",".line('.')."\\n"
+    let line3 = max([pos,s:lastPos]).",".col('.').",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
   elseif s:vim_mode ==# 'V' || s:vim_mode ==# 'S'
-    let start = line2byte(byte2line(min([pos,s:lastPos])))-1
-    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)-1
-    call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
-  elseif (s:vim_mode == 'n' || s:vim_mode == 'R') && getline('.')!=''
-    call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
+    let line2 = (line2byte(byte2line(min([pos,s:lastPos])))-1).",".col('.').",".line('.')."\\n"
+    let line3 = (line2byte(byte2line(max([pos,s:lastPos]))+1)-1).",".col('.').",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
+  elseif (s:vim_mode == 'n' || s:vim_mode == 'r') && getline('.')!=''
+    let line2 = (pos-1).",".col('.').",".line('.')."\\n"
+    let line3 = pos.",".(col('.')+1).",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
     let s:lastPos = pos
   else
-    call system('echo -e "'.(pos-1)."\\n".(pos-1).'" >> '.a:fileName)
+    let line2 = (pos-1).",".col('.').",".line('.')."\\n"
+    let line3 = line2
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
     let s:lastPos = pos
   endif
 endfunction
@@ -179,7 +185,8 @@ function! CheckConsole()
       let s:vim_mode="c"
       if s:fromCommand == 0
         ElGroup pterosaur
-          ElSetting timer 1 "Same as 2 right now. This is for once eventloop can handle shorter time periods.
+          "Same as 2 right now. This is for once eventloop can handle shorter time periods.
+          ElSetting timer 1
         ElGroup END
       endif
       let s:fromCommand = 1
