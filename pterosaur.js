@@ -480,7 +480,8 @@ sleepProcess.init(FileUtils.File('/bin/sh'));
 sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
 
 vimProcess.init(FileUtils.File('/bin/sh'));
-vimProcess.runAsync([ '-c',"vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
+//+clientserver doesn't work for some values of TERM
+vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
