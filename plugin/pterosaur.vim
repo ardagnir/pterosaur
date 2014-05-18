@@ -174,6 +174,7 @@ function s:BetterShellEscape(text)
   let returnVal = shellescape(a:text, 1)
   let returnVal = substitute(returnVal, '\\%', '%', 'g')
   let returnVal = substitute(returnVal, '\\#', '#', 'g')
+  let returnVal = substitute(returnVal, '\\!', '!', 'g')
   return returnVal
 endfunction
 
