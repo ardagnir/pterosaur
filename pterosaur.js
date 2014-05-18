@@ -193,8 +193,8 @@ function update(){
       }
       modes.push(modes.VIM_SELECT);
     }
-    //The vimdocs say this is R and Rv, but vim actually sends r
-    else if ((vimMode === "r") && modes.main !==modes.VIM_REPLACE)
+    //R is replace and Rv is virtual replace
+    else if ((vimMode[0]==="R") && modes.main !==modes.VIM_REPLACE)
     {
       dactyl.echo("");
       if (modes.main !== modes.INSERT)

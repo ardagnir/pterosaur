@@ -94,6 +94,14 @@ function! SetupPterosaur()
   set noswapfile
   set shortmess+=A
   set noshowmode
+
+  "Vim seems to be inconsistent with arrowkey terminal codes, even for the same termtype. So
+  "we're setting them manually.
+  exec "set t_ku=\<ESC>[A"
+  exec "set t_kd=\<ESC>[B"
+  exec "set t_kr=\<ESC>[C"
+  exec "set t_kl=\<ESC>[D"
+
   snoremap <bs> <C-G>c
 
   let s:file = "/tmp/shadowvim/".tolower(v:servername)."/contents.txt"
@@ -141,7 +149,14 @@ let s:lastPos = 0
 
 function! s:WriteMetaFile(fileName, checkInsert)
   if a:checkInsert
-    let s:vim_mode = v:insertmode
+    if v:insertmode ==? 'i'
+      let s:vim_mode = 'i'
+    "Insertmode codes are different than mode() codes
+    elseif v:insertmode ==? 'r'
+      let s:vim_mode = 'R'
+    elseif v:insertmode ==? 'v'
+      let s:vim_mode = 'Rv'
+    endif
   else
     let s:vim_mode = mode()
   endif
@@ -157,7 +172,7 @@ function! s:WriteMetaFile(fileName, checkInsert)
     let line2 = (line2byte(byte2line(min([pos,s:lastPos])))-1).",".col('.').",".line('.')."\\n"
     let line3 = (line2byte(byte2line(max([pos,s:lastPos]))+1)-1).",".col('.').",".line('.')."\\n"
     call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
-  elseif (s:vim_mode == 'n' || s:vim_mode == 'r') && getline('.')!=''
+  elseif (s:vim_mode == 'n' || s:vim_mode[0] == 'R') && getline('.')!=''
     let line2 = (pos-1).",".col('.').",".line('.')."\\n"
     let line3 = pos.",".(col('.')+1).",".line('.')."\\n"
     call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
