@@ -354,10 +354,17 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '\\b'
       else if (inputChar==="<Return>") {
         sendToVim += '\\r'
-        return PASS;
+        //Inputs often trigger on return. But if we send it for textareas, we get an extra linebreak.
+        if (textBox.tagName.toLowerCase()==="input")
+            return PASS;
+        else
+            return KILL;
       }
       else if (inputChar==="<Tab>")
-        return PASS;
+        if ( modes.main === modes.VIM_COMMAND)
+            sendToVim += '\\t'
+        else
+            return PASS;
       else if (inputChar==="<Up>")
         sendToVim += '\\e[A'
       else if (inputChar==="<Down>")
