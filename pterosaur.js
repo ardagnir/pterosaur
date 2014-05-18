@@ -43,7 +43,7 @@
 
 "use strict";
 var INFO =
-["plugin", { name: "fullvim",
+["plugin", { name: "pterosaur",
              version: "0.6",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
@@ -60,6 +60,17 @@ var INFO =
 function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
+
+    if (debugMode && !options["pterosaurdebug"])
+    {
+      killShadowvim();
+      startShadowvim(0);
+    }
+    else if (!debugMode && options["pterosaurdebug"])
+    {
+      killShadowvim();
+      startShadowvim(1);
+    }
 
     if(pterFocused && textBox)
     {
@@ -427,6 +438,50 @@ function cleanupPterosaur()
     pterosaurCleanupCheck = options["fullvim"];
 }
 
+function startShadowvim(debug) {
+  debugMode = debug;
+
+  uid = Math.floor(Math.random()*0x100000000).toString(16)
+  dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid);
+  tmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt");
+  metaTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt");
+  messageTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt");
+
+  dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
+  tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+  metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+  messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+
+  tmpfile=File(tmpfile);
+  metaTmpfile=File(metaTmpfile);
+  messageTmpfile=File(messageTmpfile);
+
+  if (!tmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+
+  if (!metaTmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+
+  if (!messageTmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+  io.system("mkfifo /tmp/shadowvim/pterosaur_"+uid+"/fifo");
+
+  //sleepProcess holds the fifo open so vim doesn't close.
+  sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+  vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+
+  sleepProcess.init(FileUtils.File('/bin/sh'));
+  sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
+
+  vimProcess.init(FileUtils.File('/bin/sh'));
+  //Note: +clientserver doesn't work for some values of TERM (like linux)
+  if (debug)
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
+  else
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
+
+}
+
 var savedText = null;
 var savedCursorStart = null;
 var savedCursorEnd = null;
@@ -435,59 +490,39 @@ var pterFocused = null;
 var textBox;
 var lastVimCommand = "";
 var sendToVim = "";
-//To prevent collisions TODO: get sequentually, rather than randomly
-var uid = Math.floor(Math.random()*0x100000000).toString(16)
 
-var dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid);
-var tmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt");
-var metaTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt");
-var messageTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt");
+var uid;
+var dir;
+var tmpfile;
+var metaTmpfile;
+var messageTmpfile;
+var sleepProcess;
+var vimProcess;
 
-dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
-tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
-metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
-messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
-
-tmpfile=File(tmpfile);
-metaTmpfile=File(metaTmpfile);
-messageTmpfile=File(messageTmpfile);
 
 var unsent = 1;
 
-if (!tmpfile)
-    throw Error(_("io.cantCreateTempFile"));
 
-if (!metaTmpfile)
-    throw Error(_("io.cantCreateTempFile"));
-
-if (!messageTmpfile)
-    throw Error(_("io.cantCreateTempFile"));
-
-let onUnload = function(event) {
+function killShadowvim() {
   dir.remove(true);
 }
+
+let onUnload = killShadowvim
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
 var writeInsteadOfRead = 0;
 
-io.system("mkfifo /tmp/shadowvim/pterosaur_"+uid+"/fifo");
-
-//sleepProcess holds the fifo open so vim doesn't close.
-var sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-var vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-
-sleepProcess.init(FileUtils.File('/bin/sh'));
-sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
-
-vimProcess.init(FileUtils.File('/bin/sh'));
-//+clientserver doesn't work for some values of TERM
-vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
 
+var debugMode =false;
+
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
+group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
+
+startShadowvim(false);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
