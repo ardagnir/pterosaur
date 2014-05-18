@@ -85,7 +85,7 @@ function update(){
       {
         let tempSendToVim=sendToVim
         sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur/fifo_"+uid);
+        io.system("printf '" + tempSendToVim  + "' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
         unsent=0;
       }
       writeInsteadOfRead = 0;
@@ -242,7 +242,7 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\ei' > /tmp/pterosaur/fifo_"+uid);
+      io.system("printf '\\ei' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
 
     pterFocused = dactyl.focusedElement;
 
@@ -438,10 +438,10 @@ var sendToVim = "";
 //To prevent collisions TODO: get sequentually, rather than randomly
 var uid = Math.floor(Math.random()*0x100000000).toString(16)
 
-var dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid)
-var tmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt")
-var metaTmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt")
-var messageTmpfile = new FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt")
+var dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid);
+var tmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt");
+var metaTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt");
+var messageTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt");
 
 dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
 tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
@@ -464,21 +464,23 @@ if (!messageTmpfile)
     throw Error(_("io.cantCreateTempFile"));
 
 let onUnload = function(event) {
-  dir.remove(true)
+  dir.remove(true);
 }
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
 var writeInsteadOfRead = 0;
 
-io.system("mkdir /tmp/pterosaur");
-io.system("mkfifo /tmp/pterosaur/fifo_"+uid);
+io.system("mkfifo /tmp/shadowvim/pterosaur_"+uid+"/fifo");
 
-//TODO: This is an ugly hack.
-io.system("(while killall -0 firefox; do sleep 5; done) > /tmp/pterosaur/fifo_"+uid+" &");
+//sleepProcess holds the fifo open so vim doesn't close.
+var sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+var vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
 
-//TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
-//TODO: Try getting rid of loop now that thigns are stabler
-io.system('sh -c \'vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur()\'\\\'\'  --remote /tmp/shadowvim/.scratch </tmp/pterosaur/fifo_'+uid+' > /dev/null\' &');
+sleepProcess.init(FileUtils.File('/bin/sh'));
+sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
+
+vimProcess.init(FileUtils.File('/bin/sh'));
+vimProcess.runAsync([ '-c',"vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
