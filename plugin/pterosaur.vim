@@ -26,21 +26,37 @@ let s:vim_mode = "n"
 
 function! LoseTextbox()
   ElGroup pterosaur!
-  bd
+endfunction
+
+"Replacement for 'edit! s:file' that is undo joined (and doesn't leave the
+"scratch buffer)
+function! UndoJoinedEdit()
+  undojoin | normal! gg"_dG
+  undojoin | exec "read ".s:file
+  undojoin | normal! k"_dd
+endfunction
+
+function! UpdateTextbox(lineStart, columnStart, lineEnd, columnEnd)
+  call s:VerySilent("call UndoJoinedEdit()")
+  call cursor(a:lineStart, a:columnStart)
+  call system("echo '' > ".s:metaFile)
+  let s:vim_mode=''
 endfunction
 
 function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
-  call s:VerySilent( "edit! ".s:file )
+  call s:VerySilent("call UndoJoinedEdit()")
 
   if a:lineStart==a:lineEnd && a:columnStart==a:columnEnd
     call cursor(a:lineStart, a:columnStart)
 
     if mode()=="n" || mode()=="v" || mode()=="V" || mode()=="s" || mode()=="S"
       if a:columnStart<len(line('.'))+1
-        call feedkeys("\<ESC>i",'n')
+        call feedkeys("\<ESC>i\<C-G>u",'n')
       else
-        call feedkeys("\<ESC>a",'n')
+        call feedkeys("\<ESC>a\<C-G>u",'n')
       endif
+    else
+        call feedkeys("\<C-G>u",'n')
     endif
   else
     call cursor(a:lineStart, a:columnStart+1)
@@ -66,50 +82,63 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
   let s:vim_mode=''
 
   ElGroup pterosaur
-    ElSetting timer 4
+    ElSetting timer 2
     ElCmd call CheckConsole()
     ElCmd call OutputMessages()
   ElGroup END
 endfunction
 
-function! SetupPterosaur(file, metaFile, messageFile)
-  set autoread
+function! SetupPterosaur()
+  set buftype=nofile
+  set bufhidden=hide
   set noswapfile
   set shortmess+=A
   set noshowmode
+
+  "Vim seems to be inconsistent with arrowkey terminal codes, even for the same termtype. So
+  "we're setting them manually.
+  exec "set t_ku=\<ESC>[A"
+  exec "set t_kd=\<ESC>[B"
+  exec "set t_kr=\<ESC>[C"
+  exec "set t_kl=\<ESC>[D"
+
   snoremap <bs> <C-G>c
+
+  let s:file = "/tmp/shadowvim/".tolower(v:servername)."/contents.txt"
+  let s:metaFile = "/tmp/shadowvim/".tolower(v:servername)."/meta.txt"
+  let s:messageFile = "/tmp/shadowvim/".tolower(v:servername)."/messages.txt"
 
   augroup Pterosaur
     sil autocmd!
     sil autocmd FileChangedShell * echon ''
-    sil autocmd TextChanged * call <SID>VerySilent("write!")
+
+    "I'm piping through cat, because write! can still trigger vim's
+    "clippy-style 'are you sure?' messages.
+    sil exec "sil autocmd TextChanged * call <SID>VerySilent('write !cat >".s:file."')"
 
     "Adding text in insert mode calls this, but not TextChangedI
-    sil autocmd CursorMovedI * call <SID>VerySilent("write!")
-    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".a:metaFile."', 0)"
-    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".a:metaFile."', 0)"
+    sil exec "sil autocmd CursorMovedI * call <SID>VerySilent('write !cat >".s:file."')"
 
-    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".a:metaFile."', 1)"
-    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".a:metaFile."', 0)"
-    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".a:metaFile."', 1)"
+    sil exec "autocmd CursorMoved * call <SID>WriteMetaFile('".s:metaFile."', 0)"
+    sil exec "autocmd CursorMovedI * call <SID>WriteMetaFile('".s:metaFile."', 0)"
+
+    sil exec "autocmd InsertEnter * call <SID>WriteMetaFile('".s:metaFile."', 1)"
+    sil exec "autocmd InsertLeave * call <SID>WriteMetaFile('".s:metaFile."', 0)"
+    sil exec "autocmd InsertChange * call <SID>WriteMetaFile('".s:metaFile."', 1)"
   augroup END
 
   try
     ElGroup! pterosaur
 
     ElGroup pterosaur
-      ElSetting timer 4
+      ElSetting timer 2
       ElCmd call CheckConsole()
       ElCmd call OutputMessages()
     ElGroup END
   catch
-    call system('echo e > '.a:metaFile)
-    call system('echo Pterosaur requires eventloop.vim to read the VIM commandline. >> '.a:metaFile)
+    call system('echo -e "e\nPterosaur requires eventloop.vim to read the VIM commandline. > '.s:metaFile)
   endtry
 
-  let s:file = a:file
-  let s:metaFile = a:metaFile
-  let s:messageFile = a:messageFile
 endfunction
 
 function! s:GetByteNum(pos)
@@ -120,25 +149,38 @@ let s:lastPos = 0
 
 function! s:WriteMetaFile(fileName, checkInsert)
   if a:checkInsert
-    let s:vim_mode = v:insertmode
+    if v:insertmode ==? 'i'
+      let s:vim_mode = 'i'
+    "Insertmode codes are different than mode() codes
+    elseif v:insertmode ==? 'r'
+      let s:vim_mode = 'R'
+    elseif v:insertmode ==? 'v'
+      let s:vim_mode = 'Rv'
+    endif
   else
     let s:vim_mode = mode()
   endif
 
-  call system('echo '.s:vim_mode.' > '.a:fileName)
+  let line1 = s:vim_mode."\\n"
 
   let pos = s:GetByteNum('.')
   if s:vim_mode ==# 'v' || s:vim_mode ==# 's'
-    call system('echo -e "'.(min([pos,s:lastPos])-1)."\\n".max([pos,s:lastPos]).'" >> '.a:fileName)
+    let line2 = (min([pos,s:lastPos])-1).",".col('.').",".line('.')."\\n"
+    let line3 = max([pos,s:lastPos]).",".col('.').",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
   elseif s:vim_mode ==# 'V' || s:vim_mode ==# 'S'
-    let start = line2byte(byte2line(min([pos,s:lastPos])))-1
-    let end = line2byte(byte2line(max([pos,s:lastPos]))+1)-1
-    call system('echo -e "'.start."\\n".end.'" >> '.a:fileName)
-  elseif (s:vim_mode == 'n' || s:vim_mode == 'R') && getline('.')!=''
-    call system('echo -e "'.(pos-1)."\\n".pos.'" >> '.a:fileName)
+    let line2 = (line2byte(byte2line(min([pos,s:lastPos])))-1).",".col('.').",".line('.')."\\n"
+    let line3 = (line2byte(byte2line(max([pos,s:lastPos]))+1)-1).",".col('.').",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
+  elseif (s:vim_mode == 'n' || s:vim_mode[0] == 'R') && getline('.')!=''
+    let line2 = (pos-1).",".col('.').",".line('.')."\\n"
+    let line3 = pos.",".(col('.')+1).",".line('.')."\\n"
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
     let s:lastPos = pos
   else
-    call system('echo -e "'.(pos-1)."\\n".(pos-1).'" >> '.a:fileName)
+    let line2 = (pos-1).",".col('.').",".line('.')."\\n"
+    let line3 = line2
+    call system('echo -e "'.line1.line2.line3.'" > '.a:fileName)
     let s:lastPos = pos
   endif
 endfunction
@@ -147,6 +189,7 @@ function s:BetterShellEscape(text)
   let returnVal = shellescape(a:text, 1)
   let returnVal = substitute(returnVal, '\\%', '%', 'g')
   let returnVal = substitute(returnVal, '\\#', '#', 'g')
+  let returnVal = substitute(returnVal, '\\!', '!', 'g')
   return returnVal
 endfunction
 
@@ -158,7 +201,8 @@ function! CheckConsole()
       let s:vim_mode="c"
       if s:fromCommand == 0
         ElGroup pterosaur
-          ElSetting timer 2
+          "Same as 2 right now. This is for once eventloop can handle shorter time periods.
+          ElSetting timer 1
         ElGroup END
       endif
       let s:fromCommand = 1
@@ -166,7 +210,7 @@ function! CheckConsole()
       if s:fromCommand
         let s:fromCommand = 0
         ElGroup pterosaur
-          ElSetting timer 4
+          ElSetting timer 2
         ElGroup END
       endif
       if tempMode != s:vim_mode

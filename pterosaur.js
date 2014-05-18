@@ -43,8 +43,8 @@
 
 "use strict";
 var INFO =
-["plugin", { name: "fullvim",
-             version: "0.5",
+["plugin", { name: "pterosaur",
+             version: "0.6",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -61,6 +61,34 @@ function update(){
     if (pterosaurCleanupCheck !== options["fullvim"])
       cleanupPterosaur();
 
+    if (debugMode && !options["pterosaurdebug"])
+    {
+      killShadowvim();
+      startShadowvim(0);
+    }
+    else if (!debugMode && options["pterosaurdebug"])
+    {
+      killShadowvim();
+      startShadowvim(1);
+    }
+
+    if(pterFocused && textBox)
+    {
+      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
+        pterFocused = null;
+        cleanupForTextbox();
+        setupForTextbox();
+        writeInsteadOfRead=0;
+        return;
+      }
+
+      if (savedText!=null && textBox.value != savedText) {
+        updateTextbox(0);
+        writeInsteadOfRead=0;
+        return;
+      }
+    }
+
     //This has to be up here for vimdo to work. This should probably be changed eventually.
     if (writeInsteadOfRead)
     {
@@ -68,7 +96,7 @@ function update(){
       {
         let tempSendToVim=sendToVim
         sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/pterosaur/fifo_"+uid);
+        io.system("printf '" + tempSendToVim  + "' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
         unsent=0;
       }
       writeInsteadOfRead = 0;
@@ -76,12 +104,13 @@ function update(){
     }
 
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || modes.main !== modes.INSERT && modes.main !== modes.AUTOCOMPLETE && modes.main !== modes.VIM_NORMAL && modes.main !== modes.VIM_COMMAND) {
-      if(pterFocused) {
-        cleanupForTextbox();
-        pterFocused = null
-      }
-      return;
+    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || 
+      pterosaurModes.indexOf(modes.main)=== -1)  {
+        if(pterFocused) {
+          cleanupForTextbox();
+          pterFocused = null
+        }
+        return;
     }
 
     writeInsteadOfRead = 1; //For next time around
@@ -94,9 +123,16 @@ function update(){
     }
 
     let val = tmpfile.read();
+    //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
+    if (val.slice(-1) === '\n')
+      val = val.slice(0,-1)
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
+    for (var i=1, len=metadata.length; i<len; i++)
+    {
+      metadata[i]=metadata[i].replace(/,.*/, "")
+    }
 
     if (vimMode === "c") {
       if ( modes.main !== modes.VIM_COMMAND)
@@ -124,47 +160,70 @@ function update(){
     let messages = messageTmpfile.read();
     if (messages && messages!=="\n")
     {
-      //window.alert(messages)
       //TODO: If another message is written right now, we could lose it.
       messageTmpfile.write("");
-      //TODO: We don't neccesarily want singleline, but without it we lose focus.
-      dactyl.echo(messages,commandline.FORCE_SINGLELINE);
+
+      if(!unsent)
+      {
+        //TODO: We don't neccesarily want singleline, but without it we lose focus.
+        dactyl.echo(messages,commandline.FORCE_SINGLELINE);
+      }
 
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
       lastVimCommand=""
     }
 
     if (vimMode === "e")
-      dactyl.echo("ERROR: "+metadata[1])
-    else if (vimMode === "n" && modes.main === modes.INSERT)
     {
-      //Clear --INSERT-- echoed from vim messages
-      dactyl.echo("")
+      dactyl.echo("ERROR: "+metadata[1])
+    }
+    else if (vimMode === "n" && modes.main !== modes.VIM_NORMAL)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
       modes.push(modes.VIM_NORMAL);
     }
-    else if (vimMode === "i" && modes.main === modes.VIM_NORMAL)
+    else if ((vimMode === "v" || vimMode ==="V") && modes.main !==modes.VIM_VISUAL)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_VISUAL);
+    }
+    else if ((vimMode === "s" || vimMode ==="S") && modes.main !==modes.VIM_SELECT)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_SELECT);
+    }
+    //R is replace and Rv is virtual replace
+    else if ((vimMode[0]==="R") && modes.main !==modes.VIM_REPLACE)
+    {
+      dactyl.echo("");
+      if (modes.main !== modes.INSERT)
+      {
+        modes.pop();
+      }
+      modes.push(modes.VIM_REPLACE);
+    }
+    else if (vimMode === "i" && modes.main !== modes.INSERT)
+    {
+      dactyl.echo("");
       modes.pop();
+    }
 
     if (textBox) {
-        if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
-          pterFocused = null;
-          cleanupForTextbox();
-          return;
-        }
-
-        if (savedText!=null && textBox.value != savedText) {
-          pterFocused = null;
-          cleanupForTextbox();
-          return;
-        }
-        //We only get one line for inputs
-        if(textBox.tagName == "input")
-        {
-          val = val.replace(/\n/g," ")
-        }
 
         textBox.value = val;
-        savedText = textBox.value;
+        savedText = val;
 
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
           textBox.setSelectionRange(metadata[1], metadata[2]);
@@ -194,9 +253,15 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\ei' > /tmp/pterosaur/fifo_"+uid);
+      io.system("printf '\\ei' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
 
     pterFocused = dactyl.focusedElement;
+
+    updateTextbox(1);
+}
+
+function updateTextbox(fullSetup) {
+
     savedText = null;
     savedCursorStart = null;
     savedCursorEnd = null;
@@ -245,14 +310,18 @@ function setupForTextbox() {
 
     let origGroup = DOM(textBox).highlight.toString();
 
-    if (!tmpfile.write(text))
+    if (!tmpfile.write(text+"\n"))
       throw Error(_("io.cantEncode"));
 
 
     var ioCommand;
 
-    //vimCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "SwitchPterosaurFile(<line>,<column>,\'<file>\',\'<metaFile>\',\'<messageFile>\')"';
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    if (fullSetup){
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    }
+    else {
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "UpdateTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    }
 
     ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
     ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
@@ -265,7 +334,7 @@ function setupForTextbox() {
 modes.INSERT.params.onKeyPress = function(eventList) {
     const KILL = false, PASS = true;
 
-    if (!options["fullvim"] || dactyl.focusedElement.type === "password")
+    if (!options["fullvim"] || dactyl.focusedElement && dactyl.focusedElement.type === "password")
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0])
@@ -277,18 +346,25 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|Del|Tab|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
-      if (inputChar==="<Space>")
+      if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' '
       else if (inputChar==="<BS>")
         sendToVim += '\\b'
       else if (inputChar==="<Return>") {
         sendToVim += '\\r'
-        return PASS;
+        //Inputs often trigger on return. But if we send it for textareas, we get an extra linebreak.
+        if (textBox.tagName.toLowerCase()==="input")
+            return PASS;
+        else
+            return KILL;
       }
       else if (inputChar==="<Tab>")
-        return PASS;
+        if ( modes.main === modes.VIM_COMMAND)
+            sendToVim += '\\t'
+        else
+            return PASS;
       else if (inputChar==="<Up>")
         sendToVim += '\\e[A'
       else if (inputChar==="<Down>")
@@ -299,12 +375,9 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '\\e[D'
       else if (inputChar==="<lt>")
         sendToVim += '<'
+      else if (inputChar==="<C-v>")
+        sendToVim += '\x16'
     }
-    /*else if (/\:|\?|\//.test(inputChar) && vimMode!='i' && vimMode!='R')
-    {
-      CommandExMode().open("vimdo " + inputChar);
-    }
-    */
     else {
       if (inputChar == '%')
         sendToVim += '%%'
@@ -372,6 +445,53 @@ function cleanupPterosaur()
     pterosaurCleanupCheck = options["fullvim"];
 }
 
+function startShadowvim(debug) {
+  debugMode = debug;
+
+  uid = Math.floor(Math.random()*0x100000000).toString(16)
+  dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid);
+  tmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt");
+  metaTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt");
+  messageTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt");
+
+  dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
+  tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+  metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+  messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
+
+  tmpfile=File(tmpfile);
+  metaTmpfile=File(metaTmpfile);
+  messageTmpfile=File(messageTmpfile);
+
+  if (!tmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+
+  if (!metaTmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+
+  if (!messageTmpfile)
+      throw Error(_("io.cantCreateTempFile"));
+  io.system("mkfifo /tmp/shadowvim/pterosaur_"+uid+"/fifo");
+
+  //sleepProcess holds the fifo open so vim doesn't close.
+  sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+  vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+
+  sleepProcess.init(FileUtils.File('/bin/sh'));
+  sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
+
+  vimProcess.init(FileUtils.File('/bin/sh'));
+  //Note: +clientserver doesn't work for some values of TERM (like linux)
+  if (debug)
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
+  else
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
+
+  //We have to send SOMETHING to the fifo or vim will stay open when we close.
+  io.system("echo -n ' ' > /tmp/shadowvim/pterosaur_"+uid+"/fifo")
+
+}
+
 var savedText = null;
 var savedCursorStart = null;
 var savedCursorEnd = null;
@@ -380,42 +500,39 @@ var pterFocused = null;
 var textBox;
 var lastVimCommand = "";
 var sendToVim = "";
-//To prevent collisions TODO: get sequentually, rather than randomly
-var uid = Math.floor(Math.random()*0x100000000).toString(16)
-var tmpfile = io.createTempFile("txt", "_pterosaur_"+uid);
-var metaTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_meta");
-var messageTmpfile = io.createTempFile("txt", "_pterosaur_"+uid+"_messages");
-var unsent = 0;
 
-if (!tmpfile)
-    throw Error(_("io.cantCreateTempFile"));
-
-if (!metaTmpfile)
-    throw Error(_("io.cantCreateTempFile"));
-
-if (!messageTmpfile)
-    throw Error(_("io.cantCreateTempFile"));
+var uid;
+var dir;
+var tmpfile;
+var metaTmpfile;
+var messageTmpfile;
+var sleepProcess;
+var vimProcess;
 
 
+var unsent = 1;
+
+
+function killShadowvim() {
+  dir.remove(true);
+}
+
+let onUnload = killShadowvim
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
 var writeInsteadOfRead = 0;
 
-io.system("mkdir /tmp/pterosaur");
-io.system("mkfifo /tmp/pterosaur/fifo_"+uid);
-
-//TODO: This is an ugly hack.
-io.system("(while killall -0 firefox; do sleep 1; done) > /tmp/pterosaur/fifo_"+uid+" &");
-
-//TODO: Also an ugly hack. Also the --remote is only there because on some computers vim won't create a server outside a terminal unless it has a --remote.
-//TODO: Try getting rid of loop now that thigns are stabler
-io.system('sh -c \'while killall -0 firefox; do vim --servername pterosaur_'+uid+' +\'\\\'\'call SetupPterosaur("'+tmpfile.path+'","'+metaTmpfile.path+'","'+messageTmpfile.path+'")\'\\\'\'  --remote '+tmpfile.path+' </tmp/pterosaur/fifo_'+uid+' > /dev/null; done\' &');
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
 
+var debugMode =false;
+
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
+group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
+
+startShadowvim(false);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
@@ -430,6 +547,25 @@ modes.addMode("VIM_COMMAND", {
   bases: [modes.VIM_NORMAL]
 });
 
+modes.addMode("VIM_SELECT", {
+  char: "s",
+  desription: "Vim selection mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+modes.addMode("VIM_VISUAL", {
+  char: "V",
+  desription: "Vim visual mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+modes.addMode("VIM_REPLACE", {
+  char: "R",
+  desription: "Vim replace mode",
+  bases: [modes.VIM_NORMAL]
+});
+
+var pterosaurModes = [modes.INSERT, modes.AUTOCOMPLETE, modes.VIM_NORMAL, modes.VIM_COMMAND, modes.VIM_SELECT, modes.VIM_VISUAL, modes.VIM_REPLACE]
 
 
 commands.add(["vim[do]"],
@@ -446,4 +582,4 @@ commands.add(["vim[do]"],
 
 
 
-let timer =  window.setInterval(update, 50);
+let timer =  window.setInterval(update, 30);
