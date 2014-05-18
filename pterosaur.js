@@ -480,6 +480,9 @@ function startShadowvim(debug) {
   else
     vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
 
+  //We have to send SOMETHING to the fifo or vim will stay open when we close.
+  io.system("echo -n ' ' > /tmp/shadowvim/pterosaur_"+uid+"/fifo")
+
 }
 
 var savedText = null;
