@@ -72,7 +72,7 @@ function! FocusTextbox(lineStart, columnStart, lineEnd, columnEnd)
       call feedkeys((a:columnStart-a:columnEnd+1)."k",'n')
     endif
     if a:lineEnd-a:lineStart > 0
-      call feedkeys((a:LineEnd-a:LineStart)."j",'n')
+      call feedkeys((a:lineEnd-a:lineStart)."j",'n')
     "call cursor(a:lineEnd, a:columnEnd)
     endif
     call feedkeys("\<C-G>",'n')
