@@ -31,7 +31,7 @@ endfunction
 "Replacement for 'edit! s:file' that is undo joined (and doesn't leave the
 "scratch buffer)
 function! UndoJoinedEdit()
-  undojoin | normal! gg"_dG
+  undojoin | exec "normal! \<ESC>gg\"_dG"
   undojoin | exec "read ".s:file
   undojoin | normal! k"_dd
 endfunction
