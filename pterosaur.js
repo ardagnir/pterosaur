@@ -75,11 +75,14 @@ function update(){
     if(pterFocused && textBox)
     {
       if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart ||
-          savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ||
-          savedText!=null && textBox.value != savedText)
+          savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd)
       {
-        updateTextbox();
-        writeInsteadOfRead=0;
+        updateTextbox(0);
+        return;
+      }
+      if (savedText!=null && textBox.value != savedText)
+      {
+        updateTextbox(1);
         return;
       }
     }
@@ -251,10 +254,10 @@ function setupForTextbox() {
 
     pterFocused = dactyl.focusedElement;
 
-    updateTextbox();
+    updateTextbox(0);
 }
 
-function updateTextbox() {
+function updateTextbox(preserveMode) {
     unsent=1
 
     savedText = null;
@@ -311,14 +314,18 @@ function updateTextbox() {
 
     var ioCommand;
 
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
 
     ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
     ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
     ioCommand = ioCommand.replace(/<columnEnd>/, columnEnd);
     ioCommand = ioCommand.replace(/<lineEnd>/, lineEnd);
+    ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
+    console.log(ioCommand);
 
     io.system(ioCommand);
+
+    writeInsteadOfRead = 0
 }
 
 modes.INSERT.params.onKeyPress = function(eventList) {
