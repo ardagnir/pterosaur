@@ -96,7 +96,15 @@ function update(){
         sendToVim = ""
         io.system("printf '" + tempSendToVim  + "' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
         unsent=0;
+        cyclesSinceLastSend=0;
       }
+
+      if(cyclesSinceLastSend < 2)
+      {
+        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_Poll()" &');
+        cyclesSinceLastSend+=1;
+      }
+
       writeInsteadOfRead = 0;
       return;
     }
@@ -119,7 +127,6 @@ function update(){
         cleanupForTextbox();
       setupForTextbox();
     }
-
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
     if (val.slice(-1) === '\n')
@@ -508,6 +515,8 @@ var vimProcess;
 
 
 var unsent = 1;
+
+var cyclesSinceLastSend = 0;
 
 
 function killShadowvim() {
