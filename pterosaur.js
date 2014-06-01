@@ -126,7 +126,10 @@ function update(){
       if(pterFocused)
         cleanupForTextbox();
       setupForTextbox();
+      //We already skipped some important steps (like selection checking), so wait till next update and do the whole thing.
+      return
     }
+
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
     if (val.slice(-1) === '\n')
