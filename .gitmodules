@@ -1,3 +1,0 @@
-[submodule "plugin/shadowvim"]
-	path = plugin/shadowvim
-	url = http://github.com/ardagnir/shadowvim
