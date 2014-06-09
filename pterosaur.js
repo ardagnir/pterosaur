@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.6",
+             version: "0.7",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -74,17 +74,15 @@ function update(){
 
     if(pterFocused && textBox)
     {
-      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart || savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd ) {
-        pterFocused = null;
-        cleanupForTextbox();
-        setupForTextbox();
-        writeInsteadOfRead=0;
+      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart ||
+          savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd)
+      {
+        updateTextbox(0);
         return;
       }
-
-      if (savedText!=null && textBox.value != savedText) {
-        updateTextbox(0);
-        writeInsteadOfRead=0;
+      if (savedText!=null && textBox.value != savedText)
+      {
+        updateTextbox(1);
         return;
       }
     }
@@ -98,7 +96,15 @@ function update(){
         sendToVim = ""
         io.system("printf '" + tempSendToVim  + "' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
         unsent=0;
+        cyclesSinceLastSend=0;
       }
+
+      if(cyclesSinceLastSend < 2)
+      {
+        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_Poll()" &');
+        cyclesSinceLastSend+=1;
+      }
+
       writeInsteadOfRead = 0;
       return;
     }
@@ -113,19 +119,24 @@ function update(){
         return;
     }
 
-    writeInsteadOfRead = 1; //For next time around
-
     if (dactyl.focusedElement !== pterFocused)
     {
       if(pterFocused)
         cleanupForTextbox();
       setupForTextbox();
+      //We already skipped some important steps (like selection checking), so wait till next update and do the whole thing.
+      return
     }
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
-    if (val.slice(-1) === '\n')
+    if (val !== '')
       val = val.slice(0,-1)
+    else
+      //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
+      return
+
+    writeInsteadOfRead = 1; //For next time around
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
@@ -246,7 +257,6 @@ function update(){
 }
 
 function cleanupForTextbox() { 
-    io.system('vim --servername pterosaur_'+uid+' --remote-expr "LoseTextbox()"');
     unsent=1;
 }
 
@@ -257,10 +267,11 @@ function setupForTextbox() {
 
     pterFocused = dactyl.focusedElement;
 
-    updateTextbox(1);
+    updateTextbox(0);
 }
 
-function updateTextbox(fullSetup) {
+function updateTextbox(preserveMode) {
+    unsent=1
 
     savedText = null;
     savedCursorStart = null;
@@ -316,19 +327,18 @@ function updateTextbox(fullSetup) {
 
     var ioCommand;
 
-    if (fullSetup){
-      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "FocusTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
-    }
-    else {
-      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "UpdateTextbox(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>)"';
-    }
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
 
     ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
     ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
     ioCommand = ioCommand.replace(/<columnEnd>/, columnEnd);
     ioCommand = ioCommand.replace(/<lineEnd>/, lineEnd);
+    ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
+    console.log(ioCommand);
 
     io.system(ioCommand);
+
+    writeInsteadOfRead = 0
 }
 
 modes.INSERT.params.onKeyPress = function(eventList) {
@@ -483,9 +493,9 @@ function startShadowvim(debug) {
   vimProcess.init(FileUtils.File('/bin/sh'));
   //Note: +clientserver doesn't work for some values of TERM (like linux)
   if (debug)
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Shadowvim_SetupShadowvim(\"\",\"\")' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
   else
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call SetupPterosaur()' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Shadowvim_SetupShadowvim(\"\",\"\")' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
 
   //We have to send SOMETHING to the fifo or vim will stay open when we close.
   io.system("echo -n ' ' > /tmp/shadowvim/pterosaur_"+uid+"/fifo")
@@ -511,6 +521,8 @@ var vimProcess;
 
 
 var unsent = 1;
+
+var cyclesSinceLastSend = 0;
 
 
 function killShadowvim() {
