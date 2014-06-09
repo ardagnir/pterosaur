@@ -119,8 +119,6 @@ function update(){
         return;
     }
 
-    writeInsteadOfRead = 1; //For next time around
-
     if (dactyl.focusedElement !== pterFocused)
     {
       if(pterFocused)
@@ -132,8 +130,13 @@ function update(){
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
-    if (val.slice(-1) === '\n')
+    if (val !== '')
       val = val.slice(0,-1)
+    else
+      //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
+      return
+
+    writeInsteadOfRead = 1; //For next time around
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
