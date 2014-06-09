@@ -13,10 +13,12 @@ Pterosaur gives you the full power of Vim in each Firefox text field.
 
 ##Setup
 **Step 1:** If you don't have the [shadowvim](https://github.com/ardagnir/shadowvim) plugin, install it first using your plugin-manager. If you use pathogen:
+
     cd ~/.vim/bundle
     git clone http://github.com/ardagnir/shadowvim
     
 **Step 2:** Clone pterosaur to your pentadactyl plugin directory
+
     mkdir ~/.pentadactyl/plugins
     cd ~/.pentadactyl/plugins
     git clone http://github.com/ardagnir/pterosaur
