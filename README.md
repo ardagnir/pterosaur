@@ -12,10 +12,10 @@ Pterosaur gives you the full power of Vim in each Firefox text field.
 - Pterosaur also works in OSX, but doing so requires XQuartz. *(This is a requirement of vim's +clientserver functionality.)*
 
 ##Setup
-**Step 1:** If you don't have the [shadowvim](https://github.com/ardagnir/shadowvim) plugin, install it first using your plugin-manager. If you use pathogen:
+**Step 1:** If you don't have the [vimbed](https://github.com/ardagnir/vimbed) plugin, install it first using your plugin-manager. If you use pathogen:
 
     cd ~/.vim/bundle
-    git clone http://github.com/ardagnir/shadowvim
+    git clone http://github.com/ardagnir/vimbed
     
 **Step 2:** Clone pterosaur to your pentadactyl plugin directory
 
@@ -26,7 +26,7 @@ Pterosaur gives you the full power of Vim in each Firefox text field.
 **Step 3:** Pterosaur's full-vim editing is disabled by default. Type `:set fullvim` in firefox to enable it.
 
 ##How it works
-Pterosaur uses shadowvim to run an actual vim instance in the background and routes keystrokes through vim.
+Pterosaur uses vimbed to run an actual vim instance in the background and routes keystrokes through vim.
 
 ##Bugs
 ( If you find a bug that isn't listed here, please create a github issue. )
@@ -41,7 +41,7 @@ Pterosaur should "just work", but if it doesn't:
 
 1. Make sure you are running master. It is the stable version.
 
-2. Make sure you have `:set fullvim` in pentadactyl and have shadowvim installed.
+2. Make sure you have `:set fullvim` in pentadactyl and have vimbed installed.
 
 3. Run `:!vim --version | grep server` from INSIDE pentadactyl. Make sure it shows +clientserver.
 
