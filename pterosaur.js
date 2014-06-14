@@ -63,13 +63,13 @@ function update(){
 
     if (debugMode && !options["pterosaurdebug"])
     {
-      killShadowvim();
-      startShadowvim(0);
+      killVimbed();
+      startVimbed(0);
     }
     else if (!debugMode && options["pterosaurdebug"])
     {
-      killShadowvim();
-      startShadowvim(1);
+      killVimbed();
+      startVimbed(1);
     }
 
     if(pterFocused && textBox)
@@ -94,14 +94,14 @@ function update(){
       {
         let tempSendToVim=sendToVim
         sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
+        io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
         unsent=0;
         cyclesSinceLastSend=0;
       }
 
       if(cyclesSinceLastSend < 2)
       {
-        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_Poll()" &');
+        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
         cyclesSinceLastSend+=1;
       }
 
@@ -263,7 +263,7 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\ei' > /tmp/shadowvim/pterosaur_"+uid+"/fifo");
+      io.system("printf '\\ei' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
 
     pterFocused = dactyl.focusedElement;
 
@@ -327,7 +327,7 @@ function updateTextbox(preserveMode) {
 
     var ioCommand;
 
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Shadowvim_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
 
     ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
     ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
@@ -455,14 +455,14 @@ function cleanupPterosaur()
     pterosaurCleanupCheck = options["fullvim"];
 }
 
-function startShadowvim(debug) {
+function startVimbed(debug) {
   debugMode = debug;
 
   uid = Math.floor(Math.random()*0x100000000).toString(16)
-  dir = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid);
-  tmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/contents.txt");
-  metaTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/meta.txt");
-  messageTmpfile = FileUtils.File("/tmp/shadowvim/pterosaur_"+uid+"/messages.txt");
+  dir = FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
+  tmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
+  metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
+  messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
 
   dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
   tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
@@ -481,24 +481,24 @@ function startShadowvim(debug) {
 
   if (!messageTmpfile)
       throw Error(_("io.cantCreateTempFile"));
-  io.system("mkfifo /tmp/shadowvim/pterosaur_"+uid+"/fifo");
+  io.system("mkfifo /tmp/vimbed/pterosaur_"+uid+"/fifo");
 
   //sleepProcess holds the fifo open so vim doesn't close.
   sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
   vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
 
   sleepProcess.init(FileUtils.File('/bin/sh'));
-  sleepProcess.runAsync(['-c',"(while [ -p /tmp/shadowvim/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/shadowvim/pterosaur_"+uid+"/fifo"], 2);
+  sleepProcess.runAsync(['-c',"(while [ -p /tmp/vimbed/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/vimbed/pterosaur_"+uid+"/fifo"], 2);
 
   vimProcess.init(FileUtils.File('/bin/sh'));
   //Note: +clientserver doesn't work for some values of TERM (like linux)
   if (debug)
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Shadowvim_SetupShadowvim(\"\",\"\")' </tmp/shadowvim/pterosaur_"+uid+"/fifo"],2);
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
   else
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Shadowvim_SetupShadowvim(\"\",\"\")' </tmp/shadowvim/pterosaur_"+uid+"/fifo >/dev/null"],2);
+    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
 
   //We have to send SOMETHING to the fifo or vim will stay open when we close.
-  io.system("echo -n ' ' > /tmp/shadowvim/pterosaur_"+uid+"/fifo")
+  io.system("echo -n ' ' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
 
 }
 
@@ -525,11 +525,11 @@ var unsent = 1;
 var cyclesSinceLastSend = 0;
 
 
-function killShadowvim() {
+function killVimbed() {
   dir.remove(true);
 }
 
-let onUnload = killShadowvim
+let onUnload = killVimbed
 
 //We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
 var writeInsteadOfRead = 0;
@@ -544,7 +544,7 @@ var debugMode =false;
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
 group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
 
-startShadowvim(false);
+startVimbed(false);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
