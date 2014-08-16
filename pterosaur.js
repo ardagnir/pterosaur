@@ -269,8 +269,20 @@ function textBoxGetSelection(){
   }
 }
 
+function createSandbox(){
+  var protocol = content.location.protocol;
+  var host = content.location.host;
+  //I don't think these can be non-strings, but there's no harm in being paranoid.
+  if (typeof protocol === "string" && typeof host === "string")
+  {
+    return new Components.utils.Sandbox(protocol + "//" + host);
+  }
+}
+
 function textBoxGetSelection_ace(){
-  var sandbox = new Components.utils.Sandbox("https://github.com");
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
   sandbox.ace = content.wrappedJSObject.ace;
   sandbox.id = textBox.parentNode.id;
   sandbox.stringify = JSON.stringify;
@@ -310,7 +322,9 @@ function textBoxSetSelection(start, end){
 }
 
 function textBoxSetSelection_ace(start, end){
-  var sandbox = new Components.utils.Sandbox("https://github.com");
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
   sandbox.start = start.split(",");
   sandbox.end = end.split(",");
   sandbox.ace = content.wrappedJSObject.ace;
@@ -336,7 +350,9 @@ function textBoxSetValue(newVal) {
 }
 
 function textBoxSetValue_ace(newVal){
-  var sandbox = new Components.utils.Sandbox("https://github.com");
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
   sandbox.newVal = newVal;
   sandbox.ace = content.wrappedJSObject.ace;
   sandbox.id = textBox.parentNode.id;
@@ -359,7 +375,9 @@ function textBoxGetValue() {
 }
 
 function textBoxGetValue_ace(){
-  var sandbox = new Components.utils.Sandbox("https://github.com")
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
   sandbox.ace = content.wrappedJSObject.ace;
   sandbox.id = textBox.parentNode.id;
   var sandboxScript="\
