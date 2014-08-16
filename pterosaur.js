@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.7",
+             version: "0.8",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -72,15 +72,20 @@ function update(){
       startVimbed(1);
     }
 
+    var cursorPos;
+
     if(pterFocused && textBox)
     {
-      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart ||
-          savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd)
+      cursorPos = textBoxGetSelection()
+      if (savedCursorStart!=null &&
+           (cursorPos.start.row != savedCursorStart.row || cursorPos.start.column != savedCursorStart.column) ||
+          savedCursorEnd!=null &&
+           (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
       {
         updateTextbox(0);
         return;
       }
-      if (savedText!=null && textBox.value != savedText)
+      if (savedText!=null && textBoxGetValue() != savedText)
       {
         updateTextbox(1);
         return;
@@ -140,10 +145,6 @@ function update(){
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
-    for (var i=1, len=metadata.length; i<len; i++)
-    {
-      metadata[i]=metadata[i].replace(/,.*/, "")
-    }
 
     if (vimMode === "c") {
       if ( modes.main !== modes.VIM_COMMAND)
@@ -231,31 +232,151 @@ function update(){
       modes.pop();
     }
 
+    textBoxSetValue(val)
+
+    savedText = val;
+
     if (textBox) {
-
-        textBox.value = val;
-        savedText = val;
-
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
-          textBox.setSelectionRange(metadata[1], metadata[2]);
-
-        savedCursorStart = textBox.selectionStart;
-        savedCursorEnd = textBox.selectionEnd;
-
-        if (true) {
-            let elem = DOM(textBox);
-            elem.attrNS(NS, "modifiable", true)
-                .style.MozUserInput;
-            elem.input().attrNS(NS, "modifiable", null);
+        {
+          textBoxSetSelection(metadata[1], metadata[2])
         }
-    }
-    else {
-        while (editor_.rootElement.firstChild)
-            editor_.rootElement.removeChild(editor_.rootElement.firstChild);
-        editor_.rootElement.innerHTML = val;
+
+        cursorPos = textBoxGetSelection()
+
+        savedCursorStart = cursorPos.start;
+        savedCursorEnd = cursorPos.end;
     }
 }
 
+function textBoxGetSelection(){
+  if (textBox){
+    if(/ace_text-input/.test(textBox.className))
+    {
+      return textBoxGetSelection_ace()
+    }
+    else
+    {
+      var text = textBox.value;
+      var preStart = text.substr(0, textBox.selectionStart);
+      var preEnd = text.substr(0, textBox.selectionEnd);
+      var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
+      var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+      var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
+      var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
+      return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
+    }
+  }
+}
+
+function textBoxGetSelection_ace(){
+  var sandbox = new Components.utils.Sandbox("https://github.com");
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.id = textBox.parentNode.id;
+  sandbox.stringify = JSON.stringify;
+  var sandboxScript="\
+    var aceEditor = ace.edit(id);\
+    range =  stringify(aceEditor.getSession().getSelection().getRange());\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+
+  if (typeof sandbox.range === "string")
+  {
+    var range = JSON.parse(sandbox.range);
+    range.start.row+=1;
+    range.start.column+=1;
+    range.end.row+=1;
+    range.end.column+=1;
+    return range;
+  }
+  else
+  {
+    console.log("Sandbox Error!");
+    return {"start": {"column": 1, "row": 1}, "end": {"column": 1, "row": 1}}
+  }
+}
+
+function textBoxSetSelection(start, end){
+  if (textBox){
+    if(/ace_text-input/.test(textBox.className))
+    {
+      textBoxSetSelection_ace(start, end)
+    }
+    else
+    {
+      return textBox.setSelectionRange(parseInt(start), parseInt(end));
+    }
+  }
+}
+
+function textBoxSetSelection_ace(start, end){
+  var sandbox = new Components.utils.Sandbox("https://github.com");
+  sandbox.start = start.split(",");
+  sandbox.end = end.split(",");
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.id = textBox.parentNode.id;
+  var sandboxScript="\
+    var aceEditor = ace.edit(id);\
+    aceEditor.getSession().getSelection().setSelectionRange(\
+                                          {'start':{ 'row':start[2], 'column':start[1]},\
+                                           'end':  { 'row':end[2],   'column':end[1]}});\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxSetValue(newVal) {
+  if (textBox){
+    if (/ace_text-input/.test(textBox.className)) {
+      textBoxSetValue_ace(newVal);
+    }
+    else {
+      textBox.value = newVal;
+    }
+  }
+}
+
+function textBoxSetValue_ace(newVal){
+  var sandbox = new Components.utils.Sandbox("https://github.com");
+  sandbox.newVal = newVal;
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.id = textBox.parentNode.id;
+  var sandboxScript="\
+    var aceEditor = ace.edit(id);\
+    if (aceEditor.getSession().getValue()!=newVal){\
+      aceEditor.getSession().setValue(newVal);\
+    }\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxGetValue() {
+  if (textBox){
+    if (/ace_text-input/.test(textBox.className)) {
+      return textBoxGetValue_ace();
+    }
+    return textBox.value;
+  }
+}
+
+function textBoxGetValue_ace(){
+  var sandbox = new Components.utils.Sandbox("https://github.com")
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.id = textBox.parentNode.id;
+  var sandboxScript="\
+    var aceEditor = ace.edit(id);\
+    value = aceEditor.getSession().getValue();\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  //Make sure it's a string to avoid letting malicious code escape.
+  var returnVal = sandbox.value
+  if (typeof returnVal === "string")
+    return returnVal;
+  else
+    console.log("Sandbox Error!");
+    return "Sandbox Error!"
+}
+
+//TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() { 
     unsent=1;
 }
@@ -281,43 +402,13 @@ function updateTextbox(preserveMode) {
 
     if (!DOM(textBox).isInput)
         textBox = null;
-    let lineStart, columnStart, lineEnd, columnEnd;
 
     if (textBox) {
-        var text = textBox.value;
-        var preStart = text.substr(0, textBox.selectionStart);
-        var preEnd = text.substr(0, textBox.selectionEnd);
-        savedCursorStart = textBox.selectionStart;
-        savedCursorEnd = textBox.selectionEnd;
+        var text = textBoxGetValue()
+        var cursorPos = textBoxGetSelection()
+        savedCursorStart = cursorPos.start;
+        savedCursorEnd = cursorPos.end;
     }
-    else {
-        var editor_ = window.GetCurrentEditor ? GetCurrentEditor()
-                                              : Editor.getEditor(document.commandDispatcher.focusedWindow);
-        dactyl.assert(editor_);
-        text = Array.map(editor_.rootElement.childNodes,
-                         e => DOM.stringify(e, true))
-                    .join("");
-
-        if (!editor_.selection.rangeCount)
-            var sel = "";
-        else {
-            let range = RangeFind.nodeContents(editor_.rootElement);
-            let end = editor_.selection.getRangeAt(0);
-            range.setEnd(end.startContainer, end.startOffset);
-            pre = DOM.stringify(range, true);
-            if (range.startContainer instanceof Text)
-                pre = pre.replace(/^(?:<[^>"]+>)+/, "");
-            if (range.endContainer instanceof Text)
-                pre = pre.replace(/(?:<\/[^>"]+>)+$/, "");
-            //TODO: support selection here 
-            preStart = pre
-            preEnd = pre
-        }
-    }
-    lineStart = 1 + preStart.replace(/[^\n]/g, "").length;
-    columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
-    lineEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
-    columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
 
     let origGroup = DOM(textBox).highlight.toString();
 
@@ -327,13 +418,14 @@ function updateTextbox(preserveMode) {
 
     var ioCommand;
 
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>,<columnStart>,<rowEnd>,<columnEnd>, <preserveMode>)"';
 
-    ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
-    ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
-    ioCommand = ioCommand.replace(/<columnEnd>/, columnEnd);
-    ioCommand = ioCommand.replace(/<lineEnd>/, lineEnd);
+    ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
+    ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
+    ioCommand = ioCommand.replace(/<rowEnd>/, cursorPos.end.row);
+    ioCommand = ioCommand.replace(/<columnEnd>/, cursorPos.end.column);
     ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
+
     console.log(ioCommand);
 
     io.system(ioCommand);
@@ -360,8 +452,6 @@ modes.INSERT.params.onKeyPress = function(eventList) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' '
-      else if (inputChar==="<BS>")
-        sendToVim += '\\b'
       else if (inputChar==="<Return>") {
         sendToVim += '\\r'
         //Inputs often trigger on return. But if we send it for textareas, we get an extra linebreak.
@@ -414,13 +504,21 @@ function cleanupPterosaur()
             ["<Esc>"],
             ["Handle escape key"],
             function(){
-              if (vimMode==="n") //This is more specific than VIM_NORMAL which currently includes things like visual
+              if (vimMode==="n")
               {
                 modes.reset()
               }
               else {
                 sendToVim+="\\e"
               }
+            });
+
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<BS>"],
+            ["Handle escape key"],
+            function(){
+                sendToVim+="\\b"
             });
 
         mappings.builtin.add(
@@ -449,6 +547,7 @@ function cleanupPterosaur()
         });
 
         mappings.builtin.remove( modes.INSERT, "<Esc>");
+        mappings.builtin.remove( modes.INSERT, "<BS>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
     }
@@ -590,8 +689,6 @@ commands.add(["vim[do]"],
       argCount: "+",
       literal: 0
     });
-
-
 
 
 let timer =  window.setInterval(update, 30);
