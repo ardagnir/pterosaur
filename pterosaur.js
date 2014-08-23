@@ -250,22 +250,44 @@ function update(){
 }
 
 function textBoxGetSelection(){
-  if (textBox){
-    if(/ace_text-input/.test(textBox.className))
-    {
+  switch (textBoxType) {
+    case "ace":
       return textBoxGetSelection_ace()
-    }
-    else
-    {
+    case "normal":
       var text = textBox.value;
-      var preStart = text.substr(0, textBox.selectionStart);
-      var preEnd = text.substr(0, textBox.selectionEnd);
+      if (text){
+        var preStart = text.substr(0, textBox.selectionStart);
+        var preEnd = text.substr(0, textBox.selectionEnd);
+        var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
+        var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+        var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
+        var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
+        return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
+      }
+      return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
+    case "designMode":
+      let fromBeginning = RangeFind.nodeContents(textBox.rootElement);
+      let oldRange = textBox.selection.getRangeAt(0);
+      fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
+      var preStart = DOM.stringify(fromBeginning, true);
+      if (fromBeginning.startContainer instanceof Text)
+          preStart = preStart.replace(/^(?:<[^>"]+>)+/, "");
+      if (fromBeginning.endContainer instanceof Text)
+          preStart = preStart.replace(/(?:<\/[^>"]+>)+$/, "");
+      fromBeginning.setEnd(oldRange.endContainer, oldRange.endOffset);
+      var preEnd = DOM.stringify(fromBeginning, true);
+      if (fromBeginning.startContainer instanceof Text)
+          preEnd = preEnd.replace(/^(?:<[^>"]+>)+/, "");
+      if (fromBeginning.endContainer instanceof Text)
+          preEnd = preEnd.replace(/(?:<\/[^>"]+>)+$/, "");
+      console.log("pres")
+      console.log(preStart)
+      console.log(preEnd)
       var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
       var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
       var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
       var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
       return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
-    }
   }
 }
 
@@ -309,15 +331,20 @@ function textBoxGetSelection_ace(){
 }
 
 function textBoxSetSelection(start, end){
-  if (textBox){
-    if(/ace_text-input/.test(textBox.className))
-    {
+  switch (textBoxType) {
+    case "ace":
       textBoxSetSelection_ace(start, end)
-    }
-    else
-    {
-      return textBox.setSelectionRange(parseInt(start), parseInt(end));
-    }
+      break;
+    case "normal":
+      textBox.setSelectionRange(parseInt(start), parseInt(end));
+      break;
+    case "designMode":
+      let range = RangeFind.nodeContents(textBox.rootElement);
+      range.setStart(textBox.rootElement.firstChild, parseInt(start))
+      range.setEnd(textBox.rootElement.firstChild, parseInt(end))
+      textBox.selection.removeAllRanges()
+      textBox.selection.addRange(range)
+      break;
   }
 }
 
@@ -338,14 +365,28 @@ function textBoxSetSelection_ace(start, end){
   Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
 
+
+function htmlToText(inText) {
+  var tmp = document.createElement('div');
+  tmp.innerHTML = inText.replace(/\\/g, '\\\\').replace(/<br\/>/g, 'n\\n')
+  return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
+}
+
+function textToHtml(inText) {
+  return inText.replace(/&/g, '&amp').replace(/</g, '&lt').replace(/>/g, '&gt').replace(/\n/g, '<br/>')
+}
+
 function textBoxSetValue(newVal) {
-  if (textBox){
-    if (/ace_text-input/.test(textBox.className)) {
+  switch (textBoxType) {
+    case "ace":
       textBoxSetValue_ace(newVal);
-    }
-    else {
+      break;
+    case "normal":
       textBox.value = newVal;
-    }
+      break;
+    case "designMode":
+      textBox.rootElement.innerHTML = textToHtml(newVal);
+      break;
   }
 }
 
@@ -366,11 +407,13 @@ function textBoxSetValue_ace(newVal){
 }
 
 function textBoxGetValue() {
-  if (textBox){
-    if (/ace_text-input/.test(textBox.className)) {
+  switch (textBoxType) {
+    case "ace":
       return textBoxGetValue_ace();
-    }
-    return textBox.value;
+    case "normal":
+      return textBox.value;
+    case "designMode":
+      return htmlToText(textBox.rootElement.innerHTML);
   }
 }
 
@@ -416,10 +459,20 @@ function updateTextbox(preserveMode) {
     savedCursorStart = null;
     savedCursorEnd = null;
 
-    textBox = config.isComposeWindow ? null : dactyl.focusedElement;
+    textBox = dactyl.focusedElement;
 
-    if (!DOM(textBox).isInput)
-        textBox = null;
+    if (textBox == null)
+    {
+      textBox = Editor.getEditor(document.commandDispatcher.focusedWindow);
+      console.log(textBox);
+      textBoxType = "designMode";
+    }
+    else {
+      if(/ace_text-input/.test(textBox.className))
+        textBoxType = "ace";
+      else
+        textBoxType = "normal"
+    }
 
     if (textBox) {
         var text = textBoxGetValue()
@@ -428,11 +481,8 @@ function updateTextbox(preserveMode) {
         savedCursorEnd = cursorPos.end;
     }
 
-    let origGroup = DOM(textBox).highlight.toString();
-
     if (!tmpfile.write(text+"\n"))
       throw Error(_("io.cantEncode"));
-
 
     var ioCommand;
 
@@ -625,6 +675,7 @@ var savedCursorEnd = null;
 var vimMode = 'i';
 var pterFocused = null;
 var textBox;
+var textBoxType;
 var lastVimCommand = "";
 var sendToVim = "";
 
