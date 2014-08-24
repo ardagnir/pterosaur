@@ -339,9 +339,35 @@ function textBoxSetSelection(start, end){
       textBox.setSelectionRange(parseInt(start), parseInt(end));
       break;
     case "designMode":
+      start = start.split(",")
+      end = end.split(",")
       let range = RangeFind.nodeContents(textBox.rootElement);
-      range.setStart(textBox.rootElement.firstChild, parseInt(start))
-      range.setEnd(textBox.rootElement.firstChild, parseInt(end))
+      let nodes = textBox.rootElement.childNodes; 
+      let nodeIndex = 0;
+      let row = 0;
+      let length = nodes.length;
+      while(row<start[2] && nodeIndex < length)
+      {
+        if (nodes[nodeIndex]) {
+          if (nodes[nodeIndex].tagName == "BR") {
+            row += 1;
+          }
+        }
+        nodeIndex += 1
+      }
+      range.setStart(nodes[nodeIndex], start[1])
+
+      while(row<end[2] && nodeIndex < length)
+      {
+        if (nodes[nodeIndex]) {
+          if (nodes[nodeIndex].tagName == "BR") {
+            row += 1;
+          }
+        }
+        nodeIndex += 1
+      }
+      range.setEnd(nodes[nodeIndex], end[1])
+
       textBox.selection.removeAllRanges()
       textBox.selection.addRange(range)
       break;
@@ -385,7 +411,7 @@ function textBoxSetValue(newVal) {
       textBox.value = newVal;
       break;
     case "designMode":
-      textBox.rootElement.innerHTML = textToHtml(newVal);
+      textBox.rootElement.innerHTML = textToHtml(newVal)+"<br/>";//Design mode needs the trailing newline
       break;
   }
 }
@@ -413,7 +439,7 @@ function textBoxGetValue() {
     case "normal":
       return textBox.value;
     case "designMode":
-      return htmlToText(textBox.rootElement.innerHTML);
+      return htmlToText(textBox.rootElement.innerHTML).slice(0,-1); //Design mode needs the trailing newline
   }
 }
 
@@ -465,10 +491,12 @@ function updateTextbox(preserveMode) {
     if (textBox == null)
     {
       textBox = Editor.getEditor(document.commandDispatcher.focusedWindow);
-      console.log(textBox);
-      textBoxType = "designMode";
-    }
-    else {
+      if(textBox) {
+        textBoxType = "designMode";
+      } else {
+        textBoxType = "none";
+      }
+    } else {
       if(/ace_text-input/.test(textBox.className))
         textBoxType = "ace";
       else
@@ -636,7 +664,7 @@ function cleanupPterosaur()
                     }
 
                   }
-                  if (textBox.tagName.toLowerCase() === "input" && !defaultPrevented) {
+                  if (textBox.tagName && textBox.tagName.toLowerCase() === "input" && !defaultPrevented) {
                     var evt = content.document.createEvent("HTMLEvents");
                     evt.initEvent("submit", false, false)
                     textBox.form.dispatchEvent(evt)
