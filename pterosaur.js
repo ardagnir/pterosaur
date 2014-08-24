@@ -561,6 +561,7 @@ function cleanupPterosaur()
     if (options["fullvim"]) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
+        mappings.builtin.remove(modes.INSERT, "<S-Return>");
         mappings.builtin.add(
             [modes.INSERT],
             ["<Esc>"],
@@ -595,6 +596,14 @@ function cleanupPterosaur()
             },
             {noTransaction: true});
 
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<S-Return>"],
+            ["Override websites' carriage return behavior"],
+            function(){
+              sendToVim+="\\r"
+            },
+            {noTransaction: true});
         mappings.builtin.add(
             [modes.INSERT],
             ["<Return>"],
@@ -648,6 +657,7 @@ function cleanupPterosaur()
         mappings.builtin.remove( modes.INSERT, "<BS>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.INSERT, "<Return>");
+        mappings.builtin.remove( modes.INSERT, "<S-Return>");
     }
     pterosaurCleanupCheck = options["fullvim"];
 }
