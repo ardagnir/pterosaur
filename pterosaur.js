@@ -453,6 +453,7 @@ function setupForTextbox() {
 }
 
 function updateTextbox(preserveMode) {
+    lastKeyEscape = false;
     unsent=1
 
     savedText = null;
@@ -507,7 +508,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     if (!options["fullvim"] || dactyl.focusedElement && dactyl.focusedElement.type === "password")
       return PASS;
 
-    let inputChar = DOM.Event.stringify(eventList[0])
+    let inputChar = DOM.Event.stringify(eventList[0]);
 
     /*if (commandLock > COMMAND_MODE_SYNC)
     {
@@ -519,37 +520,38 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
-        sendToVim += ' '
+        sendToVim += ' ';
       else if (inputChar==="<Tab>")
         if ( modes.main === modes.VIM_COMMAND)
-            sendToVim += '\\t'
+            sendToVim += '\\t';
         else
             return PASS;
       else if (inputChar==="<Up>")
-        sendToVim += '\\e[A'
+        sendToVim += '\\e[A';
       else if (inputChar==="<Down>")
-        sendToVim += '\\e[B'
+        sendToVim += '\\e[B';
       else if (inputChar==="<Right>")
-        sendToVim += '\\e[C'
+        sendToVim += '\\e[C';
       else if (inputChar==="<Left>")
-        sendToVim += '\\e[D'
+        sendToVim += '\\e[D';
       else if (inputChar==="<lt>")
-        sendToVim += '<'
+        sendToVim += '<';
       else if (inputChar==="<C-v>")
-        sendToVim += '\x16'
+        sendToVim += '\x16';
     }
     else {
       if (inputChar == '%')
-        sendToVim += '%%'
+        sendToVim += '%%';
       else if (inputChar == '\\')
-        sendToVim += '\\\\'
+        sendToVim += '\\\\';
       else if (inputChar == '"')
-        sendToVim += '\"'
+        sendToVim += '\"';
       else if (inputChar == "'")
-        sendToVim += "\'\\'\'"
+        sendToVim += "\'\\'\'";
       else
-        sendToVim += inputChar
+        sendToVim += inputChar;
     }
+    lastKeyEscape = false;
       
     return KILL;
 }
@@ -564,12 +566,13 @@ function cleanupPterosaur()
             ["<Esc>"],
             ["Handle escape key"],
             function(){
-              if (vimMode==="n")
+              if (vimMode==="n" || lastKeyEscape)
               {
-                modes.reset()
+                modes.reset();
               }
               else {
-                sendToVim+="\\e"
+                sendToVim += "\\e";
+                lastKeyEscape = true;
               }
             });
 
@@ -578,7 +581,8 @@ function cleanupPterosaur()
             ["<BS>"],
             ["Handle escape key"],
             function(){
-                sendToVim+="\\b"
+                sendToVim+="\\b";
+                lastKeyEscape = false;
             });
 
         mappings.builtin.add(
@@ -586,7 +590,8 @@ function cleanupPterosaur()
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
-              sendToVim+="\x12"
+              sendToVim+="\x12";
+              lastKeyEscape = false;
             },
             {noTransaction: true});
 
@@ -703,6 +708,7 @@ var textBox;
 var textBoxType;
 var lastVimCommand = "";
 var sendToVim = "";
+var lastKeyEscape = false;
 
 var uid;
 var dir;
@@ -779,6 +785,7 @@ commands.add(["vim[do]"],
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
         sendToVim += command +"\\r"
+        lastKeyEscape = "false";
     }, {
       argCount: "+",
       literal: 0
