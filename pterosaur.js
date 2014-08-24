@@ -516,18 +516,10 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' '
-      else if (inputChar==="<Return>") {
-        sendToVim += '\\r'
-        //Inputs often trigger on return. But if we send it for textareas, we get an extra linebreak.
-        if (textBox.tagName.toLowerCase()==="input")
-            return PASS;
-        else
-            return KILL;
-      }
       else if (inputChar==="<Tab>")
         if ( modes.main === modes.VIM_COMMAND)
             sendToVim += '\\t'
@@ -599,11 +591,44 @@ function cleanupPterosaur()
             {noTransaction: true});
 
         mappings.builtin.add(
-            [modes.VIM_COMMAND],
+            [modes.INSERT],
             ["<Return>"],
-            ["Override websites' carriage return behavior when in command mode"],
+            ["Override websites' carriage return behavior"],
             function(){
               sendToVim+="\\r"
+              //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
+              if (modes.main==modes.INSERT || modes.main==modes.AUTOCOMPLETE) {
+                setTimeout( function() {
+                  var defaultPrevented = false;
+
+                  if (textBox.keypress) {
+                    var sandbox = createSandbox();
+                    if (!sandbox)
+                      return;
+                    var sandboxScript="\
+                      defaultPrevented = false;\
+                      var fakeEvent = {};\
+                      fakeEvent.keyCode=13;\
+                      fakeEvent.preventDefault = function(){\
+                        defaultPrevented = true;\
+                      }\
+                      if (!textBox.onkeypress(fakeEvent)) {\
+                        defaultPrevented = true;\
+                      }\
+                    "
+                    Components.utils.evalInSandbox(sandboxScript, sandbox);
+                    if (sandbox.defaultPrevented) {
+                      defaultPrevented = true;
+                    }
+
+                  }
+                  if (textBox.tagName.toLowerCase() === "input" && !defaultPrevented) {
+                    var evt = content.document.createEvent("HTMLEvents");
+                    evt.initEvent("submit", false, false)
+                    textBox.form.dispatchEvent(evt)
+                  }
+                }, 200) //Delay is to make sure forms are updated from vim before being submitted.
+              }
             });
     }
     else {
@@ -617,7 +642,7 @@ function cleanupPterosaur()
         mappings.builtin.remove( modes.INSERT, "<Esc>");
         mappings.builtin.remove( modes.INSERT, "<BS>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
-        mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
+        mappings.builtin.remove( modes.INSERT, "<Return>");
     }
     pterosaurCleanupCheck = options["fullvim"];
 }
@@ -753,7 +778,7 @@ commands.add(["vim[do]"],
     function (args) {
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        sendToVim += command +"\r"
+        sendToVim += command +"\\r"
     }, {
       argCount: "+",
       literal: 0
