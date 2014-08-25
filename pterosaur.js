@@ -74,7 +74,7 @@ function update(){
 
     var cursorPos;
 
-    if(pterFocused && textBox)
+    if(dactyl.focusedElement === pterFocused && textBoxType)
     {
       cursorPos = textBoxGetSelection()
       if (savedCursorStart!=null &&
@@ -117,16 +117,16 @@ function update(){
 
     if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || 
       pterosaurModes.indexOf(modes.main)=== -1)  {
-        if(pterFocused) {
+        if(textBoxType) {
           cleanupForTextbox();
-          pterFocused = null
+          textBoxType = ""
         }
         return;
     }
 
-    if (dactyl.focusedElement !== pterFocused)
+    if (dactyl.focusedElement !== pterFocused || !textBoxType)
     {
-      if(pterFocused)
+      if(textBoxType)
         cleanupForTextbox();
       setupForTextbox();
       //We already skipped some important steps (like selection checking), so wait till next update and do the whole thing.
@@ -236,7 +236,7 @@ function update(){
 
     savedText = val;
 
-    if (textBox) {
+    if (textBoxType) {
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
         {
           textBoxSetSelection(metadata[1], metadata[2])
@@ -280,9 +280,6 @@ function textBoxGetSelection(){
           preEnd = preEnd.replace(/^(?:<[^>"]+>)+/, "");
       if (fromBeginning.endContainer instanceof Text)
           preEnd = preEnd.replace(/(?:<\/[^>"]+>)+$/, "");
-      console.log("pres")
-      console.log(preStart)
-      console.log(preEnd)
       var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
       var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
       var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
@@ -394,7 +391,8 @@ function textBoxSetSelection_ace(start, end){
 
 function htmlToText(inText) {
   var tmp = document.createElement('div');
-  tmp.innerHTML = inText.replace(/\\/g, '\\\\').replace(/<br\/>/g, 'n\\n')
+  inText = inText.replace(/\\/g, '\\\\');
+  tmp.innerHTML = inText.replace(/<br>/g, 'n\\n');
   return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
 }
 
@@ -494,7 +492,7 @@ function updateTextbox(preserveMode) {
       if(textBox) {
         textBoxType = "designMode";
       } else {
-        textBoxType = "none";
+        textBoxType = "";
       }
     } else {
       if(/ace_text-input/.test(textBox.className))
