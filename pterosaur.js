@@ -268,18 +268,12 @@ function textBoxGetSelection(){
     case "designMode":
       let fromBeginning = RangeFind.nodeContents(textBox.rootElement);
       let oldRange = textBox.selection.getRangeAt(0);
+
       fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
-      var preStart = DOM.stringify(fromBeginning, true);
-      if (fromBeginning.startContainer instanceof Text)
-          preStart = preStart.replace(/^(?:<[^>"]+>)+/, "");
-      if (fromBeginning.endContainer instanceof Text)
-          preStart = preStart.replace(/(?:<\/[^>"]+>)+$/, "");
+      var preStart = htmlToText(DOM.stringify(fromBeginning, true));
       fromBeginning.setEnd(oldRange.endContainer, oldRange.endOffset);
-      var preEnd = DOM.stringify(fromBeginning, true);
-      if (fromBeginning.startContainer instanceof Text)
-          preEnd = preEnd.replace(/^(?:<[^>"]+>)+/, "");
-      if (fromBeginning.endContainer instanceof Text)
-          preEnd = preEnd.replace(/(?:<\/[^>"]+>)+$/, "");
+      var preEnd = htmlToText(DOM.stringify(fromBeginning, true));
+
       var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
       var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
       var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
@@ -397,7 +391,7 @@ function htmlToText(inText) {
 }
 
 function textToHtml(inText) {
-  return inText.replace(/&/g, '&amp').replace(/</g, '&lt').replace(/>/g, '&gt').replace(/\n/g, '<br/>')
+  return inText.replace(/&/g, '&amp').replace(/</g, '&lt').replace(/>/g, '&gt').replace(/\n/g, '<br>')
 }
 
 function textBoxSetValue(newVal) {
@@ -409,7 +403,11 @@ function textBoxSetValue(newVal) {
       textBox.value = newVal;
       break;
     case "designMode":
-      textBox.rootElement.innerHTML = textToHtml(newVal)+"<br/>";//Design mode needs the trailing newline
+      var newHtml = textToHtml(newVal)+"<br>";//Design mode needs the trailing newline
+      if (textBox.rootElement.innerHTML != newHtml)
+      {
+        textBox.rootElement.innerHTML = newHtml
+      }
       break;
   }
 }
