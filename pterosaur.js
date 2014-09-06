@@ -265,6 +265,7 @@ function textBoxGetSelection(){
         return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
       }
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
+    case "contentEditable":
     case "designMode":
       let fromBeginning = RangeFind.nodeContents(textBox.rootElement);
       let oldRange = textBox.selection.getRangeAt(0);
@@ -329,9 +330,11 @@ function textBoxSetSelection(start, end){
     case "normal":
       textBox.setSelectionRange(parseInt(start), parseInt(end));
       break;
+    case "contentEditable":
     case "designMode":
       start = start.split(",")
       end = end.split(",")
+
       let range = RangeFind.nodeContents(textBox.rootElement);
       let nodes = textBox.rootElement.childNodes; 
       let nodeIndex = 0;
@@ -402,6 +405,7 @@ function textBoxSetValue(newVal) {
     case "normal":
       textBox.value = newVal;
       break;
+    case "contentEditable":
     case "designMode":
       var newHtml = textToHtml(newVal)+"<br>";//Design mode needs the trailing newline
       if (textBox.rootElement.innerHTML != newHtml)
@@ -434,6 +438,7 @@ function textBoxGetValue() {
       return textBoxGetValue_ace();
     case "normal":
       return textBox.value;
+    case "contentEditable":
     case "designMode":
       return htmlToText(textBox.rootElement.innerHTML).slice(0,-1); //Design mode needs the trailing newline
   }
@@ -493,7 +498,13 @@ function updateTextbox(preserveMode) {
         textBoxType = "";
       }
     } else {
-      if(/ace_text-input/.test(textBox.className))
+      if(dactyl.focusedElement.isContentEditable) {
+        textBoxType = "contentEditable";
+        textBox = {};
+        textBox.rootElement = dactyl.focusedElement;
+
+        textBox.selection = content.getSelection();
+      } else if(/ace_text-input/.test(textBox.className))
         textBoxType = "ace";
       else
         textBoxType = "normal"
@@ -511,7 +522,7 @@ function updateTextbox(preserveMode) {
 
     var ioCommand;
 
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>,<columnStart>,<rowEnd>,<columnEnd>, <preserveMode>)"';
+    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)"';
 
     ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
     ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
