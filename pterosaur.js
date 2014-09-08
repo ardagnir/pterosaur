@@ -388,13 +388,13 @@ function textBoxSetSelection_ace(start, end){
 
 function htmlToText(inText) {
   var tmp = document.createElement('div');
-  inText = inText.replace(/\\/g, '\\\\');
-  tmp.innerHTML = inText.replace(/<br>/g, 'n\\n');
-  return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
+  inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
+  tmp.innerHTML = inText.replace(/<br>/g, 'n\\n').replace(/&nbsp;/g, 's\\s'); //Preserve whitespace
+  return tmp.textContent.replace(/n\\n/g, '\n').replace(/s\\s/g, ' ').replace(/\\\\/g, '\\');
 }
 
 function textToHtml(inText) {
-  return inText.replace(/&/g, '&amp').replace(/</g, '&lt').replace(/>/g, '&gt').replace(/\n/g, '<br>')
+  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/ /g, '&nbsp;').replace(/\n/g, '<br>')
 }
 
 function textBoxSetValue(newVal) {
