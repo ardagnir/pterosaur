@@ -56,9 +56,12 @@ var INFO =
     ["p", {},
         "This plugin provides full vim functionality to all input text-boxes by running a vim process in the background."]];
 
+function useFullVim(){
+  return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
+}
 
 function update(){
-    if (pterosaurCleanupCheck !== options["fullvim"])
+    if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
 
     if (debugMode && !options["pterosaurdebug"])
@@ -115,8 +118,7 @@ function update(){
     }
 
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || 
-      pterosaurModes.indexOf(modes.main)=== -1)  {
+    if (!useFullVim() || pterosaurModes.indexOf(modes.main) === -1)  {
         if(textBoxType) {
           cleanupForTextbox();
           textBoxType = ""
@@ -540,7 +542,7 @@ function updateTextbox(preserveMode) {
 modes.INSERT.params.onKeyPress = function(eventList) {
     const KILL = false, PASS = true;
 
-    if (!options["fullvim"] || dactyl.focusedElement && dactyl.focusedElement.type === "password")
+    if (!useFullVim())
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0]);
@@ -593,7 +595,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
 function cleanupPterosaur()
 {
-    if (options["fullvim"]) {
+    pterosaurCleanupCheck = useFullVim();
+    if (pterosaurCleanupCheck) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
         mappings.builtin.remove(modes.INSERT, "<S-Return>");
@@ -694,7 +697,6 @@ function cleanupPterosaur()
         mappings.builtin.remove( modes.INSERT, "<Return>");
         mappings.builtin.remove( modes.INSERT, "<S-Return>");
     }
-    pterosaurCleanupCheck = options["fullvim"];
 }
 
 function startVimbed(debug) {
