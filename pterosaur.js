@@ -300,10 +300,10 @@ function textBoxGetSelection_ace(){
   if (!sandbox)
     return;
   sandbox.ace = content.wrappedJSObject.ace;
-  sandbox.id = textBox.parentNode.id;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
   sandbox.stringify = JSON.stringify;
   var sandboxScript="\
-    var aceEditor = ace.edit(id);\
+    var aceEditor = ace.edit(editor);\
     range =  stringify(aceEditor.getSession().getSelection().getRange());\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
@@ -377,9 +377,9 @@ function textBoxSetSelection_ace(start, end){
   sandbox.start = start.split(",");
   sandbox.end = end.split(",");
   sandbox.ace = content.wrappedJSObject.ace;
-  sandbox.id = textBox.parentNode.id;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(id);\
+    var aceEditor = ace.edit(editor);\
     aceEditor.getSession().getSelection().setSelectionRange(\
                                           {'start':{ 'row':start[2], 'column':start[1]},\
                                            'end':  { 'row':end[2],   'column':end[1]}});\
@@ -424,9 +424,9 @@ function textBoxSetValue_ace(newVal){
     return;
   sandbox.newVal = newVal;
   sandbox.ace = content.wrappedJSObject.ace;
-  sandbox.id = textBox.parentNode.id;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(id);\
+    var aceEditor = ace.edit(editor);\
     if (aceEditor.getSession().getValue()!=newVal){\
       aceEditor.getSession().setValue(newVal);\
     }\
@@ -451,9 +451,9 @@ function textBoxGetValue_ace(){
   if (!sandbox)
     return;
   sandbox.ace = content.wrappedJSObject.ace;
-  sandbox.id = textBox.parentNode.id;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(id);\
+    var aceEditor = ace.edit(editor);\
     value = aceEditor.getSession().getValue();\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
