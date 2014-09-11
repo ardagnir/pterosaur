@@ -251,10 +251,22 @@ function update(){
     }
 }
 
+function createSandbox(){
+  var protocol = content.location.protocol;
+  var host = content.location.host;
+  //I don't think these can be non-strings, but there's no harm in being paranoid.
+  if (typeof protocol === "string" && typeof host === "string")
+  {
+    return new Components.utils.Sandbox(protocol + "//" + host);
+  }
+}
+
 function textBoxGetSelection(){
   switch (textBoxType) {
     case "ace":
       return textBoxGetSelection_ace()
+    case "codeMirror":
+      return textBoxGetSelection_codeMirror()
     case "normal":
       var text = textBox.value;
       if (text){
@@ -285,16 +297,6 @@ function textBoxGetSelection(){
   }
 }
 
-function createSandbox(){
-  var protocol = content.location.protocol;
-  var host = content.location.host;
-  //I don't think these can be non-strings, but there's no harm in being paranoid.
-  if (typeof protocol === "string" && typeof host === "string")
-  {
-    return new Components.utils.Sandbox(protocol + "//" + host);
-  }
-}
-
 function textBoxGetSelection_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
@@ -305,20 +307,43 @@ function textBoxGetSelection_ace(){
   var sandboxScript="\
     var aceEditor = ace.edit(editor);\
     range =  stringify(aceEditor.getSession().getSelection().getRange());\
-  "
+  ";
   Components.utils.evalInSandbox(sandboxScript, sandbox);
+  return parseSandboxRangeForVim(sandbox);
+}
 
-  if (typeof sandbox.range === "string")
-  {
+function textBoxGetSelection_codeMirror(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.editor = textBox.wrappedJSObject;
+  sandbox.stringify = JSON.stringify;
+  var sandboxScript="\
+    var anchor = editor.CodeMirror.getCursor('anchor');\
+    var head = editor.CodeMirror.getCursor('head');\
+    var rangeObj = {};\
+    if (head.line < anchor.line || head.line == anchor.line && head.ch < anchor.ch) {\
+      rangeObj.start = {'row': head.line, 'column': head.ch};\
+      rangeObj.end = {'row': anchor.line, 'column': anchor.ch};\
+    } else {\
+      rangeObj.start = {'row': anchor.line, 'column': anchor.ch};\
+      rangeObj.end = {'row': head.line, 'column': head.ch};\
+    }\
+    range = stringify(rangeObj);\
+  ";
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  return parseSandboxRangeForVim(sandbox);
+}
+
+function parseSandboxRangeForVim(sandbox) {
+  if (typeof sandbox.range === "string") {
     var range = JSON.parse(sandbox.range);
     range.start.row+=1;
     range.start.column+=1;
     range.end.row+=1;
     range.end.column+=1;
     return range;
-  }
-  else
-  {
+  } else {
     console.log("Sandbox Error!");
     return {"start": {"column": 1, "row": 1}, "end": {"column": 1, "row": 1}}
   }
@@ -329,6 +354,9 @@ function textBoxSetSelection(start, end){
     case "ace":
       textBoxSetSelection_ace(start, end)
       break;
+    case "codeMirror":
+      textBoxSetSelection_codeMirror(start, end)
+      break;
     case "normal":
       textBox.setSelectionRange(parseInt(start), parseInt(end));
       break;
@@ -338,7 +366,7 @@ function textBoxSetSelection(start, end){
       end = end.split(",")
 
       let range = RangeFind.nodeContents(textBox.rootElement);
-      let nodes = textBox.rootElement.childNodes; 
+      let nodes = textBox.rootElement.childNodes;
       let nodeIndex = 0;
       let row = 0;
       let length = nodes.length;
@@ -381,8 +409,31 @@ function textBoxSetSelection_ace(start, end){
   var sandboxScript="\
     var aceEditor = ace.edit(editor);\
     aceEditor.getSession().getSelection().setSelectionRange(\
-                                          {'start':{ 'row':start[2], 'column':start[1]},\
-                                           'end':  { 'row':end[2],   'column':end[1]}});\
+                                          {'start': {'row':start[2], 'column':start[1]},\
+                                           'end':   {'row':end[2],   'column':end[1]}});\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxSetSelection_codeMirror(start, end){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.start = start.split(",");
+  sandbox.end = end.split(",");
+  sandbox.editor = textBox.wrappedJSObject;
+  console.log(sandbox.editor)
+  //CodeMirror v3 gets caught in an infinite loop sometimes when setting selection from chrome code. Let's disable this until I can find a workaround.
+  var sandboxScript="\
+    if (editor.CodeMirror.version.split('.')[0]>3){\
+      start = start.split(',');\
+      end = end.split(',');\
+      if (start[1] == end[1] && start[2] == end[2]){\
+        editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch':end[1]});\
+      } else {\
+        editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch': end[1]});\
+      }\
+    }\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
@@ -403,6 +454,9 @@ function textBoxSetValue(newVal) {
   switch (textBoxType) {
     case "ace":
       textBoxSetValue_ace(newVal);
+      break;
+    case "codeMirror":
+      textBoxSetValue_codeMirror(newVal);
       break;
     case "normal":
       textBox.value = newVal;
@@ -434,10 +488,26 @@ function textBoxSetValue_ace(newVal){
   Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
 
+function textBoxSetValue_codeMirror(newVal){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.newVal = newVal
+  sandbox.editor = textBox.wrappedJSObject;
+  var sandboxScript="\
+    if (editor.CodeMirror.getValue()!=newVal){\
+      editor.CodeMirror.setValue(newVal);\
+    }\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
 function textBoxGetValue() {
   switch (textBoxType) {
     case "ace":
       return textBoxGetValue_ace();
+    case "codeMirror":
+      return textBoxGetValue_codeMirror();
     case "normal":
       return textBox.value;
     case "contentEditable":
@@ -466,8 +536,26 @@ function textBoxGetValue_ace(){
     return "Sandbox Error!"
 }
 
+function textBoxGetValue_codeMirror(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.editor = textBox.wrappedJSObject;
+  var sandboxScript="\
+    value = editor.CodeMirror.getValue();\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  //Make sure it's a string to avoid letting malicious code escape.
+  var returnVal = sandbox.value
+  if (typeof returnVal === "string")
+    return returnVal;
+  else
+    console.log("Sandbox Error!");
+    return "Sandbox Error!"
+}
+
 //TODO: Need consistent capitalization for textbox
-function cleanupForTextbox() { 
+function cleanupForTextbox() {
     unsent=1;
 }
 
@@ -508,6 +596,11 @@ function updateTextbox(preserveMode) {
         textBox.selection = content.getSelection();
       } else if(/ace_text-input/.test(textBox.className))
         textBoxType = "ace";
+      else if (textBox.parentNode && textBox.parentNode.parentNode && /CodeMirror/.test(textBox.parentNode.parentNode.className))
+      {
+        textBoxType = "codeMirror"
+        textBox = textBox.parentNode.parentNode;
+      }
       else
         textBoxType = "normal"
     }
@@ -589,7 +682,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += inputChar;
     }
     lastKeyEscape = false;
-      
+
     return KILL;
 }
 
