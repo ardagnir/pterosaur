@@ -252,8 +252,9 @@ function update(){
 }
 
 function createSandbox(){
-  var protocol = content.location.protocol;
-  var host = content.location.host;
+  var doc = textBox.ownerDocument || content;
+  var protocol = doc.location.protocol;
+  var host = doc.location.host;
   //I don't think these can be non-strings, but there's no harm in being paranoid.
   if (typeof protocol === "string" && typeof host === "string")
   {
@@ -422,12 +423,11 @@ function textBoxSetSelection_codeMirror(start, end){
   sandbox.start = start.split(",");
   sandbox.end = end.split(",");
   sandbox.editor = textBox.wrappedJSObject;
-  console.log(sandbox.editor)
+  sandbox.CodeMirror = content.wrappedJSObject.CodeMirror;
+
   //CodeMirror v3 gets caught in an infinite loop sometimes when setting selection from chrome code. Let's disable this until I can find a workaround.
   var sandboxScript="\
-    if (editor.CodeMirror.version.split('.')[0]>3){\
-      start = start.split(',');\
-      end = end.split(',');\
+    if (CodeMirror && CodeMirror.version.split('.')[0]>3){\
       if (start[1] == end[1] && start[2] == end[2]){\
         editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch':end[1]});\
       } else {\
