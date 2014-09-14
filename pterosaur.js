@@ -60,6 +60,17 @@ function useFullVim(){
   return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
 }
 
+function updateVim(){
+  if(sendToVim !== "")
+  {
+    let tempSendToVim=sendToVim
+    sendToVim = ""
+    io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
+    unsent=0;
+    cyclesSinceLastSend=0;
+  }
+}
+
 function update(){
     if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
@@ -88,7 +99,8 @@ function update(){
         updateTextbox(0);
         return;
       }
-      if (savedText!=null && textBoxGetValue() != savedText)
+
+      if (savedText != null && textBoxGetValue() != savedText)
       {
         updateTextbox(1);
         return;
@@ -98,14 +110,7 @@ function update(){
     //This has to be up here for vimdo to work. This should probably be changed eventually.
     if (writeInsteadOfRead)
     {
-      if(sendToVim !== "")
-      {
-        let tempSendToVim=sendToVim
-        sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
-        unsent=0;
-        cyclesSinceLastSend=0;
-      }
+      updateVim();
 
       if(cyclesSinceLastSend < 2)
       {
@@ -275,9 +280,11 @@ function textBoxGetSelection(){
         var preEnd = text.substr(0, textBox.selectionEnd);
         var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
         var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+        var charStart = 1 + preStart.length;
         var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
         var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
-        return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
+        var charEnd = 1 + preEnd.length;
+        return {"start": {"row": rowStart, "column": columnStart, "char": charStart}, "end": {"row":rowEnd, "column": columnEnd, "char":charStart}};
       }
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
     case "contentEditable":
@@ -348,6 +355,14 @@ function parseSandboxRangeForVim(sandbox) {
     console.log("Sandbox Error!");
     return {"start": {"column": 1, "row": 1}, "end": {"column": 1, "row": 1}}
   }
+}
+
+function textBoxSetSelectionFromSaved(saved){
+  var start = (saved.start.char-1) + "," + (saved.start.column-1) + "," + (saved.start.row-1)
+  var end = (saved.start.char-1) + "," + (saved.end.column-1) + "," + (saved.end.row-1)
+  console.log(start)
+  console.log(end)
+  textBoxSetSelection(start, end);
 }
 
 function textBoxSetSelection(start, end){
@@ -589,11 +604,17 @@ function updateTextbox(preserveMode) {
       }
     } else {
       if(dactyl.focusedElement.isContentEditable) {
+        var doc = textBox.ownerDocument || content;
+
         textBoxType = "contentEditable";
         textBox = {};
         textBox.rootElement = dactyl.focusedElement;
+        //Prserve any tags that wrap the WHOLE contenteditable
+        while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName) {
+          textBox.rootElement = textBox.rootElement.childNodes[0]
+        }
 
-        textBox.selection = content.getSelection();
+        textBox.selection = doc.getSelection();
       } else if(/ace_text-input/.test(textBox.className))
         textBoxType = "ace";
       else if (textBox.parentNode && textBox.parentNode.parentNode && /CodeMirror/.test(textBox.parentNode.parentNode.className))
@@ -647,7 +668,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     */
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
+    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' ';
@@ -668,6 +689,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '<';
       else if (inputChar==="<C-v>")
         sendToVim += '\x16';
+      else if (inputChar==="<Return>") //We already handled vim's return if we got here.
+        return PASS;
     }
     else {
       if (inputChar == '%')
@@ -686,8 +709,29 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     return KILL;
 }
 
-function cleanupPterosaur()
-{
+function returnHandler() {
+    lastKeyEscape = false;
+    //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
+    if (modes.main == modes.INSERT || modes.main == modes.AUTOCOMPLETE) {
+        updateVim();
+        sendToVim += "\\r"
+        setTimeout( function() {
+          mappings.builtin.remove( modes.INSERT, "<Return>");
+          var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
+          var cursorPos = textBoxGetSelection()
+          events.feedkeys("<Return>");
+          textBoxSetValue(value);
+          textBoxSetSelectionFromSaved(cursorPos);
+          mappings.builtin.add(
+              [modes.INSERT],
+              ["<Return>"],
+              ["Override websites' carriage return behavior"],
+              returnHandler);
+        }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
+    }
+}
+
+function cleanupPterosaur() {
     pterosaurCleanupCheck = useFullVim();
     if (pterosaurCleanupCheck) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
@@ -713,7 +757,7 @@ function cleanupPterosaur()
             ["<BS>"],
             ["Handle escape key"],
             function(){
-                sendToVim+="\\b";
+                sendToVim += "\\b";
                 lastKeyEscape = false;
             });
 
@@ -722,7 +766,7 @@ function cleanupPterosaur()
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
-              sendToVim+="\x12";
+              sendToVim += "\x12";
               lastKeyEscape = false;
             },
             {noTransaction: true});
@@ -732,49 +776,15 @@ function cleanupPterosaur()
             ["<S-Return>"],
             ["Override websites' carriage return behavior"],
             function(){
-              sendToVim+="\\r"
+              sendToVim += "\\r"
+              lastKeyEscape = false;
             },
             {noTransaction: true});
         mappings.builtin.add(
             [modes.INSERT],
             ["<Return>"],
             ["Override websites' carriage return behavior"],
-            function(){
-              sendToVim+="\\r"
-              //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
-              if (modes.main==modes.INSERT || modes.main==modes.AUTOCOMPLETE) {
-                setTimeout( function() {
-                  var defaultPrevented = false;
-
-                  if (textBox.keypress) {
-                    var sandbox = createSandbox();
-                    if (!sandbox)
-                      return;
-                    var sandboxScript="\
-                      defaultPrevented = false;\
-                      var fakeEvent = {};\
-                      fakeEvent.keyCode=13;\
-                      fakeEvent.preventDefault = function(){\
-                        defaultPrevented = true;\
-                      }\
-                      if (!textBox.onkeypress(fakeEvent)) {\
-                        defaultPrevented = true;\
-                      }\
-                    "
-                    Components.utils.evalInSandbox(sandboxScript, sandbox);
-                    if (sandbox.defaultPrevented) {
-                      defaultPrevented = true;
-                    }
-
-                  }
-                  if (textBox.tagName && textBox.tagName.toLowerCase() === "input" && !defaultPrevented) {
-                    var evt = content.document.createEvent("HTMLEvents");
-                    evt.initEvent("submit", false, false)
-                    textBox.form.dispatchEvent(evt)
-                  }
-                }, 200) //Delay is to make sure forms are updated from vim before being submitted.
-              }
-            });
+            returnHandler);
     }
     else {
         mappings.builtin.add([modes.INSERT],
@@ -932,4 +942,5 @@ commands.add(["vim[do]"],
     });
 
 
-let timer =  window.setInterval(update, 30);
+var CYCLE_TIME = 30
+let timer =  window.setInterval(update, CYCLE_TIME);
