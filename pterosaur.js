@@ -709,24 +709,28 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     return KILL;
 }
 
+var handleReturnDirectly = false;
+
 function returnHandler() {
+    if (handleReturnDirectly) {
+      return Events.PASS_THROUGH;
+    }
     lastKeyEscape = false;
     //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
     if (modes.main == modes.INSERT || modes.main == modes.AUTOCOMPLETE) {
         updateVim();
         sendToVim += "\\r"
         setTimeout( function() {
-          mappings.builtin.remove( modes.INSERT, "<Return>");
+          handleReturnDirectly=true;
           var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
           var cursorPos = textBoxGetSelection()
+          var oldFocus = dactyl.focusedElement;
           events.feedkeys("<Return>");
-          textBoxSetValue(value);
-          textBoxSetSelectionFromSaved(cursorPos);
-          mappings.builtin.add(
-              [modes.INSERT],
-              ["<Return>"],
-              ["Override websites' carriage return behavior"],
-              returnHandler);
+          if (oldFocus == dactyl.focusedElement) {
+            textBoxSetValue(value);
+            textBoxSetSelectionFromSaved(cursorPos);
+          }
+          handleReturnDirectly=false;
         }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
     }
 }
