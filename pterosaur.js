@@ -284,7 +284,7 @@ function textBoxGetSelection(){
         var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
         var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
         var charEnd = 1 + preEnd.length;
-        return {"start": {"row": rowStart, "column": columnStart, "char": charStart}, "end": {"row":rowEnd, "column": columnEnd, "char":charStart}};
+        return {"start": {"row": rowStart, "column": columnStart, "char": charStart}, "end": {"row":rowEnd, "column": columnEnd, "char":charEnd}};
       }
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
     case "contentEditable":
@@ -359,9 +359,7 @@ function parseSandboxRangeForVim(sandbox) {
 
 function textBoxSetSelectionFromSaved(saved){
   var start = (saved.start.char-1) + "," + (saved.start.column-1) + "," + (saved.start.row-1)
-  var end = (saved.start.char-1) + "," + (saved.end.column-1) + "," + (saved.end.row-1)
-  console.log(start)
-  console.log(end)
+  var end = (saved.end.char-1) + "," + (saved.end.column-1) + "," + (saved.end.row-1)
   textBoxSetSelection(start, end);
 }
 
@@ -457,7 +455,7 @@ function textBoxSetSelection_codeMirror(start, end){
 function htmlToText(inText) {
   var tmp = document.createElement('div');
   inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
-  tmp.innerHTML = inText.replace(/<br>/g, 'n\\n').replace(/&nbsp;/g, 's\\s'); //Preserve whitespace
+  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n').replace(/&nbsp;/g, 's\\s'); //Preserve whitespace
   return tmp.textContent.replace(/n\\n/g, '\n').replace(/s\\s/g, ' ').replace(/\\\\/g, '\\');
 }
 
@@ -527,7 +525,13 @@ function textBoxGetValue() {
       return textBox.value;
     case "contentEditable":
     case "designMode":
-      return htmlToText(textBox.rootElement.innerHTML).slice(0,-1); //Design mode needs the trailing newline
+      var retVal = htmlToText(textBox.rootElement.innerHTML);
+      if (retVal.slice(-1) == "\n")
+      {
+        return retVal.slice(0,-1);
+      } else {
+        return retVal;
+      }
   }
 }
 
@@ -626,47 +630,80 @@ function updateTextbox(preserveMode) {
         textBoxType = "normal"
     }
 
-    if (textBox) {
-        var text = textBoxGetValue()
-        var cursorPos = textBoxGetSelection()
-        savedCursorStart = cursorPos.start;
-        savedCursorEnd = cursorPos.end;
+    if (textBoxType) {
+      if (textBox) {
+          var text = textBoxGetValue()
+          var cursorPos = textBoxGetSelection()
+          savedCursorStart = cursorPos.start;
+          savedCursorEnd = cursorPos.end;
+      }
+
+      if (!tmpfile.write(text+"\n"))
+        throw Error(_("io.cantEncode"));
+
+      var ioCommand;
+
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)"';
+
+      ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
+      ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
+      ioCommand = ioCommand.replace(/<rowEnd>/, cursorPos.end.row);
+      ioCommand = ioCommand.replace(/<columnEnd>/, cursorPos.end.column);
+      ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
+
+      console.log(ioCommand);
+
+      io.system(ioCommand);
     }
-
-    if (!tmpfile.write(text+"\n"))
-      throw Error(_("io.cantEncode"));
-
-    var ioCommand;
-
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)"';
-
-    ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
-    ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
-    ioCommand = ioCommand.replace(/<rowEnd>/, cursorPos.end.row);
-    ioCommand = ioCommand.replace(/<columnEnd>/, cursorPos.end.column);
-    ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
-
-    console.log(ioCommand);
-
-    io.system(ioCommand);
 
     writeInsteadOfRead = 0
 }
 
+//Some sites need to receive key events in addition to sending them to vim. We don't do this for javascript editors because they handle js stuff themselves.
+function handleKeySending(key) {
+  if (textBoxType == "normal") {
+    skipKeyPress = true;
+    try{
+      var value = textBoxGetValue()
+      var cursorPos = textBoxGetSelection()
+      var oldFocus = dactyl.focusedElement;
+      events.feedkeys(key);
+      if (oldFocus == dactyl.focusedElement) {
+        textBoxSetValue(value);
+        textBoxSetSelectionFromSaved(cursorPos);
+      }
+    }
+    finally{
+      skipKeyPress = false;
+    }
+  } else if (["contentEditable", "designMode"].indexOf(textBoxType) != -1){
+    skipKeyPress = true;
+    try{
+      var value = textBox.rootElement.innerHTML; //We don't need to translate this, since it's going right back in. Doing the same thing with the cursor isn't quite as easy.
+      var cursorPos = textBoxGetSelection()
+      var oldFocus = dactyl.focusedElement;
+      events.feedkeys(key);
+      if (oldFocus == dactyl.focusedElement) {
+        textBox.rootElement.innerHTML = value;
+        textBoxSetSelectionFromSaved(cursorPos);
+      }
+    } finally{
+      skipKeyPress = false;
+    }
+  }
+}
+
+var skipKeyPress = false;
 modes.INSERT.params.onKeyPress = function(eventList) {
+    if (skipKeyPress) {
+      return true;
+    }
     const KILL = false, PASS = true;
 
     if (!useFullVim())
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0]);
-
-    /*if (commandLock > COMMAND_MODE_SYNC)
-    {
-      commandBuffer += inputChar;
-      return;
-    }
-    */
 
     if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
@@ -701,8 +738,10 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         sendToVim += '\"';
       else if (inputChar == "'")
         sendToVim += "\'\\'\'";
-      else
+      else {
         sendToVim += inputChar;
+        handleKeySending(inputChar); //TODO: Do this for all keys (maybe only for the last one for updatevim. There could be a variable that stores the last one which would also get rid of lastkey escape bool.
+      }
     }
     lastKeyEscape = false;
 
@@ -722,6 +761,7 @@ function returnHandler() {
         sendToVim += "\\r"
         setTimeout( function() {
           handleReturnDirectly=true;
+          try {
           var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
           var cursorPos = textBoxGetSelection()
           var oldFocus = dactyl.focusedElement;
@@ -730,7 +770,9 @@ function returnHandler() {
             textBoxSetValue(value);
             textBoxSetSelectionFromSaved(cursorPos);
           }
-          handleReturnDirectly=false;
+          } finally {
+            handleReturnDirectly=false;
+          }
         }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
     }
 }
