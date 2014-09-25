@@ -709,11 +709,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
         sendToVim += ' ';
-      else if (inputChar==="<Tab>")
-        if ( modes.main === modes.VIM_COMMAND)
-            sendToVim += '\\t';
-        else
-            return PASS;
+      else if (inputChar==="<Tab>") //We already handled vim's return if we got here.
+        return PASS;
       else if (inputChar==="<Up>")
         sendToVim += '\\e[A';
       else if (inputChar==="<Down>")
@@ -750,33 +747,41 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
 var handleReturnDirectly = false;
 
-function returnHandler() {
+//We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
+function specialKeyHandler(key) {
     if (handleReturnDirectly) {
       return Events.PASS_THROUGH;
     }
     lastKeyEscape = false;
-    //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
     if (modes.main != modes.VIM_COMMAND) {
         updateVim();
-        sendToVim += "\\r"
+        if (key === "<Return>") {
+          sendToVim += "\\r"
+        } else if (key === "<Tab>"){
+          sendToVim += "\\t"
+        }
         setTimeout( function() {
           handleReturnDirectly=true;
           try {
-          var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
-          var cursorPos = textBoxGetSelection()
-          var oldFocus = dactyl.focusedElement;
-          events.feedkeys("<Return>");
-          if (oldFocus == dactyl.focusedElement) {
-            textBoxSetValue(value);
-            textBoxSetSelectionFromSaved(cursorPos);
-          }
+            var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
+            var cursorPos = textBoxGetSelection()
+            var oldFocus = dactyl.focusedElement;
+            events.feedkeys(key);
+            if (oldFocus == dactyl.focusedElement) {
+              textBoxSetValue(value);
+              textBoxSetSelectionFromSaved(cursorPos);
+            }
           } finally {
             handleReturnDirectly=false;
           }
         }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
     }
     else {
-        sendToVim += "\\r"
+        if (key === "<Return>") {
+          sendToVim += "\\r"
+        } else if (key === "<Tab>"){
+          sendToVim += "\\t"
+        }
     }
 }
 
@@ -829,11 +834,18 @@ function cleanupPterosaur() {
               lastKeyEscape = false;
             },
             {noTransaction: true});
+
         mappings.builtin.add(
             [modes.INSERT],
             ["<Return>"],
             ["Override websites' carriage return behavior"],
-            returnHandler);
+            function(){return specialKeyHandler("<Return>");});
+
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<Tab>"],
+            ["Override websites' carriage return behavior"],
+            function(){return specialKeyHandler("<Tab>");});
     }
     else {
         mappings.builtin.add([modes.INSERT],
@@ -848,6 +860,7 @@ function cleanupPterosaur() {
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.INSERT, "<Return>");
         mappings.builtin.remove( modes.INSERT, "<S-Return>");
+        mappings.builtin.remove( modes.INSERT, "<Tab>");
     }
 }
 
