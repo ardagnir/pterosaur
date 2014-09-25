@@ -619,15 +619,19 @@ function updateTextbox(preserveMode) {
         }
 
         textBox.selection = doc.getSelection();
-      } else if(/ace_text-input/.test(textBox.className))
+      } else if(/ace_text-input/.test(textBox.className)) {
         textBoxType = "ace";
-      else if (textBox.parentNode && textBox.parentNode.parentNode && /CodeMirror/.test(textBox.parentNode.parentNode.className))
-      {
+      }
+      else if (textBox.parentNode && textBox.parentNode.parentNode && /CodeMirror/.test(textBox.parentNode.parentNode.className)) {
         textBoxType = "codeMirror"
         textBox = textBox.parentNode.parentNode;
       }
-      else
-        textBoxType = "normal"
+      else if (["INPUT", "TEXTAREA"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
+        textBoxType = "normal";
+      }
+      else {
+        textBoxType = "";
+      }
     }
 
     if (textBoxType) {
