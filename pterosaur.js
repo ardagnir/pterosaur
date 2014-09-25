@@ -61,9 +61,9 @@ function useFullVim(){
 }
 
 function updateVim(){
-  if(sendToVim !== "")
+  if(sendToVim!== "")
   {
-    let tempSendToVim=sendToVim
+    let tempSendToVim = sendToVim
     sendToVim = ""
     io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
     unsent=0;
@@ -589,7 +589,7 @@ function setupForTextbox() {
 }
 
 function updateTextbox(preserveMode) {
-    lastKeyEscape = false;
+    lastKey = "";
     unsent=1
 
     savedText = null;
@@ -712,41 +712,44 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
       if (inputChar==="<Space>" || inputChar==="<S-Space>")
-        sendToVim += ' ';
+        queueForVim(' ');
       else if (inputChar==="<Tab>") //We already handled vim's return if we got here.
         return PASS;
       else if (inputChar==="<Up>")
-        sendToVim += '\\e[A';
+        queueForVim('\\e[A');
       else if (inputChar==="<Down>")
-        sendToVim += '\\e[B';
+        queueForVim('\\e[B');
       else if (inputChar==="<Right>")
-        sendToVim += '\\e[C';
+        queueForVim('\\e[C');
       else if (inputChar==="<Left>")
-        sendToVim += '\\e[D';
+        queueForVim('\\e[D');
       else if (inputChar==="<lt>")
-        sendToVim += '<';
+        queueForVim('<');
       else if (inputChar==="<C-v>")
-        sendToVim += '\x16';
+        queueForVim('\x16');
       else if (inputChar==="<Return>") //We already handled vim's return if we got here.
         return PASS;
     }
     else {
       if (inputChar == '%')
-        sendToVim += '%%';
+        queueForVim('%%');
       else if (inputChar == '\\')
-        sendToVim += '\\\\';
+        queueForVim('\\\\');
       else if (inputChar == '"')
-        sendToVim += '\"';
+        queueForVim('\"');
       else if (inputChar == "'")
-        sendToVim += "\'\\'\'";
+        queueForVim("\'\\'\'");
       else {
-        sendToVim += inputChar;
+        queueForVim(inputChar);
         handleKeySending(inputChar); //TODO: Do this for all keys (maybe only for the last one for updatevim. There could be a variable that stores the last one which would also get rid of lastkey escape bool.
       }
     }
-    lastKeyEscape = false;
-
     return KILL;
+}
+
+function queueForVim(key) {
+  lastKey = key;
+  sendToVim += key;
 }
 
 var handleReturnDirectly = false;
@@ -756,13 +759,12 @@ function specialKeyHandler(key) {
     if (handleReturnDirectly) {
       return Events.PASS_THROUGH;
     }
-    lastKeyEscape = false;
     if (modes.main != modes.VIM_COMMAND) {
         updateVim();
         if (key === "<Return>") {
-          sendToVim += "\\r"
+          queueForVim("\\r");
         } else if (key === "<Tab>"){
-          sendToVim += "\\t"
+          queueForVim("\\t");
         }
         setTimeout( function() {
           handleReturnDirectly=true;
@@ -782,9 +784,9 @@ function specialKeyHandler(key) {
     }
     else {
         if (key === "<Return>") {
-          sendToVim += "\\r"
+          queueForVim("\\r");
         } else if (key === "<Tab>"){
-          sendToVim += "\\t"
+          queueForVim("\\t");
         }
     }
 }
@@ -800,13 +802,12 @@ function cleanupPterosaur() {
             ["<Esc>"],
             ["Handle escape key"],
             function(){
-              if (vimMode==="n" || lastKeyEscape)
+              if (vimMode==="n" || lastKey === '\\e')
               {
                 modes.reset();
               }
               else {
-                sendToVim += "\\e";
-                lastKeyEscape = true;
+                queueForVim("\\e");
               }
             });
 
@@ -815,8 +816,7 @@ function cleanupPterosaur() {
             ["<BS>"],
             ["Handle escape key"],
             function(){
-                sendToVim += "\\b";
-                lastKeyEscape = false;
+                queueForVim("\\b");
             });
 
         mappings.builtin.add(
@@ -824,8 +824,7 @@ function cleanupPterosaur() {
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
-              sendToVim += "\x12";
-              lastKeyEscape = false;
+              queueForVim("\x12");
             },
             {noTransaction: true});
 
@@ -834,8 +833,7 @@ function cleanupPterosaur() {
             ["<S-Return>"],
             ["Override websites' carriage return behavior"],
             function(){
-              sendToVim += "\\r"
-              lastKeyEscape = false;
+              queueForVim("\\r");
             },
             {noTransaction: true});
 
@@ -924,7 +922,7 @@ var textBox;
 var textBoxType;
 var lastVimCommand = "";
 var sendToVim = "";
-var lastKeyEscape = false;
+var lastKey = "";
 
 var uid;
 var dir;
@@ -1000,8 +998,8 @@ commands.add(["vim[do]"],
     function (args) {
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        sendToVim += command +"\\r"
-        lastKeyEscape = "false";
+        queueForVim(command +"\\r");
+        lastKey = "";
     }, {
       argCount: "+",
       literal: 0
