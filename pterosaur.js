@@ -756,7 +756,7 @@ function returnHandler() {
     }
     lastKeyEscape = false;
     //We want to manually handle carriage returns because otherwise forms can be submitted before the textfield can finish updating.
-    if (modes.main == modes.INSERT || modes.main == modes.AUTOCOMPLETE) {
+    if (modes.main != modes.VIM_COMMAND) {
         updateVim();
         sendToVim += "\\r"
         setTimeout( function() {
@@ -774,6 +774,9 @@ function returnHandler() {
             handleReturnDirectly=false;
           }
         }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
+    }
+    else {
+        sendToVim += "\\r"
     }
 }
 
