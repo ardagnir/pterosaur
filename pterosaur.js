@@ -60,7 +60,7 @@ function useFullVim(){
   return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
 }
 
-function updateVim(){
+function updateVim(skipKeyHandle){
   if(sendToVim!== "")
   {
     let tempSendToVim = sendToVim
@@ -68,6 +68,10 @@ function updateVim(){
     io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
     unsent=0;
     cyclesSinceLastSend=0;
+    if (!skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
+      let savedLastKey = lastKey;
+      setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
+    }
   }
 }
 
@@ -446,9 +450,85 @@ function textBoxSetSelection_codeMirror(start, end){
       } else {\
         editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch': end[1]});\
       }\
+    }else{\
+      failed = true;\
     }\
   "
+  //If we can't do it the right way, do it the hacky way by sending arrowkeys
+  if (1 || sandbox.failed) {
+      let selection = textBoxGetSelection_codeMirror();
+      let left = selection.start;
+      let right = selection.end;
+      start = start.split(',')
+      end = end.split(',')
+      left.row -=1;
+      left.column -=1;
+      right.row -=1;
+      right.column -=1;
+      console.log("go")
+
+      if (left.row != start[2]){
+        if (left.column != right.column || left.row != right.row) {
+          moveLeft(1);
+        }
+        moveLeft(left.column);
+        moveUp(left.row - start[2]);
+        left.column = 0;
+        left.row = start[2];
+        right = left
+      }
+      if (left.column != start[1]){
+        if (left.column!=right.column || left.row != right.row) {
+          moveLeft(1);
+        }
+        moveLeft(left.column-start[1]);
+        right.column = start[1]
+      }
+      if (right.row != end[2]){
+        moveLeft(right.column);
+        moveUp(right.row - end[2],1);
+        right.column = 0;
+      }
+      if (right.column != end[1]){
+        moveLeft(right.column - end[1],1);
+      }
+  }
   Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function moveLeft(number, shift){
+  console.log(number)
+  var key = "Left";
+  if (number < 0) {
+    number = -number;
+    key = "Right";
+  }
+  if (shift) {
+    key = "<S-"+key+">";
+  } else {
+    key = "<"+key+">";
+  }
+  for (var i=0; i<number; i++) {
+    console.log(key)
+    events.feedkeys(key);
+  }
+}
+
+function moveUp(number, shift){
+  var key = "Up";
+  if (number < 0) {
+    number = -number;
+    key = "Down";
+  }
+  if (shift) {
+    key = "<S-"+key+">";
+  } else {
+    key = "<"+key+">";
+  }
+  for (var i=0; i<number; i++) {
+    console.log(key)
+    events.feedkeys(key);
+  }
 }
 
 
@@ -711,37 +791,55 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
       //Currently, this also refreshes. I need to disable that.
-      if (inputChar==="<Space>" || inputChar==="<S-Space>")
-        queueForVim(' ');
-      else if (inputChar==="<Tab>") //We already handled vim's return if we got here.
-        return PASS;
-      else if (inputChar==="<Up>")
-        queueForVim('\\e[A');
-      else if (inputChar==="<Down>")
-        queueForVim('\\e[B');
-      else if (inputChar==="<Right>")
-        queueForVim('\\e[C');
-      else if (inputChar==="<Left>")
-        queueForVim('\\e[D');
-      else if (inputChar==="<lt>")
-        queueForVim('<');
-      else if (inputChar==="<C-v>")
-        queueForVim('\x16');
-      else if (inputChar==="<Return>") //We already handled vim's return if we got here.
-        return PASS;
+      switch(inputChar) {
+        case "<Space>":
+        case "<S-Space>":
+          queueForVim(' ');
+          break;
+        case "<Tab>": //We already handled vim's return if we got here.
+          return PASS;
+        case "<Up>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[A');
+          break;
+        case inputChar==="<Down>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[B');
+          break;
+        case inputChar==="<Right>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[C');
+          break;
+        case inputChar==="<Left>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[D');
+          break;
+        case inputChar==="<lt>":
+          queueForVim('<');
+          break;
+        case inputChar==="<C-v>":
+          queueForVim('\x16');
+          break;
+        case inputChar==="<Return>": //We already handled vim's return if we got here.
+          return PASS;
+      }
     }
     else {
-      if (inputChar == '%')
-        queueForVim('%%');
-      else if (inputChar == '\\')
-        queueForVim('\\\\');
-      else if (inputChar == '"')
-        queueForVim('\"');
-      else if (inputChar == "'")
-        queueForVim("\'\\'\'");
-      else {
-        queueForVim(inputChar);
-        handleKeySending(inputChar); //TODO: Do this for all keys (maybe only for the last one for updatevim. There could be a variable that stores the last one which would also get rid of lastkey escape bool.
+      switch(inputChar) {
+        case inputChar == '%':
+          queueForVim('%%');
+          break;
+        case inputChar == '\\':
+          queueForVim('\\\\');
+          break;
+        case inputChar == '"':
+          queueForVim('\"');
+          break;
+        case inputChar == "'":
+          queueForVim("\'\\'\'");
+          break;
+        default:
+          queueForVim(inputChar);
       }
     }
     return KILL;
@@ -760,7 +858,7 @@ function specialKeyHandler(key) {
       return Events.PASS_THROUGH;
     }
     if (modes.main != modes.VIM_COMMAND) {
-        updateVim();
+        updateVim(true);
         if (key === "<Return>") {
           queueForVim("\\r");
         } else if (key === "<Tab>"){
@@ -796,7 +894,6 @@ function cleanupPterosaur() {
     if (pterosaurCleanupCheck) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
-        mappings.builtin.remove(modes.INSERT, "<S-Return>");
         mappings.builtin.add(
             [modes.INSERT],
             ["<Esc>"],
@@ -850,19 +947,19 @@ function cleanupPterosaur() {
             function(){return specialKeyHandler("<Tab>");});
     }
     else {
-        mappings.builtin.add([modes.INSERT],
-            ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
-            function () {
-                editor.expandAbbreviation(modes.INSERT);
-                return Events.PASS_THROUGH;
-        });
-
         mappings.builtin.remove( modes.INSERT, "<Esc>");
         mappings.builtin.remove( modes.INSERT, "<BS>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.INSERT, "<Return>");
         mappings.builtin.remove( modes.INSERT, "<S-Return>");
         mappings.builtin.remove( modes.INSERT, "<Tab>");
+
+        mappings.builtin.add([modes.INSERT],
+            ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
+            function () {
+                editor.expandAbbreviation(modes.INSERT);
+                return Events.PASS_THROUGH;
+        });
     }
 }
 
