@@ -790,8 +790,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 
     let inputChar = DOM.Event.stringify(eventList[0]);
 
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|Return|S-Space|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
-      //Currently, this also refreshes. I need to disable that.
+    if (inputChar[0] === "<"){
       switch(inputChar) {
         case "<Space>":
         case "<S-Space>":
@@ -818,14 +817,16 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         case "<lt>":
           queueForVim('<');
           break;
-        case "<C-v>":
-          queueForVim('\x16');
-          break;
         case "<Return>": //We already handled vim's return if we got here.
           return PASS;
+        default:
+          if (inputChar.slice(0,3)==="<C-" && inputChar.length == 5) {
+            queueForVim(String.fromCharCode(inputChar[3].charCodeAt(0)-96));
+          } else {
+            return PASS;
+          }
       }
-    }
-    else {
+    } else {
       switch(inputChar) {
         case '%':
           queueForVim('%%');
