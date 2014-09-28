@@ -802,40 +802,40 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           if(textBoxType != "codeMirror")
             queueForVim('\\e[A');
           break;
-        case inputChar==="<Down>":
+        case "<Down>":
           if(textBoxType != "codeMirror")
             queueForVim('\\e[B');
           break;
-        case inputChar==="<Right>":
+        case "<Right>":
           if(textBoxType != "codeMirror")
             queueForVim('\\e[C');
           break;
-        case inputChar==="<Left>":
+        case "<Left>":
           if(textBoxType != "codeMirror")
             queueForVim('\\e[D');
           break;
-        case inputChar==="<lt>":
+        case "<lt>":
           queueForVim('<');
           break;
-        case inputChar==="<C-v>":
+        case "<C-v>":
           queueForVim('\x16');
           break;
-        case inputChar==="<Return>": //We already handled vim's return if we got here.
+        case "<Return>": //We already handled vim's return if we got here.
           return PASS;
       }
     }
     else {
       switch(inputChar) {
-        case inputChar == '%':
+        case '%':
           queueForVim('%%');
           break;
-        case inputChar == '\\':
+        case '\\':
           queueForVim('\\\\');
           break;
-        case inputChar == '"':
+        case '"':
           queueForVim('\"');
           break;
-        case inputChar == "'":
+        case "'":
           queueForVim("\'\\'\'");
           break;
         default:
