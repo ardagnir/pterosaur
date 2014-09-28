@@ -871,7 +871,7 @@ function specialKeyHandler(key) {
             var cursorPos = textBoxGetSelection()
             var oldFocus = dactyl.focusedElement;
             events.feedkeys(key);
-            if (oldFocus == dactyl.focusedElement) {
+            if (oldFocus == dactyl.focusedElement && (key !== "<Return>" || newLineCheck(value))) {
               textBoxSetValue(value);
               textBoxSetSelectionFromSaved(cursorPos);
             }
@@ -887,6 +887,11 @@ function specialKeyHandler(key) {
           queueForVim("\\t");
         }
     }
+}
+
+//Returns true if there is one additional newline. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
+function newLineCheck(value){
+  return textBoxGetValue().split("\n").length - value.split("\n").length === 1
 }
 
 function cleanupPterosaur() {
