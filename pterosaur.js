@@ -801,6 +801,9 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 function queueForVim(key) {
   lastKey = key;
   sendToVim += key;
+  if (key === '\\e'){
+    sendToVim += '\\000'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
+  }
 }
 
 var handleReturnDirectly = false;
