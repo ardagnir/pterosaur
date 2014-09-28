@@ -442,51 +442,12 @@ function textBoxSetSelection_codeMirror(start, end){
   sandbox.editor = textBox.wrappedJSObject;
   sandbox.CodeMirror = content.wrappedJSObject.CodeMirror;
 
-  //CodeMirror v3 gets caught in an infinite loop sometimes when setting selection from chrome code. Let's disable this until I can find a workaround.
   var sandboxScript="\
-    if (CodeMirror && CodeMirror.version.split('.')[0]>3){\
-      if (start[1] == end[1] && start[2] == end[2]){\
-        editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch':end[1]});\
-      } else {\
-        editor.CodeMirror.setSelection({'line':start[2], 'ch':start[1]}, {'line':end[2], 'ch': end[1]});\
-      }\
-    }else{\
-      failed = true;\
+    if (CodeMirror){\
+        editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
     }\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
-  //If we can't do it the right way, do it the hacky way by sending arrowkeys
-  if (sandbox.failed) {
-      start = start.split(',')
-      start[1] = parseInt(start[1])+1;
-      start[2] = parseInt(start[2])+1;
-      end = end.split(',')
-      end[1] = parseInt(end[1])+1;
-      end[2] = parseInt(end[2])+1;
-      let selection = textBoxGetSelection_codeMirror();
-      let sanity=100
-      while (selection.start.row != start[2] && sanity>0) {
-        moveUp(selection.start.row - start[2] );
-        selection = textBoxGetSelection_codeMirror();
-        sanity-=1;
-      }
-      if(selection.start.column != start[1]) {
-        
-        if(selection.start.column != selection.end.column || selection.start.row != selection.end.row)
-          moveLeft(1);
-        moveLeft(selection.start.column - start[1]);
-        selection.start.column = start[1];
-        selection.end = selection.start;
-      }
-      while (selection.end.row != end[2] && sanity>0) {
-        moveUp(selection.end.row - end[2], 1);
-        selection = textBoxGetSelection_codeMirror();
-        sanity-=1;
-      }
-      if(selection.end.column != end[1]) {
-        moveLeft(selection.end.column - end[1], 1);
-      }
-  }
 }
 
 function moveLeft(number, shift){
@@ -697,7 +658,7 @@ function updateTextbox(preserveMode) {
         textBoxType = "codeMirror"
         textBox = textBox.parentNode.parentNode;
       }
-      else if (["INPUT", "TEXTAREA"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
+      else if (["INPUT", "TEXTAREA", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
         textBoxType = "normal";
       }
       else {
