@@ -454,50 +454,42 @@ function textBoxSetSelection_codeMirror(start, end){
       failed = true;\
     }\
   "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
   //If we can't do it the right way, do it the hacky way by sending arrowkeys
-  if (1 || sandbox.failed) {
-      let selection = textBoxGetSelection_codeMirror();
-      let left = selection.start;
-      let right = selection.end;
+  if (sandbox.failed) {
       start = start.split(',')
+      start[1] = parseInt(start[1])+1;
+      start[2] = parseInt(start[2])+1;
       end = end.split(',')
-      left.row -=1;
-      left.column -=1;
-      right.row -=1;
-      right.column -=1;
-      console.log("go")
-
-      if (left.row != start[2]){
-        if (left.column != right.column || left.row != right.row) {
+      end[1] = parseInt(end[1])+1;
+      end[2] = parseInt(end[2])+1;
+      let selection = textBoxGetSelection_codeMirror();
+      let sanity=100
+      while (selection.start.row != start[2] && sanity>0) {
+        moveUp(selection.start.row - start[2] );
+        selection = textBoxGetSelection_codeMirror();
+        sanity-=1;
+      }
+      if(selection.start.column != start[1]) {
+        
+        if(selection.start.column != selection.end.column || selection.start.row != selection.end.row)
           moveLeft(1);
-        }
-        moveLeft(left.column);
-        moveUp(left.row - start[2]);
-        left.column = 0;
-        left.row = start[2];
-        right = left
+        moveLeft(selection.start.column - start[1]);
+        selection.start.column = start[1];
+        selection.end = selection.start;
       }
-      if (left.column != start[1]){
-        if (left.column!=right.column || left.row != right.row) {
-          moveLeft(1);
-        }
-        moveLeft(left.column-start[1]);
-        right.column = start[1]
+      while (selection.end.row != end[2] && sanity>0) {
+        moveUp(selection.end.row - end[2], 1);
+        selection = textBoxGetSelection_codeMirror();
+        sanity-=1;
       }
-      if (right.row != end[2]){
-        moveLeft(right.column);
-        moveUp(right.row - end[2],1);
-        right.column = 0;
-      }
-      if (right.column != end[1]){
-        moveLeft(right.column - end[1],1);
+      if(selection.end.column != end[1]) {
+        moveLeft(selection.end.column - end[1], 1);
       }
   }
-  Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
 
 function moveLeft(number, shift){
-  console.log(number)
   var key = "Left";
   if (number < 0) {
     number = -number;
@@ -509,7 +501,6 @@ function moveLeft(number, shift){
     key = "<"+key+">";
   }
   for (var i=0; i<number; i++) {
-    console.log(key)
     events.feedkeys(key);
   }
 }
@@ -526,7 +517,6 @@ function moveUp(number, shift){
     key = "<"+key+">";
   }
   for (var i=0; i<number; i++) {
-    console.log(key)
     events.feedkeys(key);
   }
 }
