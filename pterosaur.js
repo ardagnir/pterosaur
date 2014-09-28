@@ -671,6 +671,7 @@ function setupForTextbox() {
 function updateTextbox(preserveMode) {
     lastKey = "";
     unsent=1
+    cyclesSinceLastSend=0;
 
     savedText = null;
     savedCursorStart = null;
@@ -1037,7 +1038,7 @@ var vimProcess;
 
 var unsent = 1;
 
-var cyclesSinceLastSend = 0;
+var cyclesSinceLastSend = 0; //Cycles since we sent something to vim that might change the state (keypress/mouse click). This is to pick up stuff that has a delayed reaction without polling vim constantly when we aren't doing aything.
 
 
 function killVimbed() {
