@@ -19,7 +19,7 @@ Pterosaur gives you the full power of Vim in each Firefox text field.
     
 **Step 2:** Clone pterosaur to your pentadactyl plugin directory
 
-    mkdir ~/.pentadactyl/plugins
+    mkdir -p ~/.pentadactyl/plugins
     cd ~/.pentadactyl/plugins
     git clone http://github.com/ardagnir/pterosaur
 
