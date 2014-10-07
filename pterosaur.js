@@ -397,7 +397,13 @@ function textBoxSetSelection(start, end){
         }
         nodeIndex += 1
       }
-      range.setStart(nodes[nodeIndex], start[1])
+      if(nodes[nodeIndex].tagName == "BR"){
+        //Cursor is between two <br> tags. Only way to represent this is with parent node.
+        range.setStart(textBox.rootElement, nodeIndex)
+      }
+      else{
+        range.setStart(nodes[nodeIndex], start[1])
+      }
 
       while(row<end[2] && nodeIndex < length)
       {
@@ -408,7 +414,13 @@ function textBoxSetSelection(start, end){
         }
         nodeIndex += 1
       }
-      range.setEnd(nodes[nodeIndex], end[1])
+      if(nodes[nodeIndex].tagName == "BR"){
+        //Cursor is between two <br> tags. Only way to represent this is with parent node.
+        range.setEnd(textBox.rootElement, nodeIndex)
+      }
+      else{
+        range.setEnd(nodes[nodeIndex], end[1])
+      }
 
       textBox.selection.removeAllRanges()
       textBox.selection.addRange(range)
