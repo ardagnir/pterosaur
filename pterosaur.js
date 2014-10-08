@@ -674,7 +674,13 @@ function updateTextbox(preserveMode) {
         textBoxType = "normal";
       }
       else {
-        textBoxType = "";
+        textBox = Editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+        if(textBox) {
+          dactyl.focusedElement = null;
+          textBoxType = "designMode";
+        } else {
+          textBoxType = "";
+        }
       }
     }
 
@@ -759,8 +765,8 @@ modes.INSERT.params.onKeyPress = function(eventList) {
         case "<S-Space>":
           queueForVim(' ');
           break;
-        case "<Tab>": //We already handled vim's return if we got here.
-          return PASS;
+        case "<Tab>":
+          return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
         case "<Up>":
           if(textBoxType != "codeMirror")
             queueForVim('\\e[A');
@@ -818,33 +824,56 @@ function queueForVim(key) {
   }
 }
 
-var handleReturnDirectly = false;
+var handlingSpecialKey = false;
+
+
+function getKeyBehavior(textBoxType, key) {
+  if(key == "<Return>"){
+    if(["codeMirror", "ace"].indexOf(textBoxType)>-1){
+      return "vim"; //Pentadactyl has broken carriage returns for codemirror and we never use it to complete anything. Let's just do it in vim.
+    }else{
+      return "linecheck";
+    }
+  }
+  //TODO: All the times we would want to send vim to anything other than web (like ace), it doesn't make it here anyway.
+  if(key == "<Tab>"){
+    return "web";
+  }
+}
 
 //We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
 function specialKeyHandler(key) {
-    if (handleReturnDirectly) {
+    if (handlingSpecialKey) {
       return Events.PASS_THROUGH;
     }
     if (modes.main != modes.VIM_COMMAND) {
-        updateVim(true);
-        if (key === "<Return>") {
-          queueForVim("\\r");
-        } else if (key === "<Tab>"){
-          queueForVim("\\t");
+        var behavior = getKeyBehavior(textBoxType, key)
+        if (behavior !== "web") {
+          updateVim(true);
+          if (key === "<Return>") {
+            queueForVim("\\r");
+          } else if (key === "<Tab>"){
+            queueForVim("\\t");
+          }
+          if (behavior=="vim"){
+            return;
+          }
         }
         setTimeout( function() {
-          handleReturnDirectly=true;
+          handlingSpecialKey=true;
           try {
             var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
             var cursorPos = textBoxGetSelection()
             var oldFocus = dactyl.focusedElement;
             events.feedkeys(key);
-            if (oldFocus == dactyl.focusedElement && (key !== "<Return>" || newLineCheck(value))) {
-              textBoxSetValue(value);
-              textBoxSetSelectionFromSaved(cursorPos);
+            if(behavior !== "web"){
+              if (oldFocus == dactyl.focusedElement && (behavior != "linecheck" || newLineCheck(value) && (behavior != "spaceCheck" || spaceCheck(value)))) {
+                textBoxSetValue(value);
+                textBoxSetSelectionFromSaved(cursorPos);
+              }
             }
           } finally {
-            handleReturnDirectly=false;
+            handlingSpecialKey=false;
           }
         }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
     }
@@ -855,11 +884,17 @@ function specialKeyHandler(key) {
           queueForVim("\\t");
         }
     }
+    if(key==="<Tab>")
+      return false;
 }
 
 //Returns true if there is one additional newline. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
 function newLineCheck(value){
   return textBoxGetValue().split("\n").length - value.split("\n").length === 1
+}
+
+function spaceCheck(value){
+  return textBoxGetValue().replace(/\s/g,"") === value.replace(/\s/g,"")
 }
 
 function cleanupPterosaur() {
@@ -912,12 +947,6 @@ function cleanupPterosaur() {
             ["<Return>"],
             ["Override websites' carriage return behavior"],
             function(){return specialKeyHandler("<Return>");});
-
-        mappings.builtin.add(
-            [modes.INSERT],
-            ["<Tab>"],
-            ["Override websites' carriage return behavior"],
-            function(){return specialKeyHandler("<Tab>");});
     }
     else {
         mappings.builtin.remove( modes.INSERT, "<Esc>");
@@ -925,7 +954,6 @@ function cleanupPterosaur() {
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.INSERT, "<Return>");
         mappings.builtin.remove( modes.INSERT, "<S-Return>");
-        mappings.builtin.remove( modes.INSERT, "<Tab>");
 
         mappings.builtin.add([modes.INSERT],
             ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
