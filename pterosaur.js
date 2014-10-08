@@ -350,10 +350,10 @@ function textBoxGetSelection_codeMirror(){
 function parseSandboxRangeForVim(sandbox) {
   if (typeof sandbox.range === "string") {
     var range = JSON.parse(sandbox.range);
-    range.start.row+=1;
-    range.start.column+=1;
-    range.end.row+=1;
-    range.end.column+=1;
+    range.start.row = parseInt(range.start.row) + 1;
+    range.start.column = parseInt(range.start.column) + 1;
+    range.end.row = parseInt(range.end.row) + 1;
+    range.end.column = parseInt(range.end.column) + 1;
     return range;
   } else {
     console.log("Sandbox Error!");
