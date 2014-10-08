@@ -503,7 +503,7 @@ function htmlToText(inText) {
 }
 
 function textToHtml(inText) {
-  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/ /g, '&nbsp;').replace(/\n/g, '<br>')
+  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ /mg, '&nbsp;').replace(/  /g, ' &nbsp;').replace(/\n/g, '<br>')
 }
 
 function textBoxSetValue(newVal) {
