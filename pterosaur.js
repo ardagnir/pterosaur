@@ -1001,10 +1001,13 @@ function startVimbed(debug) {
 
   vimProcess.init(FileUtils.File('/bin/sh'));
   //Note: +clientserver doesn't work for some values of TERM (like linux)
+  let TERM = services.environment.get("TERM");
+  if (!TERM)
+      TERM = "xterm";
   if (debug)
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
+    vimProcess.runAsync([ '-c',"TERM="+TERM+" vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
   else
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
+    vimProcess.runAsync([ '-c',"TERM="+TERM+" vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
 
   //We have to send SOMETHING to the fifo or vim will stay open when we close.
   io.system("echo -n ' ' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
