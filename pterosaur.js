@@ -1010,7 +1010,7 @@ function startVimbed(debug) {
     vimProcess.runAsync([ '-c',"TERM="+TERM+" vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
 
   //We have to send SOMETHING to the fifo or vim will stay open when we close.
-  io.system("echo -n ' ' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
+  io.system("echo -n '\e' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
 
 }
 
