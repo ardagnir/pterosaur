@@ -459,12 +459,9 @@ function textBoxSetSelection_codeMirror(start, end){
   sandbox.start = start.split(",");
   sandbox.end = end.split(",");
   sandbox.editor = textBox.wrappedJSObject;
-  sandbox.CodeMirror = content.wrappedJSObject.CodeMirror;
 
   var sandboxScript="\
-    if (CodeMirror){\
         editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
-    }\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
