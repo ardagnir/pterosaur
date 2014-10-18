@@ -67,7 +67,7 @@ function updateVim(skipKeyHandle){
     sendToVim = ""
     io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
     unsent=0;
-    cyclesSinceLastSend=0;
+    actionLull=0;
     if (!skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
       let savedLastKey = lastKey;
       setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
@@ -112,14 +112,16 @@ function update(){
     }
 
     //This has to be up here for vimdo to work. This should probably be changed eventually.
-    if (writeInsteadOfRead)
-    {
+    if (writeInsteadOfRead) {
       updateVim();
 
-      if(cyclesSinceLastSend < 2)
-      {
-        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
-        cyclesSinceLastSend+=1;
+      if(actionLull <= 40) {
+        if (actionLull < 2 || actionLull % 8 == 0 || vimGame) {
+          io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
+        }
+        actionLull+=1;
+      } else {
+        vimGame = false;
       }
 
       writeInsteadOfRead = 0;
@@ -243,9 +245,14 @@ function update(){
       modes.pop();
     }
 
-    textBoxSetValue(val)
-
-    savedText = val;
+    if (val !== savedText){
+      textBoxSetValue(val)
+      savedText = val;
+      if(actionLull > 2) {
+        actionLull = 0;
+        vimGame = true;
+      }
+    }
 
     if (textBoxType) {
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
@@ -634,7 +641,8 @@ function setupForTextbox() {
 function updateTextbox(preserveMode) {
     lastKey = "";
     unsent=1
-    cyclesSinceLastSend=0;
+    actionLull=0;
+    vimGame = false;
 
     savedText = null;
     savedCursorStart = null;
@@ -1037,7 +1045,7 @@ var vimProcess;
 
 var unsent = 1;
 
-var cyclesSinceLastSend = 0; //Cycles since we sent something to vim that might change the state (keypress/mouse click). This is to pick up stuff that has a delayed reaction without polling vim constantly when we aren't doing aything.
+var actionLull = 0; //Cycles since we sent something to vim that might change the state (keypress/mouse click). This is to pick up stuff that has a delayed reaction without polling vim constantly when we aren't doing aything.
 
 
 function killVimbed() {
@@ -1107,6 +1115,6 @@ commands.add(["vim[do]"],
       literal: 0
     });
 
-
+var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
 var CYCLE_TIME = 30
 let timer =  window.setInterval(update, CYCLE_TIME);
