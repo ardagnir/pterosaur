@@ -61,14 +61,13 @@ function useFullVim(){
 }
 
 function updateVim(skipKeyHandle){
-  if(sendToVim!== "")
-  {
+  if(sendToVim!== "") {
     let tempSendToVim = sendToVim
     sendToVim = ""
     io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
     unsent=0;
     actionLull=0;
-    if (!skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
+    if (modes.main === modes.INSERT && !skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
       let savedLastKey = lastKey;
       setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
     }
@@ -76,6 +75,11 @@ function updateVim(skipKeyHandle){
 }
 
 function update(){
+    if(waitForVim > 0) {
+      waitForVim -=1;
+      return;
+    }
+
     if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
 
@@ -83,11 +87,13 @@ function update(){
     {
       killVimbed();
       startVimbed(0);
+      waitForVim = 100; //Give vim some time to start
     }
     else if (!debugMode && options["pterosaurdebug"])
     {
       killVimbed();
       startVimbed(1);
+      waitForVim = 100; //Give vim some time to start
     }
 
     var cursorPos;
@@ -1065,6 +1071,10 @@ var pterosaurCleanupCheck = false;
 
 var debugMode =false;
 
+var waitForVim = 0;
+
+var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
+
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
 group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
@@ -1117,6 +1127,5 @@ commands.add(["vim[do]"],
       literal: 0
     });
 
-var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
 var CYCLE_TIME = 30
 let timer =  window.setInterval(update, CYCLE_TIME);
