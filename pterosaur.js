@@ -166,8 +166,12 @@ function update(){
       }
       if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
       {
-        lastVimCommand = metadata[1]
-        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
+        lastVimCommand = metadata[1];
+        let modestring = "";
+        //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentdactyl commands
+        if( options["guioptions"].indexOf("s") == -1)
+          modestring = "VIM COMMAND "
+        dactyl.echo(modestring + metadata[1], commandline.FORCE_SINGLELINE);
       }
     }
     else{
@@ -622,6 +626,7 @@ function textBoxGetValue_codeMirror(){
 
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
+    sendToVim = "";
     unsent=1;
 }
 
