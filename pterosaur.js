@@ -400,6 +400,10 @@ function textBoxSetSelectionFromSaved(saved){
   textBoxSetSelection(start, end);
 }
 
+function convertRowColumnToIndex(text, row, column){
+  return (","+text).split("\n").slice(0,row).join().length + parseInt(column);
+}
+
 function textBoxSetSelection(start, end){
   switch (textBoxType) {
     case "ace":
@@ -409,7 +413,10 @@ function textBoxSetSelection(start, end){
       textBoxSetSelection_codeMirror(start, end)
       break;
     case "normal":
-      textBox.setSelectionRange(parseInt(start), parseInt(end));
+      start = start.split(',');
+      end = end.split(',');
+      let value = textBox.value;
+      textBox.setSelectionRange(convertRowColumnToIndex(value, start[2], start[1]), convertRowColumnToIndex(value, end[2], end[1]));
       break;
     case "contentEditable":
     case "designMode":
