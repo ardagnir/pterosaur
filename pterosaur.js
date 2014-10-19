@@ -60,6 +60,16 @@ function useFullVim(){
   return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
 }
 
+//In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
+
+function leanVim(){
+  return textBoxType === "ace" ||  [modes.INSERT, modes.AUTOCOMPLETE, modes.VIM_SELECT].indexOf(modes.main) == -1;
+}
+//Strict vim is like leanvim but also forces tabs and carriage returns to vim
+function strictVim(){
+  return textBoxType === "ace" ||  modes.main === modes.VIM_COMMAND;
+}
+
 function updateVim(skipKeyHandle){
   if(sendToVim!== "") {
     let tempSendToVim = sendToVim
@@ -67,7 +77,7 @@ function updateVim(skipKeyHandle){
     io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
     unsent=0;
     actionLull=0;
-    if (modes.main === modes.INSERT && !skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
+    if (!leanVim() && !skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
       let savedLastKey = lastKey;
       setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
     }
@@ -79,6 +89,12 @@ function update(){
       waitForVim -=1;
       return;
     }
+
+    if (strictVimCheck !== (strictVim() && useFullVim()))
+      handleStrictVim();
+
+    if (leanVimCheck !== (leanVim() && useFullVim()))
+      handleLeanVim();
 
     if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
@@ -844,26 +860,28 @@ var handlingSpecialKey = false;
 
 
 function getKeyBehavior(textBoxType, key) {
-  if(key == "<Return>"){
-    if(["codeMirror", "ace"].indexOf(textBoxType)>-1){
-      return "vim"; //Pentadactyl has broken carriage returns for codemirror and we never use it to complete anything. Let's just do it in vim.
-    }else{
-      return "linecheck";
-    }
+  if (strictVim()) {
+    return "vim";
   }
-  //TODO: All the times we would want to send vim to anything other than web (like ace), it doesn't make it here anyway.
-  if(key == "<Tab>"){
+  if(key === "<Return>"){
+    if(textBoxType === "codeMirror") //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
+      return "vim";
+    else
+      return "linecheck";
+  }
+  if(key === "<Tab>"){
     return "web";
   }
 }
 
 //We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
 function specialKeyHandler(key) {
+    console.log(key)
     if (handlingSpecialKey) {
       return Events.PASS_THROUGH;
     }
-    if (modes.main != modes.VIM_COMMAND) {
-        var behavior = getKeyBehavior(textBoxType, key)
+    var behavior = getKeyBehavior(textBoxType, key)
+    if (behavior !== "vim") {
         if (behavior !== "web") {
           updateVim(true);
           if (key === "<Return>") {
@@ -904,14 +922,67 @@ function specialKeyHandler(key) {
       return false;
 }
 
-//Returns true if there is one additional newline. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
+//Returns true if the non-newline text is the same. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
 function newLineCheck(value){
-  return textBoxGetValue().split("\n").length - value.split("\n").length === 1
+  return textBoxGetValue().replace(/\n/g,"") === value.replace(/\n/g,"")
 }
 
 function spaceCheck(value){
   return textBoxGetValue().replace(/\s/g,"") === value.replace(/\s/g,"")
 }
+
+//Even passing through these functions changes web behavior. We need to completely add or remove them depending on vim strictness.
+function handleLeanVim() {
+    leanVimCheck = leanVim();
+    if (leanVimCheck) {
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Up>"],
+          ["Override websites' up behavior"],
+          function(){queueForVim('\\e[A');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Down>"],
+          ["Override websites' down behavior"],
+          function(){queueForVim('\\e[B');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Right>"],
+          ["Override websites' right behavior"],
+          function(){queueForVim('\\e[C');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Left>"],
+          ["Override websites' left behavior"],
+          function(){queueForVim('\\e[D');});
+    } else {
+      mappings.builtin.remove(modes.INSERT, "<Tab>");
+      mappings.builtin.remove(modes.INSERT, "<Up>");
+      mappings.builtin.remove(modes.INSERT, "<Down>");
+      mappings.builtin.remove(modes.INSERT, "<Right>");
+      mappings.builtin.remove(modes.INSERT, "<Left>");
+    }
+}
+
+function handleStrictVim() {
+    strictVimCheck = strictVim();
+    if (strictVimCheck) {
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Tab>"],
+          ["Override websites' tab behavior"],
+          function(){specialKeyHandler("<Tab>");});
+
+    } else {
+      mappings.builtin.remove(modes.INSERT, "<Tab>");
+      mappings.builtin.remove(modes.INSERT, "<Up>");
+      mappings.builtin.remove(modes.INSERT, "<Down>");
+      mappings.builtin.remove(modes.INSERT, "<Right>");
+      mappings.builtin.remove(modes.INSERT, "<Left>");
+    }
+}
+
+
 
 function cleanupPterosaur() {
     pterosaurCleanupCheck = useFullVim();
@@ -935,7 +1006,7 @@ function cleanupPterosaur() {
         mappings.builtin.add(
             [modes.INSERT],
             ["<BS>"],
-            ["Handle escape key"],
+            ["Handle backspace key"],
             function(){
                 queueForVim("\\b");
             });
@@ -1068,6 +1139,8 @@ var writeInsteadOfRead = 0;
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
+var strictVimCheck = false;
+var leanVimCheck = false;
 
 var debugMode =false;
 
