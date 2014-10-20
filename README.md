@@ -1,9 +1,9 @@
 Pterosaur
 =========
 
-Pterosaur gives you the full power of Vim in each Firefox text field.
+Pterosaur gives you the full power of Vim and your vimrc in each Firefox text field.
 
-![Demo](/pterosaur_demo.gif?raw=true)
+![Demo](http://i.imgur.com/MuUj2hZ.gif)
 
 
 ##Requirements
@@ -19,7 +19,7 @@ Pterosaur gives you the full power of Vim in each Firefox text field.
     
 **Step 2:** Clone pterosaur to your pentadactyl plugin directory
 
-    mkdir ~/.pentadactyl/plugins
+    mkdir -p ~/.pentadactyl/plugins
     cd ~/.pentadactyl/plugins
     git clone http://github.com/ardagnir/pterosaur
 
@@ -31,7 +31,7 @@ Pterosaur uses vimbed to run an actual vim instance in the background and routes
 ##Bugs
 ( If you find a bug that isn't listed here, please create a github issue. )
 
-- Some editors (like github outside of zen-mode) do weird things with text that make text manipulation difficult and mess up pterosaur. I still need to find a good solution for this. 
+- Pterosaur does not support google docs (though it does support gmail and google search).
 
 ##Notes
 - Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
