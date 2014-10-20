@@ -31,7 +31,7 @@ Pterosaur uses vimbed to run an actual vim instance in the background and routes
 ##Bugs
 - If you find a bug, please create a github issue.
 
-- Pterosaur does not support google docs (though it does support gmail and google search).
+- Pterosaur does not yet support google docs (Pentadactyl itself has problems with google docs. Pterosaur can use gmail and google search just fine.)
 
 ##Notes
 - Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
