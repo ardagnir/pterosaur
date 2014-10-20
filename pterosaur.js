@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.7",
+             version: "0.8",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -56,31 +56,77 @@ var INFO =
     ["p", {},
         "This plugin provides full vim functionality to all input text-boxes by running a vim process in the background."]];
 
+function useFullVim(){
+  return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
+}
+
+//In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
+
+function leanVim(){
+  return textBoxType === "ace" ||  [modes.INSERT, modes.AUTOCOMPLETE, modes.VIM_SELECT].indexOf(modes.main) == -1;
+}
+//Strict vim is like leanvim but also forces tabs and carriage returns to vim
+function strictVim(){
+  return textBoxType === "ace" ||  modes.main === modes.VIM_COMMAND;
+}
+
+function updateVim(skipKeyHandle){
+  if(sendToVim!== "") {
+    let tempSendToVim = sendToVim
+    sendToVim = ""
+    io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
+    unsent=0;
+    actionLull=0;
+    if (!leanVim() && !skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
+      let savedLastKey = lastKey;
+      setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
+    }
+  }
+}
 
 function update(){
-    if (pterosaurCleanupCheck !== options["fullvim"])
+    if(waitForVim > 0) {
+      waitForVim -=1;
+      return;
+    }
+
+    if (strictVimCheck !== (strictVim() && useFullVim()))
+      handleStrictVim();
+
+    if (leanVimCheck !== (leanVim() && useFullVim()))
+      handleLeanVim();
+
+    if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
 
     if (debugMode && !options["pterosaurdebug"])
     {
       killVimbed();
       startVimbed(0);
+      waitForVim = 100; //Give vim some time to start
     }
     else if (!debugMode && options["pterosaurdebug"])
     {
       killVimbed();
       startVimbed(1);
+      waitForVim = 100; //Give vim some time to start
     }
 
-    if(pterFocused && textBox)
+    var cursorPos;
+
+    if(dactyl.focusedElement === pterFocused && textBoxType)
     {
-      if (savedCursorStart!=null && textBox.selectionStart != savedCursorStart ||
-          savedCursorEnd!=null && textBox.selectionEnd != savedCursorEnd)
+      cursorPos = textBoxGetSelection()
+      if (savedCursorStart!=null &&
+           (cursorPos.start.row != savedCursorStart.row || cursorPos.start.column != savedCursorStart.column) ||
+          savedCursorEnd!=null &&
+           (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
       {
         updateTextbox(0);
         return;
       }
-      if (savedText!=null && textBox.value != savedText)
+
+      if (savedText != null && textBoxGetValue() != savedText)
       {
         updateTextbox(1);
         return;
@@ -88,21 +134,16 @@ function update(){
     }
 
     //This has to be up here for vimdo to work. This should probably be changed eventually.
-    if (writeInsteadOfRead)
-    {
-      if(sendToVim !== "")
-      {
-        let tempSendToVim=sendToVim
-        sendToVim = ""
-        io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
-        unsent=0;
-        cyclesSinceLastSend=0;
-      }
+    if (writeInsteadOfRead) {
+      updateVim();
 
-      if(cyclesSinceLastSend < 2)
-      {
-        io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
-        cyclesSinceLastSend+=1;
+      if(actionLull <= 40) {
+        if (actionLull < 2 || actionLull % 8 == 0 || vimGame) {
+          io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
+        }
+        actionLull+=1;
+      } else {
+        vimGame = false;
       }
 
       writeInsteadOfRead = 0;
@@ -110,18 +151,17 @@ function update(){
     }
 
 
-    if (!options["fullvim"] || (dactyl.focusedElement && dactyl.focusedElement.type === "password") || 
-      pterosaurModes.indexOf(modes.main)=== -1)  {
-        if(pterFocused) {
+    if (!useFullVim() || pterosaurModes.indexOf(modes.main) === -1)  {
+        if(textBoxType) {
           cleanupForTextbox();
-          pterFocused = null
+          textBoxType = ""
         }
         return;
     }
 
-    if (dactyl.focusedElement !== pterFocused)
+    if (dactyl.focusedElement !== pterFocused || !textBoxType)
     {
-      if(pterFocused)
+      if(textBoxType)
         cleanupForTextbox();
       setupForTextbox();
       //We already skipped some important steps (like selection checking), so wait till next update and do the whole thing.
@@ -140,10 +180,6 @@ function update(){
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
-    for (var i=1, len=metadata.length; i<len; i++)
-    {
-      metadata[i]=metadata[i].replace(/,.*/, "")
-    }
 
     if (vimMode === "c") {
       if ( modes.main !== modes.VIM_COMMAND)
@@ -152,8 +188,12 @@ function update(){
       }
       if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
       {
-        lastVimCommand = metadata[1]
-        dactyl.echo("VIM COMMAND " + metadata[1], commandline.FORCE_SINGLELINE);
+        lastVimCommand = metadata[1];
+        let modestring = "";
+        //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentdactyl commands
+        if( options["guioptions"].indexOf("s") == -1)
+          modestring = "VIM COMMAND "
+        dactyl.echo(modestring + metadata[1], commandline.FORCE_SINGLELINE);
       }
     }
     else{
@@ -231,32 +271,391 @@ function update(){
       modes.pop();
     }
 
-    if (textBox) {
-
-        textBox.value = val;
-        savedText = val;
-
-        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
-          textBox.setSelectionRange(metadata[1], metadata[2]);
-
-        savedCursorStart = textBox.selectionStart;
-        savedCursorEnd = textBox.selectionEnd;
-
-        if (true) {
-            let elem = DOM(textBox);
-            elem.attrNS(NS, "modifiable", true)
-                .style.MozUserInput;
-            elem.input().attrNS(NS, "modifiable", null);
-        }
+    if (val !== savedText){
+      textBoxSetValue(val)
+      savedText = val;
+      if(actionLull > 2) {
+        actionLull = 0;
+        vimGame = true;
+      }
     }
-    else {
-        while (editor_.rootElement.firstChild)
-            editor_.rootElement.removeChild(editor_.rootElement.firstChild);
-        editor_.rootElement.innerHTML = val;
+
+    if (textBoxType) {
+        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
+        {
+          textBoxSetSelection(metadata[1], metadata[2])
+        }
+
+        cursorPos = textBoxGetSelection()
+
+        savedCursorStart = cursorPos.start;
+        savedCursorEnd = cursorPos.end;
     }
 }
 
-function cleanupForTextbox() { 
+function createSandbox(){
+  var doc = textBox.ownerDocument || content;
+  var protocol = doc.location.protocol;
+  var host = doc.location.host;
+  //I don't think these can be non-strings, but there's no harm in being paranoid.
+  if (typeof protocol === "string" && typeof host === "string")
+  {
+    return new Components.utils.Sandbox(protocol + "//" + host);
+  }
+}
+
+function textBoxGetSelection(){
+  switch (textBoxType) {
+    case "ace":
+      return textBoxGetSelection_ace()
+    case "codeMirror":
+      return textBoxGetSelection_codeMirror()
+    case "normal":
+      var text = textBox.value;
+      if (text){
+        var preStart = text.substr(0, textBox.selectionStart);
+        var preEnd = text.substr(0, textBox.selectionEnd);
+        var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
+        var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+        var charStart = 1 + preStart.length;
+        var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
+        var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
+        var charEnd = 1 + preEnd.length;
+        return {"start": {"row": rowStart, "column": columnStart, "char": charStart}, "end": {"row":rowEnd, "column": columnEnd, "char":charEnd}};
+      }
+      return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
+    case "contentEditable":
+    case "designMode":
+      let fromBeginning = RangeFind.nodeContents(textBox.rootElement);
+      let oldRange = textBox.selection.getRangeAt(0);
+
+      fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
+      var preStart = htmlToText(DOM.stringify(fromBeginning, true));
+      fromBeginning.setEnd(oldRange.endContainer, oldRange.endOffset);
+      var preEnd = htmlToText(DOM.stringify(fromBeginning, true));
+
+      var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
+      var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
+      var rowEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
+      var columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
+      return {"start": {"row": rowStart, "column": columnStart}, "end": {"row":rowEnd, "column": columnEnd}};
+  }
+}
+
+function textBoxGetSelection_ace(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  sandbox.stringify = JSON.stringify;
+  var sandboxScript="\
+    var aceEditor = ace.edit(editor);\
+    range =  stringify(aceEditor.getSession().getSelection().getRange());\
+  ";
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  return parseSandboxRangeForVim(sandbox);
+}
+
+function textBoxGetSelection_codeMirror(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.editor = textBox.wrappedJSObject;
+  sandbox.stringify = JSON.stringify;
+  var sandboxScript="\
+    var anchor = editor.CodeMirror.getCursor('anchor');\
+    var head = editor.CodeMirror.getCursor('head');\
+    var rangeObj = {};\
+    if (head.line < anchor.line || head.line == anchor.line && head.ch < anchor.ch) {\
+      rangeObj.start = {'row': head.line, 'column': head.ch};\
+      rangeObj.end = {'row': anchor.line, 'column': anchor.ch};\
+    } else {\
+      rangeObj.start = {'row': anchor.line, 'column': anchor.ch};\
+      rangeObj.end = {'row': head.line, 'column': head.ch};\
+    }\
+    range = stringify(rangeObj);\
+  ";
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  return parseSandboxRangeForVim(sandbox);
+}
+
+function parseSandboxRangeForVim(sandbox) {
+  if (typeof sandbox.range === "string") {
+    var range = JSON.parse(sandbox.range);
+    range.start.row = parseInt(range.start.row) + 1;
+    range.start.column = parseInt(range.start.column) + 1;
+    range.end.row = parseInt(range.end.row) + 1;
+    range.end.column = parseInt(range.end.column) + 1;
+    return range;
+  } else {
+    console.log("Sandbox Error!");
+    return {"start": {"column": 1, "row": 1}, "end": {"column": 1, "row": 1}}
+  }
+}
+
+function textBoxSetSelectionFromSaved(saved){
+  var start = (saved.start.char-1) + "," + (saved.start.column-1) + "," + (saved.start.row-1)
+  var end = (saved.end.char-1) + "," + (saved.end.column-1) + "," + (saved.end.row-1)
+  textBoxSetSelection(start, end);
+}
+
+function convertRowColumnToIndex(text, row, column){
+  return (","+text).split("\n").slice(0,row).join().length + parseInt(column);
+}
+
+function textBoxSetSelection(start, end){
+  switch (textBoxType) {
+    case "ace":
+      textBoxSetSelection_ace(start, end)
+      break;
+    case "codeMirror":
+      textBoxSetSelection_codeMirror(start, end)
+      break;
+    case "normal":
+      start = start.split(',');
+      end = end.split(',');
+      let value = textBox.value;
+      textBox.setSelectionRange(convertRowColumnToIndex(value, start[2], start[1]), convertRowColumnToIndex(value, end[2], end[1]));
+      break;
+    case "contentEditable":
+    case "designMode":
+      start = start.split(",")
+      end = end.split(",")
+
+      let range = RangeFind.nodeContents(textBox.rootElement);
+      let nodes = textBox.rootElement.childNodes;
+      let nodeIndex = 0;
+      let row = 0;
+      let length = nodes.length;
+      while(row<start[2] && nodeIndex < length)
+      {
+        if (nodes[nodeIndex]) {
+          if (nodes[nodeIndex].tagName == "BR") {
+            row += 1;
+          }
+        }
+        nodeIndex += 1
+      }
+      if(nodes[nodeIndex].tagName == "BR"){
+        //Cursor is between two <br> tags. Only way to represent this is with parent node.
+        range.setStart(textBox.rootElement, nodeIndex)
+      }
+      else{
+        range.setStart(nodes[nodeIndex], start[1])
+      }
+
+      while(row<end[2] && nodeIndex < length)
+      {
+        if (nodes[nodeIndex]) {
+          if (nodes[nodeIndex].tagName == "BR") {
+            row += 1;
+          }
+        }
+        nodeIndex += 1
+      }
+      if(nodes[nodeIndex].tagName == "BR"){
+        //Cursor is between two <br> tags. Only way to represent this is with parent node.
+        range.setEnd(textBox.rootElement, nodeIndex)
+      }
+      else{
+        range.setEnd(nodes[nodeIndex], end[1])
+      }
+
+      textBox.selection.removeAllRanges()
+      textBox.selection.addRange(range)
+      break;
+  }
+}
+
+function textBoxSetSelection_ace(start, end){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.start = start.split(",");
+  sandbox.end = end.split(",");
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  var sandboxScript="\
+    var aceEditor = ace.edit(editor);\
+    aceEditor.getSession().getSelection().setSelectionRange(\
+                                          {'start': {'row':start[2], 'column':start[1]},\
+                                           'end':   {'row':end[2],   'column':end[1]}});\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxSetSelection_codeMirror(start, end){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.start = start.split(",");
+  sandbox.end = end.split(",");
+  sandbox.editor = textBox.wrappedJSObject;
+
+  var sandboxScript="\
+        editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function moveLeft(number, shift){
+  var key = "Left";
+  if (number < 0) {
+    number = -number;
+    key = "Right";
+  }
+  if (shift) {
+    key = "<S-"+key+">";
+  } else {
+    key = "<"+key+">";
+  }
+  for (var i=0; i<number; i++) {
+    events.feedkeys(key);
+  }
+}
+
+function moveUp(number, shift){
+  var key = "Up";
+  if (number < 0) {
+    number = -number;
+    key = "Down";
+  }
+  if (shift) {
+    key = "<S-"+key+">";
+  } else {
+    key = "<"+key+">";
+  }
+  for (var i=0; i<number; i++) {
+    events.feedkeys(key);
+  }
+}
+
+
+function htmlToText(inText) {
+  var tmp = document.createElement('div');
+  inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
+  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n').replace(/&nbsp;/g, 's\\s'); //Preserve whitespace
+  return tmp.textContent.replace(/n\\n/g, '\n').replace(/s\\s/g, ' ').replace(/\\\\/g, '\\');
+}
+
+function textToHtml(inText) {
+  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ /mg, '&nbsp;').replace(/  /g, ' &nbsp;').replace(/\n/g, '<br>')
+}
+
+function textBoxSetValue(newVal) {
+  switch (textBoxType) {
+    case "ace":
+      textBoxSetValue_ace(newVal);
+      break;
+    case "codeMirror":
+      textBoxSetValue_codeMirror(newVal);
+      break;
+    case "normal":
+      textBox.value = newVal;
+      break;
+    case "contentEditable":
+    case "designMode":
+      var newHtml = textToHtml(newVal)+"<br>";//Design mode needs the trailing newline
+      if (textBox.rootElement.innerHTML != newHtml)
+      {
+        textBox.rootElement.innerHTML = newHtml
+      }
+      break;
+  }
+}
+
+function textBoxSetValue_ace(newVal){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.newVal = newVal;
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  var sandboxScript="\
+    var aceEditor = ace.edit(editor);\
+    if (aceEditor.getSession().getValue()!=newVal){\
+      aceEditor.getSession().setValue(newVal);\
+    }\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxSetValue_codeMirror(newVal){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.newVal = newVal
+  sandbox.editor = textBox.wrappedJSObject;
+  var sandboxScript="\
+    if (editor.CodeMirror.getValue()!=newVal){\
+      editor.CodeMirror.setValue(newVal);\
+    }\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+}
+
+function textBoxGetValue() {
+  switch (textBoxType) {
+    case "ace":
+      return textBoxGetValue_ace();
+    case "codeMirror":
+      return textBoxGetValue_codeMirror();
+    case "normal":
+      return textBox.value;
+    case "contentEditable":
+    case "designMode":
+      var retVal = htmlToText(textBox.rootElement.innerHTML);
+      if (retVal.slice(-1) == "\n")
+      {
+        return retVal.slice(0,-1);
+      } else {
+        return retVal;
+      }
+  }
+}
+
+function textBoxGetValue_ace(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  var sandboxScript="\
+    var aceEditor = ace.edit(editor);\
+    value = aceEditor.getSession().getValue();\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  //Make sure it's a string to avoid letting malicious code escape.
+  var returnVal = sandbox.value
+  if (typeof returnVal === "string")
+    return returnVal;
+  else
+    console.log("Sandbox Error!");
+    return "Sandbox Error!"
+}
+
+function textBoxGetValue_codeMirror(){
+  var sandbox = createSandbox();
+  if (!sandbox)
+    return;
+  sandbox.editor = textBox.wrappedJSObject;
+  var sandboxScript="\
+    value = editor.CodeMirror.getValue();\
+  "
+  Components.utils.evalInSandbox(sandboxScript, sandbox);
+  //Make sure it's a string to avoid letting malicious code escape.
+  var returnVal = sandbox.value
+  if (typeof returnVal === "string")
+    return returnVal;
+  else
+    console.log("Sandbox Error!");
+    return "Sandbox Error!"
+}
+
+//TODO: Need consistent capitalization for textbox
+function cleanupForTextbox() {
+    sendToVim = "";
     unsent=1;
 }
 
@@ -271,142 +670,330 @@ function setupForTextbox() {
 }
 
 function updateTextbox(preserveMode) {
+    lastKey = "";
     unsent=1
+    actionLull=0;
+    vimGame = false;
 
     savedText = null;
     savedCursorStart = null;
     savedCursorEnd = null;
 
-    textBox = config.isComposeWindow ? null : dactyl.focusedElement;
+    textBox = dactyl.focusedElement;
 
-    if (!DOM(textBox).isInput)
-        textBox = null;
-    let lineStart, columnStart, lineEnd, columnEnd;
+    if (textBox == null)
+    {
+      textBox = Editor.getEditor(document.commandDispatcher.focusedWindow);
+      if(textBox) {
+        textBoxType = "designMode";
+      } else {
+        textBoxType = "";
+      }
+    } else {
+      if(dactyl.focusedElement.isContentEditable) {
+        var doc = textBox.ownerDocument || content;
 
-    if (textBox) {
-        var text = textBox.value;
-        var preStart = text.substr(0, textBox.selectionStart);
-        var preEnd = text.substr(0, textBox.selectionEnd);
-        savedCursorStart = textBox.selectionStart;
-        savedCursorEnd = textBox.selectionEnd;
-    }
-    else {
-        var editor_ = window.GetCurrentEditor ? GetCurrentEditor()
-                                              : Editor.getEditor(document.commandDispatcher.focusedWindow);
-        dactyl.assert(editor_);
-        text = Array.map(editor_.rootElement.childNodes,
-                         e => DOM.stringify(e, true))
-                    .join("");
-
-        if (!editor_.selection.rangeCount)
-            var sel = "";
-        else {
-            let range = RangeFind.nodeContents(editor_.rootElement);
-            let end = editor_.selection.getRangeAt(0);
-            range.setEnd(end.startContainer, end.startOffset);
-            pre = DOM.stringify(range, true);
-            if (range.startContainer instanceof Text)
-                pre = pre.replace(/^(?:<[^>"]+>)+/, "");
-            if (range.endContainer instanceof Text)
-                pre = pre.replace(/(?:<\/[^>"]+>)+$/, "");
-            //TODO: support selection here 
-            preStart = pre
-            preEnd = pre
+        textBoxType = "contentEditable";
+        textBox = {};
+        textBox.rootElement = dactyl.focusedElement;
+        //Prserve any tags that wrap the WHOLE contenteditable
+        while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName) {
+          textBox.rootElement = textBox.rootElement.childNodes[0]
         }
+
+        textBox.selection = doc.getSelection();
+      } else if(/ace_text-input/.test(textBox.className)) {
+        textBoxType = "ace";
+      }
+      else if (textBox.parentNode && textBox.parentNode.parentNode && /CodeMirror/.test(textBox.parentNode.parentNode.className)) {
+        textBoxType = "codeMirror"
+        textBox = textBox.parentNode.parentNode;
+      }
+      else if (["INPUT", "TEXTAREA", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
+        textBoxType = "normal";
+      }
+      else {
+        textBox = Editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+        if(textBox) {
+          dactyl.focusedElement = null;
+          textBoxType = "designMode";
+        } else {
+          textBoxType = "";
+        }
+      }
     }
-    lineStart = 1 + preStart.replace(/[^\n]/g, "").length;
-    columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
-    lineEnd = 1 + preEnd.replace(/[^\n]/g, "").length;
-    columnEnd = 1 + preEnd.replace(/[^]*\n/, "").length;
 
-    let origGroup = DOM(textBox).highlight.toString();
+    if (textBoxType) {
+      if (textBox) {
+          var text = textBoxGetValue()
+          var cursorPos = textBoxGetSelection()
+          savedCursorStart = cursorPos.start;
+          savedCursorEnd = cursorPos.end;
+      }
 
-    if (!tmpfile.write(text+"\n"))
-      throw Error(_("io.cantEncode"));
+      if (!tmpfile.write(text+"\n"))
+        throw Error(_("io.cantEncode"));
 
+      var ioCommand;
 
-    var ioCommand;
+      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)"';
 
-    ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<lineStart>,<columnStart>,<lineEnd>,<columnEnd>, <preserveMode>)"';
+      ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
+      ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
+      ioCommand = ioCommand.replace(/<rowEnd>/, cursorPos.end.row);
+      ioCommand = ioCommand.replace(/<columnEnd>/, cursorPos.end.column);
+      ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
 
-    ioCommand = ioCommand.replace(/<columnStart>/, columnStart);
-    ioCommand = ioCommand.replace(/<lineStart>/, lineStart);
-    ioCommand = ioCommand.replace(/<columnEnd>/, columnEnd);
-    ioCommand = ioCommand.replace(/<lineEnd>/, lineEnd);
-    ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
-    console.log(ioCommand);
+      console.log(ioCommand);
 
-    io.system(ioCommand);
+      io.system(ioCommand);
+    }
 
     writeInsteadOfRead = 0
 }
 
+//Some sites need to receive key events in addition to sending them to vim. We don't do this for javascript editors because they handle js stuff themselves.
+function handleKeySending(key) {
+  if (textBoxType == "normal") {
+    skipKeyPress = true;
+    try{
+      var value = textBoxGetValue()
+      var cursorPos = textBoxGetSelection()
+      var oldFocus = dactyl.focusedElement;
+      events.feedkeys(key);
+      if (oldFocus == dactyl.focusedElement) {
+        textBoxSetValue(value);
+        textBoxSetSelectionFromSaved(cursorPos);
+      }
+    }
+    finally{
+      skipKeyPress = false;
+    }
+  } else if (["contentEditable", "designMode"].indexOf(textBoxType) != -1){
+    skipKeyPress = true;
+    try{
+      var value = textBox.rootElement.innerHTML; //We don't need to translate this, since it's going right back in. Doing the same thing with the cursor isn't quite as easy.
+      var cursorPos = textBoxGetSelection()
+      var oldFocus = dactyl.focusedElement;
+      events.feedkeys(key);
+      if (oldFocus == dactyl.focusedElement) {
+        textBox.rootElement.innerHTML = value;
+        textBoxSetSelectionFromSaved(cursorPos);
+      }
+    } finally{
+      skipKeyPress = false;
+    }
+  }
+}
+
+var skipKeyPress = false;
 modes.INSERT.params.onKeyPress = function(eventList) {
+    if (skipKeyPress) {
+      return true;
+    }
     const KILL = false, PASS = true;
 
-    if (!options["fullvim"] || dactyl.focusedElement && dactyl.focusedElement.type === "password")
+    if (!useFullVim())
       return PASS;
 
-    let inputChar = DOM.Event.stringify(eventList[0])
+    let inputChar = DOM.Event.stringify(eventList[0]);
 
-    /*if (commandLock > COMMAND_MODE_SYNC)
-    {
-      commandBuffer += inputChar;
-      return;
-    }
-    */
-
-    if (/^<(?:.-)*(?:BS|lt|Up|Down|Left|Right|Space|S-Space|Return|Del|Tab|C-v|C-h|C-w|C-u|C-k|C-r)>$/.test(inputChar)) {
-      //Currently, this also refreshes. I need to disable that.
-      if (inputChar==="<Space>" || inputChar==="<S-Space>")
-        sendToVim += ' '
-      else if (inputChar==="<BS>")
-        sendToVim += '\\b'
-      else if (inputChar==="<Return>") {
-        sendToVim += '\\r'
-        //Inputs often trigger on return. But if we send it for textareas, we get an extra linebreak.
-        if (textBox.tagName.toLowerCase()==="input")
+    if (inputChar[0] === "<"){
+      switch(inputChar) {
+        case "<Space>":
+        case "<S-Space>":
+          queueForVim(' ');
+          break;
+        case "<Tab>":
+          return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
+        case "<Up>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[A');
+          break;
+        case "<Down>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[B');
+          break;
+        case "<Right>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[C');
+          break;
+        case "<Left>":
+          if(textBoxType != "codeMirror")
+            queueForVim('\\e[D');
+          break;
+        case "<lt>":
+          queueForVim('<');
+          break;
+        case "<Return>": //We already handled vim's return if we got here.
+          return PASS;
+        default:
+          if (inputChar.slice(0,3)==="<C-" && inputChar.length == 5) {
+            queueForVim(String.fromCharCode(inputChar[3].charCodeAt(0)-96));
+          } else {
             return PASS;
-        else
-            return KILL;
+          }
       }
-      else if (inputChar==="<Tab>")
-        if ( modes.main === modes.VIM_COMMAND)
-            sendToVim += '\\t'
-        else
-            return PASS;
-      else if (inputChar==="<Up>")
-        sendToVim += '\\e[A'
-      else if (inputChar==="<Down>")
-        sendToVim += '\\e[B'
-      else if (inputChar==="<Right>")
-        sendToVim += '\\e[C'
-      else if (inputChar==="<Left>")
-        sendToVim += '\\e[D'
-      else if (inputChar==="<lt>")
-        sendToVim += '<'
-      else if (inputChar==="<C-v>")
-        sendToVim += '\x16'
+    } else {
+      switch(inputChar) {
+        case '%':
+          queueForVim('%%');
+          break;
+        case '\\':
+          queueForVim('\\\\');
+          break;
+        case '"':
+          queueForVim('\"');
+          break;
+        case "'":
+          queueForVim("\'\\'\'");
+          break;
+        default:
+          queueForVim(inputChar);
+      }
     }
-    else {
-      if (inputChar == '%')
-        sendToVim += '%%'
-      else if (inputChar == '\\')
-        sendToVim += '\\\\'
-      else if (inputChar == '"')
-        sendToVim += '\"'
-      else if (inputChar == "'")
-        sendToVim += "\'\\'\'"
-      else
-        sendToVim += inputChar
-    }
-      
     return KILL;
 }
 
-function cleanupPterosaur()
-{
-    if (options["fullvim"]) {
+function queueForVim(key) {
+  lastKey = key;
+  sendToVim += key;
+  if (key === '\\e'){
+    sendToVim += '\\000'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
+  }
+}
+
+var handlingSpecialKey = false;
+
+
+function getKeyBehavior(textBoxType, key) {
+  if (strictVim()) {
+    return "vim";
+  }
+  if(key === "<Return>"){
+    if(textBoxType === "codeMirror") //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
+      return "vim";
+    else
+      return "linecheck";
+  }
+  if(key === "<Tab>"){
+    return "web";
+  }
+}
+
+//We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
+function specialKeyHandler(key) {
+    console.log(key)
+    if (handlingSpecialKey) {
+      return Events.PASS_THROUGH;
+    }
+    var behavior = getKeyBehavior(textBoxType, key)
+    if (behavior !== "vim") {
+        if (behavior !== "web") {
+          updateVim(true);
+          if (key === "<Return>") {
+            queueForVim("\\r");
+          } else if (key === "<Tab>"){
+            queueForVim("\\t");
+          }
+          if (behavior=="vim"){
+            return;
+          }
+        }
+        setTimeout( function() {
+          handlingSpecialKey=true;
+          try {
+            var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
+            var cursorPos = textBoxGetSelection()
+            var oldFocus = dactyl.focusedElement;
+            events.feedkeys(key);
+            if(behavior !== "web"){
+              if (oldFocus == dactyl.focusedElement && (behavior != "linecheck" || newLineCheck(value) && (behavior != "spaceCheck" || spaceCheck(value)))) {
+                textBoxSetValue(value);
+                textBoxSetSelectionFromSaved(cursorPos);
+              }
+            }
+          } finally {
+            handlingSpecialKey=false;
+          }
+        }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
+    }
+    else {
+        if (key === "<Return>") {
+          queueForVim("\\r");
+        } else if (key === "<Tab>"){
+          queueForVim("\\t");
+        }
+    }
+    if(key==="<Tab>")
+      return false;
+}
+
+//Returns true if the non-newline text is the same. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
+function newLineCheck(value){
+  return textBoxGetValue().replace(/\n/g,"") === value.replace(/\n/g,"")
+}
+
+function spaceCheck(value){
+  return textBoxGetValue().replace(/\s/g,"") === value.replace(/\s/g,"")
+}
+
+//Even passing through these functions changes web behavior. We need to completely add or remove them depending on vim strictness.
+function handleLeanVim() {
+    leanVimCheck = leanVim();
+    if (leanVimCheck) {
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Up>"],
+          ["Override websites' up behavior"],
+          function(){queueForVim('\\e[A');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Down>"],
+          ["Override websites' down behavior"],
+          function(){queueForVim('\\e[B');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Right>"],
+          ["Override websites' right behavior"],
+          function(){queueForVim('\\e[C');});
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Left>"],
+          ["Override websites' left behavior"],
+          function(){queueForVim('\\e[D');});
+    } else {
+      mappings.builtin.remove(modes.INSERT, "<Tab>");
+      mappings.builtin.remove(modes.INSERT, "<Up>");
+      mappings.builtin.remove(modes.INSERT, "<Down>");
+      mappings.builtin.remove(modes.INSERT, "<Right>");
+      mappings.builtin.remove(modes.INSERT, "<Left>");
+    }
+}
+
+function handleStrictVim() {
+    strictVimCheck = strictVim();
+    if (strictVimCheck) {
+      mappings.builtin.add(
+          [modes.INSERT],
+          ["<Tab>"],
+          ["Override websites' tab behavior"],
+          function(){specialKeyHandler("<Tab>");});
+
+    } else {
+      mappings.builtin.remove(modes.INSERT, "<Tab>");
+      mappings.builtin.remove(modes.INSERT, "<Up>");
+      mappings.builtin.remove(modes.INSERT, "<Down>");
+      mappings.builtin.remove(modes.INSERT, "<Right>");
+      mappings.builtin.remove(modes.INSERT, "<Left>");
+    }
+}
+
+
+
+function cleanupPterosaur() {
+    pterosaurCleanupCheck = useFullVim();
+    if (pterosaurCleanupCheck) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
         mappings.builtin.add(
@@ -414,13 +1001,21 @@ function cleanupPterosaur()
             ["<Esc>"],
             ["Handle escape key"],
             function(){
-              if (vimMode==="n") //This is more specific than VIM_NORMAL which currently includes things like visual
+              if (vimMode==="n" || lastKey === '\\e')
               {
-                modes.reset()
+                modes.reset();
               }
               else {
-                sendToVim+="\\e"
+                queueForVim("\\e");
               }
+            });
+
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<BS>"],
+            ["Handle backspace key"],
+            function(){
+                queueForVim("\\b");
             });
 
         mappings.builtin.add(
@@ -428,31 +1023,39 @@ function cleanupPterosaur()
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
-              sendToVim+="\x12"
+              queueForVim("\x12");
             },
             {noTransaction: true});
 
         mappings.builtin.add(
-            [modes.VIM_COMMAND],
-            ["<Return>"],
-            ["Override websites' carriage return behavior when in command mode"],
+            [modes.INSERT],
+            ["<S-Return>"],
+            ["Override websites' carriage return behavior"],
             function(){
-              sendToVim+="\\r"
-            });
+              queueForVim("\\r");
+            },
+            {noTransaction: true});
+
+        mappings.builtin.add(
+            [modes.INSERT],
+            ["<Return>"],
+            ["Override websites' carriage return behavior"],
+            function(){return specialKeyHandler("<Return>");});
     }
     else {
+        mappings.builtin.remove( modes.INSERT, "<Esc>");
+        mappings.builtin.remove( modes.INSERT, "<BS>");
+        mappings.builtin.remove( modes.INSERT, "<C-r>");
+        mappings.builtin.remove( modes.INSERT, "<Return>");
+        mappings.builtin.remove( modes.INSERT, "<S-Return>");
+
         mappings.builtin.add([modes.INSERT],
             ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
             function () {
                 editor.expandAbbreviation(modes.INSERT);
                 return Events.PASS_THROUGH;
         });
-
-        mappings.builtin.remove( modes.INSERT, "<Esc>");
-        mappings.builtin.remove( modes.INSERT, "<C-r>");
-        mappings.builtin.remove( modes.VIM_COMMAND, "<Return>");
     }
-    pterosaurCleanupCheck = options["fullvim"];
 }
 
 function startVimbed(debug) {
@@ -491,14 +1094,18 @@ function startVimbed(debug) {
   sleepProcess.runAsync(['-c',"(while [ -p /tmp/vimbed/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/vimbed/pterosaur_"+uid+"/fifo"], 2);
 
   vimProcess.init(FileUtils.File('/bin/sh'));
-  //Note: +clientserver doesn't work for some values of TERM (like linux)
-  if (debug)
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
-  else
+  //Note: +clientserver doesn't work when TERM=linux
+  if (debug) {
+    let TERM = services.environment.get("TERM");
+    if (!TERM || TERM === "linux")
+      TERM = "xterm";
+    vimProcess.runAsync([ '-c',"TERM="+TERM+" vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
+  } else {
     vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
+  }
 
   //We have to send SOMETHING to the fifo or vim will stay open when we close.
-  io.system("echo -n ' ' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
+  io.system("echo -n '\e' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
 
 }
 
@@ -508,8 +1115,10 @@ var savedCursorEnd = null;
 var vimMode = 'i';
 var pterFocused = null;
 var textBox;
+var textBoxType;
 var lastVimCommand = "";
 var sendToVim = "";
+var lastKey = "";
 
 var uid;
 var dir;
@@ -522,7 +1131,7 @@ var vimProcess;
 
 var unsent = 1;
 
-var cyclesSinceLastSend = 0;
+var actionLull = 0; //Cycles since we sent something to vim that might change the state (keypress/mouse click). This is to pick up stuff that has a delayed reaction without polling vim constantly when we aren't doing aything.
 
 
 function killVimbed() {
@@ -537,8 +1146,14 @@ var writeInsteadOfRead = 0;
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
 var pterosaurCleanupCheck = false;
+var strictVimCheck = false;
+var leanVimCheck = false;
 
 var debugMode =false;
+
+var waitForVim = 0;
+
+var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
 
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
@@ -585,13 +1200,12 @@ commands.add(["vim[do]"],
     function (args) {
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        sendToVim += command +"\r"
+        queueForVim(command +"\\r");
+        lastKey = "";
     }, {
       argCount: "+",
       literal: 0
     });
 
-
-
-
-let timer =  window.setInterval(update, 30);
+var CYCLE_TIME = 30
+let timer =  window.setInterval(update, CYCLE_TIME);
