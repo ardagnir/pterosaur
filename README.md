@@ -9,7 +9,7 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 ##Requirements
 - Pterosaur requires [Pentadactyl](http://5digits.org/pentadactyl/) and [Vim](http://www.vim.org) (your version needs to have +clientserver).
 - Pterosaur works best in GNU/Linux.
-- Pterosaur also works in OSX [(but read the OSX section first)](README.md#mac-osx-notes)
+- Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
 ##Setup
 **Step 1:** If you don't have the [vimbed](https://github.com/ardagnir/vimbed) plugin, install it first using your plugin-manager. If you use pathogen:
