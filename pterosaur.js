@@ -998,7 +998,7 @@ function cleanupPterosaur() {
         mappings.builtin.remove(modes.INSERT, "<Return>");
         mappings.builtin.add(
             [modes.INSERT],
-            ["<Esc>"],
+            ["<Esc>", "<C-[>"],
             ["Handle escape key"],
             function(){
               if (vimMode==="n" || lastKey === '\\e')
@@ -1044,6 +1044,7 @@ function cleanupPterosaur() {
     }
     else {
         mappings.builtin.remove( modes.INSERT, "<Esc>");
+        mappings.builtin.remove( modes.INSERT, "<C-[>");
         mappings.builtin.remove( modes.INSERT, "<BS>");
         mappings.builtin.remove( modes.INSERT, "<C-r>");
         mappings.builtin.remove( modes.INSERT, "<Return>");
