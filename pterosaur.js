@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.8",
+             version: "0.8.1",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
