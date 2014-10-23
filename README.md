@@ -7,9 +7,9 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 
 
 ##Requirements
-- Pterosaur requires [Pentadactyl](http://5digits.org/pentadactyl/) and [Vim](http://www.vim.org)(your version needs to have +clientserver).
+- Pterosaur requires [Pentadactyl](http://5digits.org/pentadactyl/) and [Vim](http://www.vim.org) (your version needs to have +clientserver).
 - Pterosaur works best in GNU/Linux.
-- Pterosaur also works in OSX, but doing so requires XQuartz. *(This is a requirement of vim's +clientserver functionality.)*
+- Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
 ##Setup
 **Step 1:** If you don't have the [vimbed](https://github.com/ardagnir/vimbed) plugin, install it first using your plugin-manager. If you use pathogen:
@@ -35,6 +35,10 @@ Pterosaur uses vimbed to run an actual vim instance in the background and routes
 
 ##Notes
 - Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
+
+##Mac OSX notes
+- Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
+- Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
 
 ##Troubleshooting
 Pterosaur should "just work", but if it doesn't:
