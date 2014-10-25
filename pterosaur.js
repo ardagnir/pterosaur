@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.8.1",
+             version: "0.8.2",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -697,7 +697,7 @@ function updateTextbox(preserveMode) {
         textBox = {};
         textBox.rootElement = dactyl.focusedElement;
         //Prserve any tags that wrap the WHOLE contenteditable
-        while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName) {
+        while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName && textBox.rootElement.childNodes[0].tagName != "BR") {
           textBox.rootElement = textBox.rootElement.childNodes[0]
         }
 
