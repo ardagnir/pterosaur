@@ -117,16 +117,16 @@ function update(){
     if(dactyl.focusedElement === pterFocused && textBoxType)
     {
       cursorPos = textBoxGetSelection()
-      if (savedCursorStart!=null &&
-           (cursorPos.start.row != savedCursorStart.row || cursorPos.start.column != savedCursorStart.column) ||
-          savedCursorEnd!=null &&
-           (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
+      if (predictedCursorStart!=null &&
+           (cursorPos.start.row != predictedCursorStart.row || cursorPos.start.column != predictedCursorStart.column) ||
+          predictedCursorEnd!=null &&
+           (cursorPos.end.row != predictedCursorEnd.row || cursorPos.end.column != predictedCursorEnd.column))
       {
-        updateTextbox(0);
-        return;
+        //updateTextbox(0);
+        //return;
       }
 
-      if (savedText != null && textBoxGetValue() != savedText)
+      if (savedPrediction != null && textBoxGetValue() != savedPrediction)
       {
         updateTextbox(1);
         return;
@@ -271,8 +271,12 @@ function update(){
       modes.pop();
     }
 
+    let predictorVal = predictorizer.processVimString(val);
+    if (predictorVal !== savedPrediction){
+      textBoxSetValue(predictorVal);
+      savedPrediction = predictorVal;
+    }
     if (val !== savedText){
-      textBoxSetValue(val)
       savedText = val;
       if(actionLull > 2) {
         actionLull = 0;
@@ -283,13 +287,14 @@ function update(){
     if (textBoxType) {
         if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
         {
-          textBoxSetSelection(metadata[1], metadata[2])
+          predictorizer.processVimMeta(metadata[1].split(",")[2], metadata[1].split(",")[1])
+          setSelectionFromPredictorizer();
         }
 
         cursorPos = textBoxGetSelection()
 
-        savedCursorStart = cursorPos.start;
-        savedCursorEnd = cursorPos.end;
+        predictedCursorStart = cursorPos.start;
+        predictedCursorEnd = cursorPos.end;
     }
 }
 
@@ -676,8 +681,9 @@ function updateTextbox(preserveMode) {
     vimGame = false;
 
     savedText = null;
-    savedCursorStart = null;
-    savedCursorEnd = null;
+    savedPrediction = null;
+    predictedCursorStart = null;
+    predictedCursorEnd = null;
 
     textBox = dactyl.focusedElement;
 
@@ -727,8 +733,8 @@ function updateTextbox(preserveMode) {
       if (textBox) {
           var text = textBoxGetValue()
           var cursorPos = textBoxGetSelection()
-          savedCursorStart = cursorPos.start;
-          savedCursorEnd = cursorPos.end;
+          predictedCursorStart = cursorPos.start;
+          predictedCursorEnd = cursorPos.end;
       }
 
       if (!tmpfile.write(text+"\n"))
@@ -802,7 +808,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
       switch(inputChar) {
         case "<Space>":
         case "<S-Space>":
-          queueForVim(' ');
+          queueForVim(' ', true);
           break;
         case "<Tab>":
           return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
@@ -823,7 +829,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
             queueForVim('\\e[D');
           break;
         case "<lt>":
-          queueForVim('<');
+          queueForVim('<', true);
           break;
         case "<Return>": //We already handled vim's return if we got here.
           return PASS;
@@ -849,17 +855,37 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           queueForVim("\'\\'\'");
           break;
         default:
-          queueForVim(inputChar);
+          queueForVim(inputChar, true);
       }
     }
     return KILL;
 }
 
-function queueForVim(key) {
+function setSelectionFromPredictorizer() {
+  var cursor = predictorizer.getCursor();
+  predictedCursorStart = cursor;
+  predictedCursorEnd = cursor;
+  textBoxSetSelectionFromSaved({start: predictedCursorStart, end: predictedCursorEnd});
+}
+
+function queueForVim(key, predict) {
   lastKey = key;
   sendToVim += key;
   if (key === '\\e'){
     sendToVim += '\\000'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
+  }
+  if (predict && [modes.INSERT, modes.AUTOCOMPLETE].indexOf(modes.main) != -1) {
+    predictorizer.addKey(key)
+    let predictorVal = predictorizer.getString();
+    if (predictorVal !== savedPrediction) {
+      textBoxSetValue(predictorVal);
+      setSelectionFromPredictorizer();
+
+      savedPrediction = predictorVal;
+    }
+  }
+  else {
+    predictorizer.deactivate()
   }
 }
 
@@ -1111,8 +1137,9 @@ function startVimbed(debug) {
 }
 
 var savedText = null;
-var savedCursorStart = null;
-var savedCursorEnd = null;
+var savedPrediction = null;
+var predictedCursorStart = null;
+var predictedCursorEnd = null;
 var vimMode = 'i';
 var pterFocused = null;
 var textBox;
@@ -1208,5 +1235,92 @@ commands.add(["vim[do]"],
       literal: 0
     });
 
-var CYCLE_TIME = 30
-let timer =  window.setInterval(update, CYCLE_TIME);
+var CYCLE_TIME = 500
+var timer =  window.setInterval(update, CYCLE_TIME);
+var predictorizer = {
+  pre: "",
+  predicting: "",
+  post: "",
+  row: 0,
+  vimCol: 0,
+  count: 0,
+  active: false,
+  oldVimString: "",
+  processVimMeta: function(row, col) {
+    if (row != this.row) {
+      this.active = false;
+      this.row = row;
+    }
+    this.vimCol = col;
+  },
+  addKey: function(key) {
+    if (this.active) {
+      this.predicting += key
+    }
+  },
+  processVimString: function(vimString) {
+    if(vimString == this.oldVimString) {
+      this.count++;
+      if (this.count > 10){
+        this.active = false;
+      }
+    } else {
+      this.count = 0;
+    }
+    this.oldVimString = vimString
+    if(!this.active && this.count<10){
+      this.pre = vimString.slice(0, this.vimCol);
+      this.predicting = "";
+      this.post = vimString.slice(this.vimCol);
+      this.active = true;
+    } else if (this.count<10){
+      let preLen = this.pre.length;
+      let postLen = this.post.length;
+      let vLine = vimString.split("\n")[this.row]
+      if (vLine.slice(0, preLen) === this.pre &&
+          (postLen == 0 || vLine.slice(-postLen) === this.post)) {
+        var newVim;
+        if (postLen) {
+          newVim = vLine.slice(preLen, -postLen)
+        } else {
+          newVim = vLine.slice(preLen)
+        }
+        let nLen = newVim.length
+        if (newVim == this.predicting.slice(0, nLen)) {
+          this.pre += newVim
+          this.predicting = this.predicting.slice(nLen)
+          console.log("predicting:")
+          console.log(this.predicting)
+        } else {
+          this.active = false;
+        }
+      } else {
+        this.active = false;
+      }
+    }
+    return this.getString();
+  },
+  deactivate: function(string){
+    this.active = false;
+    if (string != null) {
+      this.oldVimString = string;
+    }
+  },
+  getCursor: function(){
+    if (this.active) {
+        return {column: this.pre.length+this.predicting.length+1, row: this.row};
+    }
+    else {
+        return  {column: this.vimCol, row: this.row};
+    }
+  },
+  getString: function(){
+    if (this.active) {
+      var splitArray = this.oldVimString.split("\n")
+      splitArray[this.row] = this.pre + this.predicting + this.post;
+      return splitArray.join("\n")
+    } else {
+      return this.oldVimString;
+    }
+  }
+}
