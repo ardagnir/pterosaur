@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.8.2",
+             version: "0.8.3",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -940,7 +940,7 @@ function spaceCheck(value){
 
 //Even passing through these functions changes web behavior. We need to completely add or remove them depending on vim strictness.
 function handleLeanVim() {
-    leanVimCheck = leanVim();
+    leanVimCheck = leanVim() && useFullVim();
     if (leanVimCheck) {
       mappings.builtin.add(
           [modes.INSERT],
@@ -963,7 +963,6 @@ function handleLeanVim() {
           ["Override websites' left behavior"],
           function(){queueForVim('\\e[D');});
     } else {
-      mappings.builtin.remove(modes.INSERT, "<Tab>");
       mappings.builtin.remove(modes.INSERT, "<Up>");
       mappings.builtin.remove(modes.INSERT, "<Down>");
       mappings.builtin.remove(modes.INSERT, "<Right>");
@@ -972,7 +971,7 @@ function handleLeanVim() {
 }
 
 function handleStrictVim() {
-    strictVimCheck = strictVim();
+    strictVimCheck = strictVim() && useFullVim();
     if (strictVimCheck) {
       mappings.builtin.add(
           [modes.INSERT],
@@ -982,10 +981,6 @@ function handleStrictVim() {
 
     } else {
       mappings.builtin.remove(modes.INSERT, "<Tab>");
-      mappings.builtin.remove(modes.INSERT, "<Up>");
-      mappings.builtin.remove(modes.INSERT, "<Down>");
-      mappings.builtin.remove(modes.INSERT, "<Right>");
-      mappings.builtin.remove(modes.INSERT, "<Left>");
     }
 }
 
