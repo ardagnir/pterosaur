@@ -56,6 +56,21 @@ var INFO =
     ["p", {},
         "This plugin provides full vim functionality to all input text-boxes by running a vim process in the background."]];
 
+//Figure out where subprocess.jsm is stored and load it. Then start running vim.
+//The timeout is neccesary because we don't have pluginFiles info until after this file is loaded.
+setTimeout(function(){
+  var plugin_strings = Object.keys(dactyl.pluginFiles);
+  if (plugin_strings.length == 0) {
+    console.log("Cant find pentadactyl plugin directory!");
+  } else {
+    let plugin_section = plugin_strings[0].indexOf("plugins");
+    let plugin_string = plugin_strings[0].slice(0, plugin_section);
+
+    Components.utils.import("file://" + plugin_string + "plugins/pterosaur/subprocess.jsm");
+    startVimbed(false);
+  }
+} , 1);
+
 function useFullVim(){
   return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
 }
@@ -74,10 +89,10 @@ function updateVim(skipKeyHandle){
   if(sendToVim!== "") {
     let tempSendToVim = sendToVim
     sendToVim = ""
-    io.system("printf '" + tempSendToVim  + "' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
+    vimStdin.write(tempSendToVim);
     unsent=0;
     actionLull=0;
-    if (!leanVim() && !skipKeyHandle && ['\\e', '\\r', '\\t'].indexOf(lastKey) == -1) {
+    if (!leanVim() && !skipKeyHandle && [ESC, '\r', '\t'].indexOf(lastKey) == -1) {
       let savedLastKey = lastKey;
       setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
     }
@@ -135,8 +150,9 @@ function update(){
 
     //This has to be up here for vimdo to work. This should probably be changed eventually.
     if (writeInsteadOfRead) {
-      updateVim();
+      //updateVim();
 
+      /*
       if(actionLull <= 40) {
         if (actionLull < 2 || actionLull % 8 == 0 || vimGame) {
           io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
@@ -145,6 +161,7 @@ function update(){
       } else {
         vimGame = false;
       }
+      */
 
       writeInsteadOfRead = 0;
       return;
@@ -662,7 +679,7 @@ function cleanupForTextbox() {
 function setupForTextbox() {
     //Clear lingering command text
     if (vimMode === "c")
-      io.system("printf '\\ei' > /tmp/vimbed/pterosaur_"+uid+"/fifo");
+      vimStdin.write(ESC+"i")
 
     pterFocused = dactyl.focusedElement;
 
@@ -808,19 +825,19 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
         case "<Up>":
           if(textBoxType != "codeMirror")
-            queueForVim('\\e[A');
+            queueForVim(ESC + '[A');
           break;
         case "<Down>":
           if(textBoxType != "codeMirror")
-            queueForVim('\\e[B');
+            queueForVim(ESC + '[B');
           break;
         case "<Right>":
           if(textBoxType != "codeMirror")
-            queueForVim('\\e[C');
+            queueForVim(ESC + '[C');
           break;
         case "<Left>":
           if(textBoxType != "codeMirror")
-            queueForVim('\\e[D');
+            queueForVim(ESC + '[D');
           break;
         case "<lt>":
           queueForVim('<');
@@ -835,22 +852,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           }
       }
     } else {
-      switch(inputChar) {
-        case '%':
-          queueForVim('%%');
-          break;
-        case '\\':
-          queueForVim('\\\\');
-          break;
-        case '"':
-          queueForVim('\"');
-          break;
-        case "'":
-          queueForVim("\'\\'\'");
-          break;
-        default:
-          queueForVim(inputChar);
-      }
+      queueForVim(inputChar);
     }
     return KILL;
 }
@@ -858,9 +860,11 @@ modes.INSERT.params.onKeyPress = function(eventList) {
 function queueForVim(key) {
   lastKey = key;
   sendToVim += key;
-  if (key === '\\e'){
-    sendToVim += '\\000'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
+  if (key === ESC){
+    sendToVim += '\x00'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
   }
+  if (allowedToSend)
+    updateVim(true);
 }
 
 var handlingSpecialKey = false;
@@ -892,9 +896,9 @@ function specialKeyHandler(key) {
         if (behavior !== "web") {
           updateVim(true);
           if (key === "<Return>") {
-            queueForVim("\\r");
+            queueForVim("\r");
           } else if (key === "<Tab>"){
-            queueForVim("\\t");
+            queueForVim("\t");
           }
           if (behavior=="vim"){
             return;
@@ -920,9 +924,9 @@ function specialKeyHandler(key) {
     }
     else {
         if (key === "<Return>") {
-          queueForVim("\\r");
+          queueForVim("\r");
         } else if (key === "<Tab>"){
-          queueForVim("\\t");
+          queueForVim("\t");
         }
     }
     if(key==="<Tab>")
@@ -946,22 +950,22 @@ function handleLeanVim() {
           [modes.INSERT],
           ["<Up>"],
           ["Override websites' up behavior"],
-          function(){queueForVim('\\e[A');});
+          function(){queueForVim(ESC + '[A');});
       mappings.builtin.add(
           [modes.INSERT],
           ["<Down>"],
           ["Override websites' down behavior"],
-          function(){queueForVim('\\e[B');});
+          function(){queueForVim(ESC + '[B');});
       mappings.builtin.add(
           [modes.INSERT],
           ["<Right>"],
           ["Override websites' right behavior"],
-          function(){queueForVim('\\e[C');});
+          function(){queueForVim(ESC + '[C');});
       mappings.builtin.add(
           [modes.INSERT],
           ["<Left>"],
           ["Override websites' left behavior"],
-          function(){queueForVim('\\e[D');});
+          function(){queueForVim(ESC + '[D');});
     } else {
       mappings.builtin.remove(modes.INSERT, "<Up>");
       mappings.builtin.remove(modes.INSERT, "<Down>");
@@ -996,12 +1000,12 @@ function cleanupPterosaur() {
             ["<Esc>", "<C-[>"],
             ["Handle escape key"],
             function(){
-              if (vimMode==="n" || lastKey === '\\e')
+              if (vimMode === "n" || lastKey === ESC)
               {
                 modes.reset();
               }
               else {
-                queueForVim("\\e");
+                queueForVim(ESC);
               }
             });
 
@@ -1010,7 +1014,7 @@ function cleanupPterosaur() {
             ["<BS>"],
             ["Handle backspace key"],
             function(){
-                queueForVim("\\b");
+                queueForVim("\b");
             });
 
         mappings.builtin.add(
@@ -1027,7 +1031,7 @@ function cleanupPterosaur() {
             ["<S-Return>"],
             ["Override websites' carriage return behavior"],
             function(){
-              queueForVim("\\r");
+              queueForVim("\r");
             },
             {noTransaction: true});
 
@@ -1063,6 +1067,9 @@ function startVimbed(debug) {
   metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
   messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
 
+  debugTerminal = FileUtils.File("/dev/pts/4")
+  debugTerminal = File(debugTerminal);
+
   dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
   tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
   metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
@@ -1080,29 +1087,48 @@ function startVimbed(debug) {
 
   if (!messageTmpfile)
       throw Error(_("io.cantCreateTempFile"));
-  io.system("mkfifo /tmp/vimbed/pterosaur_"+uid+"/fifo");
 
-  //sleepProcess holds the fifo open so vim doesn't close.
-  sleepProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-  vimProcess = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-
-  sleepProcess.init(FileUtils.File('/bin/sh'));
-  sleepProcess.runAsync(['-c',"(while [ -p /tmp/vimbed/pterosaur_"+uid+"/fifo ]; do sleep 10; done) > /tmp/vimbed/pterosaur_"+uid+"/fifo"], 2);
-
-  vimProcess.init(FileUtils.File('/bin/sh'));
-  //Note: +clientserver doesn't work when TERM=linux
-  if (debug) {
-    let TERM = services.environment.get("TERM");
-    if (!TERM || TERM === "linux")
-      TERM = "xterm";
-    vimProcess.runAsync([ '-c',"TERM="+TERM+" vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo"],2);
-  } else {
-    vimProcess.runAsync([ '-c',"TERM=xterm vim --servername pterosaur_"+uid+" +'call Vimbed_SetupVimbed(\"\",\"\")' </tmp/vimbed/pterosaur_"+uid+"/fifo >/dev/null"],2);
+  var TERM = null
+  if (debug){
+    TERM = services.environment.get("TERM");
   }
 
-  //We have to send SOMETHING to the fifo or vim will stay open when we close.
-  io.system("echo -n '\e' > /tmp/vimbed/pterosaur_"+uid+"/fifo")
+  if (!TERM || TERM === "linux")
+    TERM = "xterm";
 
+  var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
+  for (var index = 0, len = env_variables.length; index < len; index++){
+    env_variables[index] = env_variables[index] + "=" + services.environment.get(env_variables[index]);
+  }
+  env_variables.push("TERM="+TERM);
+
+  console.log ("Go go go!");
+  vimProcess = subprocess.call({ url: window.URL,
+    command:  '/bin/vim',
+    arguments: ["--servername", "pterosaur_" + uid,
+                '+call Vimbed_SetupVimbed("","")'],
+    environment:  env_variables,
+    charet: 'UTF-8',
+    stdin: function(stdin){
+      vimStdin = stdin;
+      console.log("Stdin");
+      stdin.write(ESC)
+    },
+    stdout: function(data){
+    //  handleVimOutput(data);
+      console.log("Vim Stdout: "+data);
+      debugTerminal.write(data);
+    },
+    stderr: function(data){
+     // handleVimError(data);
+      console.log("Vim Stderr: "+data);
+    },
+    done: function(result){
+      //handleVimDone(result);
+      console.log("Vim done! "+result)
+    }
+  });
+  console.log ("Gone");
 }
 
 var savedText = null;
@@ -1115,14 +1141,18 @@ var textBoxType;
 var lastVimCommand = "";
 var sendToVim = "";
 var lastKey = "";
+var allowedToSend = true;
 
 var uid;
 var dir;
 var tmpfile;
 var metaTmpfile;
 var messageTmpfile;
+var debugTerminal;
 var sleepProcess;
 var vimProcess;
+var vimStdin;
+var ESC = '\x1b';
 
 
 var unsent = 1;
@@ -1154,8 +1184,6 @@ var vimGame = false; //If vim is changing on it's own without user input (like i
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
 group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
-
-startVimbed(false);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
@@ -1196,7 +1224,7 @@ commands.add(["vim[do]"],
     function (args) {
         dactyl.focus(pterFocused);
         let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        queueForVim(command +"\\r");
+        queueForVim(command +"\r");
         lastKey = "";
     }, {
       argCount: "+",
