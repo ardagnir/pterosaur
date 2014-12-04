@@ -85,8 +85,15 @@ function strictVim(){
   return textBoxType === "ace" ||  modes.main === modes.VIM_COMMAND;
 }
 
+var allowedToPoll = false;
+
 function updateVim(skipKeyHandle){
-  if(sendToVim!== "") {
+  if(sendToVim !== "") {
+    allowedToPoll = true;
+    if (pollTimeout && vimMode != "c"){
+      clearTimeout(pollTimeout);
+      pollTimeout = null;
+    }
     let tempSendToVim = sendToVim
     sendToVim = ""
     vimStdin.write(tempSendToVim);
@@ -99,11 +106,13 @@ function updateVim(skipKeyHandle){
   }
 }
 
-function update(){
-    if(waitForVim > 0) {
-      waitForVim -=1;
-      return;
+var heartBeatTimeout = null;
+function heartbeat(){
+    //This way we can call heartbeat whenever and only have one set of beats
+    if(heartBeatTimeout){
+      clearTimeout(heartBeatTimeout);
     }
+    heartBeatTimeout = setTimeout(heartbeat, 250);
 
     if (strictVimCheck !== (strictVim() && useFullVim()))
       handleStrictVim();
@@ -114,18 +123,18 @@ function update(){
     if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
 
+    /*
     if (debugMode && !options["pterosaurdebug"])
     {
       killVimbed();
       startVimbed(0);
-      waitForVim = 100; //Give vim some time to start
     }
     else if (!debugMode && options["pterosaurdebug"])
     {
       killVimbed();
       startVimbed(1);
-      waitForVim = 100; //Give vim some time to start
     }
+    */
 
     var cursorPos;
 
@@ -148,26 +157,6 @@ function update(){
       }
     }
 
-    //This has to be up here for vimdo to work. This should probably be changed eventually.
-    if (writeInsteadOfRead) {
-      //updateVim();
-
-      /*
-      if(actionLull <= 40) {
-        if (actionLull < 2 || actionLull % 8 == 0 || vimGame) {
-          io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &');
-        }
-        actionLull+=1;
-      } else {
-        vimGame = false;
-      }
-      */
-
-      writeInsteadOfRead = 0;
-      return;
-    }
-
-
     if (!useFullVim() || pterosaurModes.indexOf(modes.main) === -1)  {
         if(textBoxType) {
           cleanupForTextbox();
@@ -181,19 +170,29 @@ function update(){
       if(textBoxType)
         cleanupForTextbox();
       setupForTextbox();
-      //We already skipped some important steps (like selection checking), so wait till next update and do the whole thing.
       return
     }
+}
+
+function updateFromVim(){
+    var foundChange = false;
+
+    if (!useFullVim()){
+      return
+    }
+
+    heartbeat();
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
     if (val !== '')
       val = val.slice(0,-1)
     else
+    {
       //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
-      return
-
-    writeInsteadOfRead = 1; //For next time around
+      setTimeout(update, 20);
+      return;
+    }
 
     let metadata = metaTmpfile.read().split('\n');
     vimMode = metadata[0];
@@ -202,6 +201,7 @@ function update(){
       if ( modes.main !== modes.VIM_COMMAND)
       {
         modes.push(modes.VIM_COMMAND);
+        foundChange = true;
       }
       if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
       {
@@ -211,6 +211,7 @@ function update(){
         if( options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
         dactyl.echo(modestring + metadata[1], commandline.FORCE_SINGLELINE);
+        foundChange = true;
       }
     }
     else{
@@ -291,23 +292,44 @@ function update(){
     if (val !== savedText){
       textBoxSetValue(val)
       savedText = val;
-      if(actionLull > 2) {
-        actionLull = 0;
-        vimGame = true;
-      }
+      foundChange = true;
     }
 
     if (textBoxType) {
-        if(metadata.length>2 && vimMode !== "c" && vimMode!== "e" && !unsent)
+        if(metadata.length > 2 && vimMode !== "c" && vimMode!== "e" && !unsent)
         {
           textBoxSetSelection(metadata[1], metadata[2])
         }
 
-        cursorPos = textBoxGetSelection()
+        var cursorPos = textBoxGetSelection()
 
-        savedCursorStart = cursorPos.start;
-        savedCursorEnd = cursorPos.end;
+        if (savedCursorStart.row != cursorPos.start.row || savedCursorStart.column != cursorPos.start.column
+            || savedCursorEnd.row != cursorPos.end.row || savedCursorEnd.column != cursorPos.end.column) {
+          savedCursorStart = cursorPos.start;
+          savedCursorEnd = cursorPos.end;
+          foundChange = true;
+        }
     }
+
+    if (foundChange){
+      updateDelay = -1;
+      if (pollTimeout){
+        clearTimeout(pollTimeout);
+        pollTimeout = null;
+      }
+      allowedToPoll = true;
+    } else {
+      if(allowedToPoll){
+        if (pollTimeout){
+          clearTimeout(pollTimeout);
+        }
+        allowedToPoll = false;
+        var pollTimer = (vimMode == "c" ? 100 : 250);
+        pollTimeout = setTimeout(function() {
+          io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &')}, pollTimer);
+      }
+    }
+
 }
 
 function createSandbox(){
@@ -672,11 +694,13 @@ function textBoxGetValue_codeMirror(){
 
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
+    console.log("cleanup")
     sendToVim = "";
     unsent=1;
 }
 
 function setupForTextbox() {
+    console.log("setup")
     //Clear lingering command text
     if (vimMode === "c")
       vimStdin.write(ESC+"i")
@@ -765,8 +789,6 @@ function updateTextbox(preserveMode) {
 
       io.system(ioCommand);
     }
-
-    writeInsteadOfRead = 0
 }
 
 //Some sites need to receive key events in addition to sending them to vim. We don't do this for javascript editors because they handle js stuff themselves.
@@ -904,6 +926,7 @@ function specialKeyHandler(key) {
             return;
           }
         }
+        allowToSend = false;
         setTimeout( function() {
           handlingSpecialKey=true;
           try {
@@ -919,8 +942,9 @@ function specialKeyHandler(key) {
             }
           } finally {
             handlingSpecialKey=false;
+            allowToSend = true;
           }
-        }, CYCLE_TIME*5) //Delay is to make sure forms are updated from vim before being submitted.
+        }, 100) //Delay is to make sure forms are updated from vim before being submitted.
     }
     else {
         if (key === "<Return>") {
@@ -987,7 +1011,6 @@ function handleStrictVim() {
       mappings.builtin.remove(modes.INSERT, "<Tab>");
     }
 }
-
 
 
 function cleanupPterosaur() {
@@ -1067,8 +1090,10 @@ function startVimbed(debug) {
   metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
   messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
 
-  debugTerminal = FileUtils.File("/dev/pts/4")
-  debugTerminal = File(debugTerminal);
+  if (debugMode) {
+    debugTerminal = FileUtils.File("/dev/pts/4")
+    debugTerminal = File(debugTerminal);
+  }
 
   dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
   tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
@@ -1089,7 +1114,7 @@ function startVimbed(debug) {
       throw Error(_("io.cantCreateTempFile"));
 
   var TERM = null
-  if (debug){
+  if (debugMode){
     TERM = services.environment.get("TERM");
   }
 
@@ -1102,7 +1127,6 @@ function startVimbed(debug) {
   }
   env_variables.push("TERM="+TERM);
 
-  console.log ("Go go go!");
   vimProcess = subprocess.call({ url: window.URL,
     command:  '/bin/vim',
     arguments: ["--servername", "pterosaur_" + uid,
@@ -1111,24 +1135,22 @@ function startVimbed(debug) {
     charet: 'UTF-8',
     stdin: function(stdin){
       vimStdin = stdin;
-      console.log("Stdin");
       stdin.write(ESC)
     },
     stdout: function(data){
-    //  handleVimOutput(data);
-      console.log("Vim Stdout: "+data);
-      debugTerminal.write(data);
+      updateFromVim();
+      if(debugMode){
+        debugTerminal.write(data);
+      }
     },
     stderr: function(data){
-     // handleVimError(data);
       console.log("Vim Stderr: "+data);
     },
     done: function(result){
-      //handleVimDone(result);
       console.log("Vim done! "+result)
     }
   });
-  console.log ("Gone");
+  heartbeat();
 }
 
 var savedText = null;
@@ -1142,6 +1164,7 @@ var lastVimCommand = "";
 var sendToVim = "";
 var lastKey = "";
 var allowedToSend = true;
+var pollTimeout;
 
 var uid;
 var dir;
@@ -1161,13 +1184,11 @@ var actionLull = 0; //Cycles since we sent something to vim that might change th
 
 
 function killVimbed() {
+  vimStdin.close();
   dir.remove(true);
 }
 
 let onUnload = killVimbed
-
-//We alternate reads and writes on updates. On writes, we send keypresses to vim. On reads, we read the tmpfile vim is writing to.
-var writeInsteadOfRead = 0;
 
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
@@ -1230,6 +1251,3 @@ commands.add(["vim[do]"],
       argCount: "+",
       literal: 0
     });
-
-var CYCLE_TIME = 30
-let timer =  window.setInterval(update, CYCLE_TIME);
