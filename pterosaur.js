@@ -1119,6 +1119,8 @@ function startVimbed(debug) {
   }
   env_variables.push("TERM="+TERM);
 
+  var stdoutTimeout;
+
   vimProcess = subprocess.call({ url: window.URL,
     command:  '/bin/vim',
     arguments: ["--servername", "pterosaur_" + uid,
@@ -1129,11 +1131,19 @@ function startVimbed(debug) {
       vimStdin = stdin;
       stdin.write(ESC)
     },
+    //TODO: Rather than waiting to update, maybe update right away and leave a standing allowance of 25 ms to update without changes if we receive one?
+    //This only makes sense if we make upate without changes faster by checking directly against saved.
     stdout: function(data){
-      updateFromVim();
+      if(stdoutTimeout){
+        clearTimeout(stdoutTimeout);
+      }
       if(debugMode){
         debugTerminal.write(data);
       }
+      stdoutTimeout = setTimeout(function(){
+        updateFromVim();
+        stdoutTimeout = null;
+      }, 25)
     },
     stderr: function(data){
       console.log("Vim Stderr: "+data);
