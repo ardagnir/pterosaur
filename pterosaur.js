@@ -89,6 +89,7 @@ var allowedToPoll = false;
 
 function updateVim(skipKeyHandle){
   if(sendToVim !== "") {
+    stateCheck();
     allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
@@ -106,14 +107,7 @@ function updateVim(skipKeyHandle){
   }
 }
 
-var heartBeatTimeout = null;
-function heartbeat(){
-    //This way we can call heartbeat whenever and only have one set of beats
-    if(heartBeatTimeout){
-      clearTimeout(heartBeatTimeout);
-    }
-    heartBeatTimeout = setTimeout(heartbeat, 250);
-
+function stateCheck(){
     if (strictVimCheck !== (strictVim() && useFullVim()))
       handleStrictVim();
 
@@ -147,13 +141,13 @@ function heartbeat(){
            (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
       {
         updateTextbox(0);
-        return;
+        return false;
       }
 
       if (savedText != null && textBoxGetValue() != savedText)
       {
         updateTextbox(1);
-        return;
+        return false;
       }
     }
 
@@ -162,7 +156,7 @@ function heartbeat(){
           cleanupForTextbox();
           textBoxType = ""
         }
-        return;
+        return false;
     }
 
     if (dactyl.focusedElement !== pterFocused || !textBoxType)
@@ -170,18 +164,17 @@ function heartbeat(){
       if(textBoxType)
         cleanupForTextbox();
       setupForTextbox();
-      return
+      return false;
     }
+    return true;
 }
 
 function updateFromVim(){
     var foundChange = false;
 
-    if (!useFullVim()){
+    if (!stateCheck()){
       return
     }
-
-    heartbeat();
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
@@ -312,7 +305,6 @@ function updateFromVim(){
     }
 
     if (foundChange){
-      updateDelay = -1;
       if (pollTimeout){
         clearTimeout(pollTimeout);
         pollTimeout = null;
@@ -1150,7 +1142,6 @@ function startVimbed(debug) {
       console.log("Vim done! "+result)
     }
   });
-  heartbeat();
 }
 
 var savedText = null;
