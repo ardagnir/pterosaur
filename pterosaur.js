@@ -926,7 +926,7 @@ function specialKeyHandler(key) {
             return;
           }
         }
-        allowToSend = false;
+        allowedToSend = false;
         setTimeout( function() {
           handlingSpecialKey=true;
           try {
@@ -942,7 +942,7 @@ function specialKeyHandler(key) {
             }
           } finally {
             handlingSpecialKey=false;
-            allowToSend = true;
+            allowedToSend = true;
           }
         }, 100) //Delay is to make sure forms are updated from vim before being submitted.
     }
