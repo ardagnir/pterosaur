@@ -321,7 +321,6 @@ function updateFromVim(){
           io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &')}, pollTimer);
       }
     }
-
 }
 
 function createSandbox(){
@@ -1124,6 +1123,7 @@ function startVimbed(debug) {
   vimProcess = subprocess.call({ url: window.URL,
     command:  '/bin/vim',
     arguments: ["--servername", "pterosaur_" + uid,
+                "-s", "/dev/null",
                 '+call Vimbed_SetupVimbed("","")'],
     environment:  env_variables,
     charet: 'UTF-8',
