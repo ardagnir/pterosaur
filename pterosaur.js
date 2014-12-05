@@ -88,15 +88,19 @@ function strictVim(){
 var allowedToPoll = false;
 
 function updateVim(skipKeyHandle){
-  if(sendToVim !== "") {
-    stateCheck();
+  if(sendToVim !== "" && allowedToSend) {
+    let tempSendToVim = sendToVim;
+    sendToVim = "";
+    allowedToSend = false; //Don't allow another update to come through during statecheck
+    stateCheck()
+    allowedToSend = true;
     allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
       pollTimeout = null;
     }
-    let tempSendToVim = sendToVim
-    sendToVim = ""
+    tempSendToVim += sendToVim;
+    sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
     actionLull=0;
@@ -876,8 +880,7 @@ function queueForVim(key) {
   if (key === ESC){
     sendToVim += '\x00'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
   }
-  if (allowedToSend)
-    updateVim(true);
+  updateVim(true);
 }
 
 var handlingSpecialKey = false;
