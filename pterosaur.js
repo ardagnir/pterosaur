@@ -100,6 +100,11 @@ function updateVim(){
       setTimeout(updateVim, 10);
       return;
     }
+    if(textBoxType == "")
+    {
+      sendToVim = "";
+      return;
+    }
     allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
@@ -697,8 +702,6 @@ function textBoxGetValue_codeMirror(){
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
     console.log("cleanup")
-    //sendToVim = ""; We do lazy cleanup now, so this isn't something we can do.
-    //TODO But we need to find a way to do something similar so we don't store extra keys indefinitly
     unsent=1;
 }
 
@@ -917,7 +920,6 @@ function specialKeyHandler(key) {
     var behavior = getKeyBehavior(textBoxType, key)
     if (behavior !== "vim") {
         if (behavior !== "web") {
-          updateVim();
           if (key === "<Return>") {
             queueForVim("\r");
           } else if (key === "<Tab>"){
@@ -944,8 +946,9 @@ function specialKeyHandler(key) {
           } finally {
             handlingSpecialKey=false;
             allowedToSend = true;
+            updateVim();
           }
-        }, 100) //Delay is to make sure forms are updated from vim before being submitted.
+        }, 200) //Delay is to make sure forms are updated from vim before being submitted.
     }
     else {
         if (key === "<Return>") {
