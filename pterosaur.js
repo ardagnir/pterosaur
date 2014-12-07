@@ -132,19 +132,6 @@ function stateCheck(){
     if (pterosaurCleanupCheck !== useFullVim())
       cleanupPterosaur();
 
-    /*
-    if (debugMode && !options["pterosaurdebug"])
-    {
-      killVimbed();
-      startVimbed(0);
-    }
-    else if (!debugMode && options["pterosaurdebug"])
-    {
-      killVimbed();
-      startVimbed(1);
-    }
-    */
-
     var cursorPos;
 
     if(dactyl.focusedElement === pterFocused && textBoxType)
@@ -1085,19 +1072,13 @@ function cleanupPterosaur() {
     }
 }
 
-function startVimbed(debug) {
-  debugMode = debug;
-
+function startVimbed() {
   uid = Math.floor(Math.random()*0x100000000).toString(16)
   dir = FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
   tmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
   metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
   messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
 
-  if (debugMode) {
-    debugTerminal = FileUtils.File("/dev/pts/4")
-    debugTerminal = File(debugTerminal);
-  }
 
   dir.create(Ci.nsIFile.DIRECTORY_TYPE, octal(700));
   tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, octal(600));
@@ -1117,10 +1098,7 @@ function startVimbed(debug) {
   if (!messageTmpfile)
       throw Error(_("io.cantCreateTempFile"));
 
-  var TERM = null
-  if (debugMode){
-    TERM = services.environment.get("TERM");
-  }
+  var TERM = services.environment.get("TERM");
 
   if (!TERM || TERM === "linux")
     TERM = "xterm";
@@ -1150,9 +1128,14 @@ function startVimbed(debug) {
       if(stdoutTimeout){
         clearTimeout(stdoutTimeout);
       }
-      if(debugMode){
+      if(options["pterosaurdebug"]){
+        if (options["pterosaurdebug"] != oldDebug){
+          debugTerminal = File(FileUtils.File(options["pterosaurdebug"]))
+          oldDebug = options["pterosaurdebug"]
+        }
         debugTerminal.write(data);
       }
+
       stdoutTimeout = setTimeout(function(){
         updateFromVim();
         stdoutTimeout = null;
@@ -1185,7 +1168,8 @@ var dir;
 var tmpfile;
 var metaTmpfile;
 var messageTmpfile;
-var debugTerminal;
+var debugTerminal = null;
+var oldDebug = "";
 
 var vimProcess;
 var vimFile = dactyl.plugins.io.pathSearch("vim")
@@ -1218,7 +1202,7 @@ var vimGame = false; //If vim is changing on it's own without user input (like i
 
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
-group.options.add(["pterosaurdebug"], "Display vim in terminal", "boolean", false);
+group.options.add(["pterosaurdebug"], "Display vim in terminal", "string", "");
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
