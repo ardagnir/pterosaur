@@ -237,27 +237,68 @@ function updateFromVim(){
       lastVimCommand=""
     }
 
+    if (val !== savedText){
+      textBoxSetValue(val)
+      savedText = val;
+      foundChange = true;
+    }
+
+    if (textBoxType) {
+        if(metadata.length > 2 && vimMode !== "c" && vimMode!== "e" && !unsent)
+        {
+          textBoxSetSelection(metadata[1], metadata[2])
+        }
+
+        var cursorPos = textBoxGetSelection()
+
+        if (savedCursorStart.row != cursorPos.start.row || savedCursorStart.column != cursorPos.start.column
+            || savedCursorEnd.row != cursorPos.end.row || savedCursorEnd.column != cursorPos.end.column) {
+          savedCursorStart = cursorPos.start;
+          savedCursorEnd = cursorPos.end;
+          foundChange = true;
+        }
+    }
+
     if (vimMode === "e")
     {
       dactyl.echo("ERROR: "+metadata[1])
     }
     else if (vimMode === "n" && modes.main !== modes.VIM_NORMAL)
     {
-      dactyl.echo("");
-      if (modes.main !== modes.INSERT)
-      {
-        modes.pop();
+      if(unsent){
+        //It can't be normal(except for a split second). Force a poll
+        allowedToPoll = true;
+        foundChange = false;
       }
-      modes.push(modes.VIM_NORMAL);
+      else
+      {
+        dactyl.echo("");
+        if (modes.main !== modes.INSERT)
+        {
+          modes.pop();
+        }
+        modes.push(modes.VIM_NORMAL);
+      }
     }
     else if ((vimMode === "v" || vimMode ==="V") && modes.main !==modes.VIM_VISUAL)
     {
-      dactyl.echo("");
-      if (modes.main !== modes.INSERT)
-      {
-        modes.pop();
+      if(unsent){
+        if (modes.main !== modes.VIM_SELECT)
+        {
+          //It can't be normal(except for a split second). Force a poll
+          allowedToPoll = true;
+          foundChange = false;
+        }
       }
-      modes.push(modes.VIM_VISUAL);
+      else
+      {
+        dactyl.echo("");
+        if (modes.main !== modes.INSERT)
+        {
+          modes.pop();
+        }
+        modes.push(modes.VIM_VISUAL);
+      }
     }
     else if ((vimMode === "s" || vimMode ==="S") && modes.main !==modes.VIM_SELECT)
     {
@@ -284,28 +325,6 @@ function updateFromVim(){
       modes.pop();
     }
 
-    if (val !== savedText){
-      textBoxSetValue(val)
-      savedText = val;
-      foundChange = true;
-    }
-
-    if (textBoxType) {
-        if(metadata.length > 2 && vimMode !== "c" && vimMode!== "e" && !unsent)
-        {
-          textBoxSetSelection(metadata[1], metadata[2])
-        }
-
-        var cursorPos = textBoxGetSelection()
-
-        if (savedCursorStart.row != cursorPos.start.row || savedCursorStart.column != cursorPos.start.column
-            || savedCursorEnd.row != cursorPos.end.row || savedCursorEnd.column != cursorPos.end.column) {
-          savedCursorStart = cursorPos.start;
-          savedCursorEnd = cursorPos.end;
-          foundChange = true;
-        }
-    }
-
     if (foundChange){
       if (pollTimeout){
         clearTimeout(pollTimeout);
@@ -313,19 +332,24 @@ function updateFromVim(){
       }
       allowedToPoll = true;
     } else {
-      if(allowedToPoll){
-        if (pollTimeout){
-          clearTimeout(pollTimeout);
-        }
-        allowedToPoll = false;
-        var pollTimer = (vimMode == "c" ? 100 : 250);
-        pollTimeout = setTimeout(function() {
-          vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
-        }, pollTimer);
-      }
+      callPoll();
     }
 }
 
+function callPoll(){
+  if(allowedToPoll){
+    if (pollTimeout){
+      clearTimeout(pollTimeout);
+    }
+    allowedToPoll = false;
+    var pollTimer = (vimMode == "c" ? 100 : 250);
+    console.log("timing poll!")
+    pollTimeout = setTimeout(function() {
+      //console.log("calling poll!")
+      vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
+    }, pollTimer);
+  }
+}
 function createSandbox(){
   var doc = textBox.ownerDocument || content;
   var protocol = doc.location.protocol;
@@ -688,6 +712,9 @@ function textBoxGetValue_codeMirror(){
 
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
+    if(pterFocused){
+      pterFocused.removeEventListener("click", pterClicked, false)
+    }
     console.log("cleanup")
     unsent=1;
 }
@@ -700,7 +727,15 @@ function setupForTextbox() {
 
     pterFocused = dactyl.focusedElement;
 
+    if(pterFocused){
+      pterFocused.addEventListener("click", pterClicked, false)
+    }
+
     updateTextbox(0);
+}
+
+function pterClicked(){
+  setTimeout(stateCheck, 1);
 }
 
 function updateTextbox(preserveMode) {
@@ -862,6 +897,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           if (inputChar.slice(0,3)==="<C-" && inputChar.length == 5) {
             queueForVim(String.fromCharCode(inputChar[3].charCodeAt(0)-96));
           } else {
+            setTimeout(stateCheck,1);
             return PASS;
           }
       }
