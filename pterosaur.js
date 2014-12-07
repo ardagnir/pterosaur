@@ -86,9 +86,14 @@ function strictVim(){
 }
 
 var allowedToPoll = false;
+var webKeyTimeout = null;
 
-function updateVim(skipKeyHandle){
+function updateVim(){
   if(sendToVim !== "" && allowedToSend) {
+    if (webKeyTimeout){
+      clearTimeout(webKeyTimeout);
+      webKeyTimeout = null;
+    }
     stateCheck()
     if (vimNsIProc.isRunning)
     {
@@ -104,13 +109,11 @@ function updateVim(skipKeyHandle){
     sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
-    /*TODO: add this back in*/
-    /*
-    if (!leanVim() && !skipKeyHandle && [ESC, '\r', '\t'].indexOf(lastKey) == -1) {
-      let savedLastKey = lastKey;
-      setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
-    }
-    */
+    webKeyTimeout = setTimeout(function() {
+      if (!leanVim() && stateCheck() && [ESC, '\r', '\t', ''].indexOf(lastKey) == -1){
+        handleKeySending(lastKey);
+      }
+    }, 250);
   }
 }
 
@@ -884,7 +887,7 @@ function queueForVim(key) {
   if (key === ESC){
     sendToVim += '\x00'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
   }
-  updateVim(true);
+  updateVim();
 }
 
 var handlingSpecialKey = false;
@@ -914,7 +917,7 @@ function specialKeyHandler(key) {
     var behavior = getKeyBehavior(textBoxType, key)
     if (behavior !== "vim") {
         if (behavior !== "web") {
-          updateVim(true);
+          updateVim();
           if (key === "<Return>") {
             queueForVim("\r");
           } else if (key === "<Tab>"){
