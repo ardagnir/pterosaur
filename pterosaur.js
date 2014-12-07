@@ -89,25 +89,28 @@ var allowedToPoll = false;
 
 function updateVim(skipKeyHandle){
   if(sendToVim !== "" && allowedToSend) {
-    let tempSendToVim = sendToVim;
-    sendToVim = "";
-    allowedToSend = false; //Don't allow another update to come through during statecheck
     stateCheck()
-    allowedToSend = true;
+    if (vimNsIProc.isRunning)
+    {
+      setTimeout(updateVim, 10);
+      return;
+    }
     allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
       pollTimeout = null;
     }
-    tempSendToVim += sendToVim;
+    let tempSendToVim = sendToVim;
     sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
-    actionLull=0;
+    /*TODO: add this back in*/
+    /*
     if (!leanVim() && !skipKeyHandle && [ESC, '\r', '\t'].indexOf(lastKey) == -1) {
       let savedLastKey = lastKey;
       setTimeout( function(){if (lastKey === savedLastKey) {handleKeySending(lastKey);}}, CYCLE_TIME*5 );
     }
+    */
   }
 }
 
@@ -176,7 +179,7 @@ function stateCheck(){
 function updateFromVim(){
     var foundChange = false;
 
-    if (!stateCheck()){
+    if (!useFullVim()){
       return
     }
 
@@ -322,7 +325,8 @@ function updateFromVim(){
         allowedToPoll = false;
         var pollTimer = (vimMode == "c" ? 100 : 250);
         pollTimeout = setTimeout(function() {
-          io.system('vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_Poll()" &')}, pollTimer);
+          vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
+        }, pollTimer);
       }
     }
 }
@@ -690,7 +694,8 @@ function textBoxGetValue_codeMirror(){
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
     console.log("cleanup")
-    sendToVim = "";
+    //sendToVim = ""; We do lazy cleanup now, so this isn't something we can do.
+    //TODO But we need to find a way to do something similar so we don't store extra keys indefinitly
     unsent=1;
 }
 
@@ -708,7 +713,6 @@ function setupForTextbox() {
 function updateTextbox(preserveMode) {
     lastKey = "";
     unsent=1
-    actionLull=0;
     vimGame = false;
 
     savedText = null;
@@ -770,19 +774,19 @@ function updateTextbox(preserveMode) {
       if (!tmpfile.write(text+"\n"))
         throw Error(_("io.cantEncode"));
 
-      var ioCommand;
+      var vimCommand;
 
-      ioCommand = 'vim --servername pterosaur_'+uid+' --remote-expr "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)"';
+      vimCommand = "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)";
 
-      ioCommand = ioCommand.replace(/<rowStart>/, cursorPos.start.row);
-      ioCommand = ioCommand.replace(/<columnStart>/, cursorPos.start.column);
-      ioCommand = ioCommand.replace(/<rowEnd>/, cursorPos.end.row);
-      ioCommand = ioCommand.replace(/<columnEnd>/, cursorPos.end.column);
-      ioCommand = ioCommand.replace(/<preserveMode>/, preserveMode);
+      vimCommand = vimCommand.replace(/<rowStart>/, cursorPos.start.row);
+      vimCommand = vimCommand.replace(/<columnStart>/, cursorPos.start.column);
+      vimCommand = vimCommand.replace(/<rowEnd>/, cursorPos.end.row);
+      vimCommand = vimCommand.replace(/<columnEnd>/, cursorPos.end.column);
+      vimCommand = vimCommand.replace(/<preserveMode>/, preserveMode);
 
-      console.log(ioCommand);
+      console.log(vimCommand);
 
-      io.system(ioCommand);
+      vimNsIProc.run(false, ["--servername", "pterosaur_" + uid, '--remote-expr',  vimCommand],4);
     }
 }
 
@@ -1124,7 +1128,7 @@ function startVimbed(debug) {
   var stdoutTimeout;
 
   vimProcess = subprocess.call({ url: window.URL,
-    command:  '/bin/vim',
+    command: vimFile.path,
     arguments: ["--servername", "pterosaur_" + uid,
                 "-s", "/dev/null",
                 '+call Vimbed_SetupVimbed("","")'],
@@ -1176,16 +1180,16 @@ var tmpfile;
 var metaTmpfile;
 var messageTmpfile;
 var debugTerminal;
-var sleepProcess;
+
 var vimProcess;
+var vimFile = dactyl.plugins.io.pathSearch("vim")
+var vimNsIProc = services.Process(dactyl.plugins.io.pathSearch("vim").file)
+
 var vimStdin;
 var ESC = '\x1b';
 
 
 var unsent = 1;
-
-var actionLull = 0; //Cycles since we sent something to vim that might change the state (keypress/mouse click). This is to pick up stuff that has a delayed reaction without polling vim constantly when we aren't doing aything.
-
 
 function killVimbed() {
   vimStdin.close();
