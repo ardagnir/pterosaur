@@ -248,6 +248,11 @@ function updateFromVim(){
         {
           textBoxSetSelection(metadata[1], metadata[2])
         }
+        else if(metadata.length > 3 && vimMode == "c")
+        {
+          textBoxSetSelection(metadata[2], metadata[3])
+        }
+
 
         var cursorPos = textBoxGetSelection()
 
@@ -714,6 +719,7 @@ function textBoxGetValue_codeMirror(){
 function cleanupForTextbox() {
     if(pterFocused){
       pterFocused.removeEventListener("click", pterClicked, false)
+      pterFocused = null;
     }
     console.log("cleanup")
     unsent=1;
