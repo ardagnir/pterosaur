@@ -348,9 +348,7 @@ function callPoll(){
     }
     allowedToPoll = false;
     var pollTimer = (vimMode == "c" ? 100 : 250);
-    console.log("timing poll!")
     pollTimeout = setTimeout(function() {
-      //console.log("calling poll!")
       vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
     }, pollTimer);
   }
@@ -718,7 +716,13 @@ function textBoxGetValue_codeMirror(){
 //TODO: Need consistent capitalization for textbox
 function cleanupForTextbox() {
     if(pterFocused){
-      pterFocused.removeEventListener("click", pterClicked, false)
+      try{
+        pterFocused.removeEventListener("click", pterClicked, false)
+      }
+      catch(e){
+         //This is probably a dead object error. We don't need to remove the event in that case.
+         console.log("Caught error (dead object errors are ok): " + e)
+      }
       pterFocused = null;
     }
     console.log("cleanup")
