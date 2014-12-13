@@ -360,7 +360,7 @@ function createSandbox(){
   //I don't think these can be non-strings, but there's no harm in being paranoid.
   if (typeof protocol === "string" && typeof host === "string")
   {
-    return new Components.utils.Sandbox(protocol + "//" + host);
+    return new Components.utils.Sandbox(protocol + "//" + host, {wantXrays:false});
   }
 }
 
