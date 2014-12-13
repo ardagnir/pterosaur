@@ -44,7 +44,7 @@
 "use strict";
 var INFO =
 ["plugin", { name: "pterosaur",
-             version: "0.8.3",
+             version: "0.8.4",
              href: "http://github.com/ardagnir/pterosaur",
              summary: "All text is vim",
              xmlns: "dactyl" },
@@ -300,7 +300,7 @@ function createSandbox(){
   //I don't think these can be non-strings, but there's no harm in being paranoid.
   if (typeof protocol === "string" && typeof host === "string")
   {
-    return new Components.utils.Sandbox(protocol + "//" + host);
+    return new Components.utils.Sandbox(protocol + "//" + host, {wantXrays:false});
   }
 }
 
