@@ -122,38 +122,30 @@ function updateVim(){
   }
 }
 
+var stateCheckTimeout = null;
+
 function stateCheck(){
-    if (strictVimCheck !== (strictVim() && useFullVim()))
-      handleStrictVim();
-
-    if (leanVimCheck !== (leanVim() && useFullVim()))
-      handleLeanVim();
-
-    if (pterosaurCleanupCheck !== useFullVim())
-      cleanupPterosaur();
-
-    var cursorPos;
-
-    if(dactyl.focusedElement === pterFocused && textBoxType)
-    {
-      cursorPos = textBoxGetSelection()
-      if (savedCursorStart!=null &&
-           (cursorPos.start.row != savedCursorStart.row || cursorPos.start.column != savedCursorStart.column) ||
-          savedCursorEnd!=null &&
-           (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
-      {
-        updateTextbox(0);
-        return false;
-      }
-
-      if (savedText != null && textBoxGetValue() != savedText)
-      {
-        updateTextbox(1);
-        return false;
-      }
+    if (stateCheckTimeout) {
+      clearTimeout(stateCheckTimeout);
     }
 
-    if (!useFullVim() || pterosaurModes.indexOf(modes.main) === -1)  {
+    //Call this function every second if it isn't called otherwise
+    stateCheckTimeout = setTimeout(function(){
+      stateCheckTimeout = null
+      stateCheck();
+    }, 1000);
+
+    if (usingFullVim !== useFullVim())
+      cleanupPterosaur();
+
+    if (strictVimCheck !== (strictVim() && usingFullVim))
+      handleStrictVim();
+
+    if (leanVimCheck !== (leanVim() && usingFullVim))
+      handleLeanVim();
+
+    //We're not using pterosaur. Exit out.
+    if (!usingFullVim || pterosaurModes.indexOf(modes.main) === -1)  {
         if(textBoxType) {
           cleanupForTextbox();
           textBoxType = ""
@@ -161,6 +153,7 @@ function stateCheck(){
         return false;
     }
 
+    //We switched focus
     if (dactyl.focusedElement !== pterFocused || !textBoxType)
     {
       if(textBoxType)
@@ -168,6 +161,26 @@ function stateCheck(){
       setupForTextbox();
       return false;
     }
+
+    var cursorPos = textBoxGetSelection()
+
+    //The cursor was moved outside of vim.
+    if (savedCursorStart!=null &&
+         (cursorPos.start.row != savedCursorStart.row || cursorPos.start.column != savedCursorStart.column) ||
+        savedCursorEnd!=null &&
+         (cursorPos.end.row != savedCursorEnd.row || cursorPos.end.column != savedCursorEnd.column))
+    {
+      updateTextbox(0);
+      return false;
+    }
+
+    //THe text was changd outside of vim
+    if (savedText != null && textBoxGetValue() != savedText)
+    {
+      updateTextbox(1);
+      return false;
+    }
+
     return true;
 }
 
@@ -717,7 +730,7 @@ function textBoxGetValue_codeMirror(){
 function cleanupForTextbox() {
     if(pterFocused){
       try{
-        pterFocused.removeEventListener("click", pterClicked, false)
+        pterFocused.ownerDocument.removeEventListener("click", pterClicked, false)
       }
       catch(e){
          //This is probably a dead object error. We don't need to remove the event in that case.
@@ -738,7 +751,7 @@ function setupForTextbox() {
     pterFocused = dactyl.focusedElement;
 
     if(pterFocused){
-      pterFocused.addEventListener("click", pterClicked, false)
+      pterFocused.ownerDocument.addEventListener("click", pterClicked, false)
     }
 
     updateTextbox(0);
@@ -1051,8 +1064,8 @@ function handleStrictVim() {
 
 
 function cleanupPterosaur() {
-    pterosaurCleanupCheck = useFullVim();
-    if (pterosaurCleanupCheck) {
+    usingFullVim = useFullVim();
+    if (usingFullVim) {
         mappings.builtin.remove(modes.INSERT, "<Space>");
         mappings.builtin.remove(modes.INSERT, "<Return>");
         mappings.builtin.add(
@@ -1236,7 +1249,7 @@ let onUnload = killVimbed
 
 
 //If this doesn't match options["fullvim"] we need to perform cleanup
-var pterosaurCleanupCheck = false;
+var usingFullVim = false;
 var strictVimCheck = false;
 var leanVimCheck = false;
 
