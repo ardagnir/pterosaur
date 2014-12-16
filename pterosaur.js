@@ -181,6 +181,13 @@ function stateCheck(){
       return false;
     }
 
+    //TODO: This is a hack.Find a better way to make sure poll gets called when needed.
+    if(allowedToPoll) {
+      callPoll();
+    } else {
+      allowedToPoll = true;
+    }
+
     return true;
 }
 
@@ -349,23 +356,22 @@ function updateFromVim(){
         pollTimeout = null;
       }
       allowedToPoll = true;
-    } else {
+    } else if (allowedToPoll) {
       callPoll();
     }
 }
 
 function callPoll(){
-  if(allowedToPoll){
-    if (pollTimeout){
-      clearTimeout(pollTimeout);
-    }
-    allowedToPoll = false;
-    var pollTimer = (vimMode == "c" ? 100 : 250);
-    pollTimeout = setTimeout(function() {
-      vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
-    }, pollTimer);
+  if (pollTimeout){
+    clearTimeout(pollTimeout);
   }
+  allowedToPoll = false;
+  var pollTimer = (vimMode == "c" ? 100 : 250);
+  pollTimeout = setTimeout(function() {
+    vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
+  }, pollTimer);
 }
+
 function createSandbox(){
   var doc = textBox.ownerDocument || content;
   var protocol = doc.location.protocol;
