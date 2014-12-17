@@ -778,6 +778,9 @@ function updateTextbox(preserveMode) {
 
     textBox = dactyl.focusedElement;
 
+    let rows = 0;
+    let cols = 1;
+
     if (textBox == null)
     {
       textBox = Editor.getEditor(document.commandDispatcher.focusedWindow);
@@ -808,6 +811,27 @@ function updateTextbox(preserveMode) {
       }
       else if (["INPUT", "TEXTAREA", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
         textBoxType = "normal";
+        let tempText = textBox.value;
+        textBox.value = 0;
+        let startScroll = textBox.scrollHeight;
+        while (textBox.scrollHeight == startScroll && rows < 300) {
+          textBox.value += " \n"
+          rows++;
+        }
+
+        if (rows < 300) {
+          startScroll = textBox.scrollHeight;
+
+          while (textBox.scrollHeight == startScroll && cols < 300) {
+            textBox.value += " "
+            cols++;
+          }
+        } else {
+          cols = 300;
+        }
+
+        textBox.value = tempText;
+        console.log("rows: "+rows+",cols:"+cols);
       }
       else {
         textBox = Editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
@@ -833,12 +857,14 @@ function updateTextbox(preserveMode) {
 
       var vimCommand;
 
-      vimCommand = "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)";
+      vimCommand = "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <rows>, <cols>, <preserveMode>)";
 
       vimCommand = vimCommand.replace(/<rowStart>/, cursorPos.start.row);
       vimCommand = vimCommand.replace(/<columnStart>/, cursorPos.start.column);
       vimCommand = vimCommand.replace(/<rowEnd>/, cursorPos.end.row);
       vimCommand = vimCommand.replace(/<columnEnd>/, cursorPos.end.column);
+      vimCommand = vimCommand.replace(/<rows>/, rows);
+      vimCommand = vimCommand.replace(/<cols>/, cols);
       vimCommand = vimCommand.replace(/<preserveMode>/, preserveMode);
 
       console.log(vimCommand);
