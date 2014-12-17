@@ -372,6 +372,10 @@ function callPoll(){
   }, pollTimer);
 }
 
+function createChromeSandbox(){
+  return new Components.utils.Sandbox(document.nodePrincipal, {wantXrays:false});
+}
+
 function createSandbox(){
   var doc = textBox.ownerDocument || content;
   var protocol = doc.location.protocol;
@@ -437,11 +441,6 @@ function textBoxGetSelection_ace(){
 }
 
 function textBoxGetSelection_codeMirror(){
-  var sandbox = createSandbox();
-  if (!sandbox)
-    return;
-  sandbox.editor = textBox.wrappedJSObject;
-  sandbox.stringify = JSON.stringify;
   var sandboxScript="\
     var anchor = editor.CodeMirror.getCursor('anchor');\
     var head = editor.CodeMirror.getCursor('head');\
@@ -455,7 +454,23 @@ function textBoxGetSelection_codeMirror(){
     }\
     range = stringify(rangeObj);\
   ";
-  Components.utils.evalInSandbox(sandboxScript, sandbox);
+
+  if (!textBox.wrappedJSObject && textBox.CodeMirror) {
+    //This is codemirror at the chrome level alreay (probably from dev tools). We can trust it.
+    var sandbox = createChromeSandbox();
+    if (!sandbox)
+      return;
+    sandbox.editor = textBox;
+    sandbox.stringify = JSON.stringify;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  } else {
+    var sandbox = createSandbox();
+    if (!sandbox)
+      return;
+    sandbox.editor = textBox.wrappedJSObject;
+    sandbox.stringify = JSON.stringify;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  }
   return parseSandboxRangeForVim(sandbox);
 }
 
@@ -565,17 +580,29 @@ function textBoxSetSelection_ace(start, end){
 }
 
 function textBoxSetSelection_codeMirror(start, end){
-  var sandbox = createSandbox();
-  if (!sandbox)
-    return;
-  sandbox.start = start.split(",");
-  sandbox.end = end.split(",");
-  sandbox.editor = textBox.wrappedJSObject;
-
   var sandboxScript="\
         editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
   "
-  Components.utils.evalInSandbox(sandboxScript, sandbox);
+
+  if (!textBox.wrappedJSObject && textBox.CodeMirror) {
+    //This is codemirror at the chrome level alreay (probably from dev tools). We can trust it.
+    var sandbox = createChromeSandbox();
+    if (!sandbox)
+      return;
+    sandbox.start = start.split(",");
+    sandbox.end = end.split(",");
+    sandbox.editor = textBox;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  } else {
+    var sandbox = createSandbox();
+    if (!sandbox)
+      return;
+    sandbox.start = start.split(",");
+    sandbox.end = end.split(",");
+    sandbox.editor = textBox.wrappedJSObject;
+
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  }
 }
 
 function moveLeft(number, shift){
@@ -661,17 +688,28 @@ function textBoxSetValue_ace(newVal){
 }
 
 function textBoxSetValue_codeMirror(newVal){
-  var sandbox = createSandbox();
-  if (!sandbox)
-    return;
-  sandbox.newVal = newVal
-  sandbox.editor = textBox.wrappedJSObject;
   var sandboxScript="\
     if (editor.CodeMirror.getValue()!=newVal){\
       editor.CodeMirror.setValue(newVal);\
     }\
   "
-  Components.utils.evalInSandbox(sandboxScript, sandbox);
+
+  if (!textBox.wrappedJSObject && textBox.CodeMirror) {
+    //This is codemirror at the chrome level alreay (probably from dev tools). We can trust it.
+    var sandbox = createChromeSandbox();
+    if (!sandbox)
+      return;
+    sandbox.newVal = newVal
+    sandbox.editor = textBox;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  } else {
+    var sandbox = createSandbox();
+    if (!sandbox)
+      return;
+    sandbox.newVal = newVal
+    sandbox.editor = textBox.wrappedJSObject;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  }
 }
 
 function textBoxGetValue() {
@@ -715,14 +753,24 @@ function textBoxGetValue_ace(){
 }
 
 function textBoxGetValue_codeMirror(){
-  var sandbox = createSandbox();
-  if (!sandbox)
-    return;
-  sandbox.editor = textBox.wrappedJSObject;
   var sandboxScript="\
     value = editor.CodeMirror.getValue();\
   "
-  Components.utils.evalInSandbox(sandboxScript, sandbox);
+
+  if (!textBox.wrappedJSObject && textBox.CodeMirror) {
+    //This is codemirror at the chrome level alreay (probably from dev tools). We can trust it.
+    var sandbox = createChromeSandbox();
+    if (!sandbox)
+      return;
+    sandbox.editor = textBox;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  } else {
+    var sandbox = createSandbox();
+    if (!sandbox)
+      return;
+    sandbox.editor = textBox.wrappedJSObject;
+    Components.utils.evalInSandbox(sandboxScript, sandbox);
+  }
   //Make sure it's a string to avoid letting malicious code escape.
   var returnVal = sandbox.value
   if (typeof returnVal === "string")
@@ -806,7 +854,7 @@ function updateTextbox(preserveMode) {
         textBoxType = "codeMirror"
         textBox = textBox.parentNode.parentNode;
       }
-      else if (["INPUT", "TEXTAREA", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
+      else if (["INPUT", "TEXTAREA", "HTML:INPUT", "HTML:TEXTAREA"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
         textBoxType = "normal";
       }
       else {
