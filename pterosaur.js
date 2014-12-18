@@ -192,6 +192,13 @@ function stateCheck(){
 }
 
 function updateFromVim(){
+    stateCheck();
+    if (vimNsIProc.isRunning)
+    {
+      setTimeout(updateFromVim, 10);
+      return;
+    }
+
     var foundChange = false;
 
     if (!useFullVim()){
