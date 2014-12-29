@@ -56,6 +56,8 @@ var INFO =
     ["p", {},
         "This plugin provides full vim functionality to all input text-boxes by running a vim process in the background."]];
 
+
+var plugin_string;
 //Figure out where subprocess.jsm is stored and load it. Then start running vim.
 //The timeout is neccesary because we don't have pluginFiles info until after this file is loaded.
 setTimeout(function(){
@@ -64,9 +66,9 @@ setTimeout(function(){
     console.log("Cant find pentadactyl plugin directory!");
   } else {
     let plugin_section = plugin_strings[0].indexOf("plugins");
-    let plugin_string = plugin_strings[0].slice(0, plugin_section);
+    plugin_string = plugin_strings[0].slice(0, plugin_section) + "plugins/pterosaur/"
 
-    Components.utils.import("file://" + plugin_string + "plugins/pterosaur/subprocess.jsm");
+    Components.utils.import("file://" + plugin_string + "subprocess.jsm");
     startVimbed(false);
   }
 } , 1);
@@ -94,17 +96,17 @@ function updateVim(){
       clearTimeout(webKeyTimeout);
       webKeyTimeout = null;
     }
-    stateCheck()
-    if (vimNsIProc.isRunning)
+    if (!stateCheck() || vimNsIProc.isRunning)
     {
-      setTimeout(updateVim, 10);
+      if(textBoxType == "")
+      {
+        sendToVim = "";
+      } else {
+        setTimeout(updateVim, 10);
+      }
       return;
     }
-    if(textBoxType == "")
-    {
-      sendToVim = "";
-      return;
-    }
+
     allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
@@ -133,6 +135,12 @@ function stateCheck(){
     stateCheckTimeout = setTimeout(function(){
       stateCheckTimeout = null
       stateCheck();
+      //TODO: This is a hack.Find a better way to make sure poll gets called when needed.
+      if(allowedToPoll) {
+        callPoll();
+      } else {
+        allowedToPoll = true;
+      }
     }, 1000);
 
     if (usingFullVim !== useFullVim())
@@ -181,29 +189,19 @@ function stateCheck(){
       return false;
     }
 
-    //TODO: This is a hack.Find a better way to make sure poll gets called when needed.
-    if(allowedToPoll) {
-      callPoll();
-    } else {
-      allowedToPoll = true;
-    }
-
     return true;
 }
 
 function updateFromVim(){
-    stateCheck();
-    if (vimNsIProc.isRunning)
+    if (!stateCheck() || vimNsIProc.isRunning)
     {
-      setTimeout(updateFromVim, 10);
+      if(useFullVim()) {
+        setTimeout(updateFromVim, 10);
+      }
       return;
     }
 
     var foundChange = false;
-
-    if (!useFullVim()){
-      return
-    }
 
     let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
