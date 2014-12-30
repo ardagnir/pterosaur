@@ -98,7 +98,7 @@ function updateVim(){
     }
     if (!stateCheck() || vimNsIProc.isRunning)
     {
-      if(textBoxType == "")
+      if(!useFullVim() || textBoxType == "")
       {
         sendToVim = "";
       } else {
@@ -195,7 +195,7 @@ function stateCheck(){
 function updateFromVim(){
     if (!stateCheck() || vimNsIProc.isRunning)
     {
-      if(useFullVim()) {
+      if(useFullVim() && textBoxType) {
         setTimeout(updateFromVim, 10);
       }
       return;
@@ -941,7 +941,7 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     const KILL = false, PASS = true;
 
-    if (!useFullVim())
+    if (!useFullVim() || textBoxType == "")
       return PASS;
 
     let inputChar = DOM.Event.stringify(eventList[0]);
@@ -1019,7 +1019,7 @@ function getKeyBehavior(textBoxType, key) {
 //We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
 function specialKeyHandler(key) {
     console.log(key)
-    if (handlingSpecialKey) {
+    if (handlingSpecialKey || textBoxType == "") {
       return Events.PASS_THROUGH;
     }
     var behavior = getKeyBehavior(textBoxType, key)
