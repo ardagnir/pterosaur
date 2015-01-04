@@ -536,7 +536,7 @@ function textBoxSetSelection(start, end){
       let nodeIndex = 0;
       let row = 0;
       let length = nodes.length;
-      while(row<start[2] && nodeIndex < length)
+      while(row<start[2] && nodeIndex < length-1)
       {
         if (nodes[nodeIndex]) {
           if (nodes[nodeIndex].tagName == "BR") {
@@ -550,10 +550,10 @@ function textBoxSetSelection(start, end){
         range.setStart(textBox.rootElement, nodeIndex)
       }
       else{
-        range.setStart(nodes[nodeIndex], start[1])
+        range.setStart(nodes[nodeIndex], Math.min(nodes[nodeIndex].length, start[1]))
       }
 
-      while(row<end[2] && nodeIndex < length)
+      while(row<end[2] && nodeIndex < length-1)
       {
         if (nodes[nodeIndex]) {
           if (nodes[nodeIndex].tagName == "BR") {
@@ -567,7 +567,7 @@ function textBoxSetSelection(start, end){
         range.setEnd(textBox.rootElement, nodeIndex)
       }
       else{
-        range.setEnd(nodes[nodeIndex], end[1])
+        range.setEnd(nodes[nodeIndex], Math.min(nodes[nodeIndex].length, end[1]))
       }
 
       textBox.selection.removeAllRanges()
