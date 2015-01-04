@@ -87,7 +87,6 @@ function strictVim(){
   return textBoxType === "ace" ||  modes.main === modes.VIM_COMMAND;
 }
 
-var allowedToPoll = false;
 var webKeyTimeout = null;
 
 function updateVim(){
@@ -107,7 +106,6 @@ function updateVim(){
       return;
     }
 
-    allowedToPoll = true;
     if (pollTimeout && vimMode != "c"){
       clearTimeout(pollTimeout);
       pollTimeout = null;
@@ -125,23 +123,29 @@ function updateVim(){
 }
 
 var stateCheckTimeout = null;
+var pollsSkipped = 0;
 
 function stateCheck(){
     if (stateCheckTimeout) {
       clearTimeout(stateCheckTimeout);
+      pollsSkipped = 0;
     }
 
     //Call this function every second if it isn't called otherwise
     stateCheckTimeout = setTimeout(function(){
       stateCheckTimeout = null
       stateCheck();
-      //TODO: This is a hack.Find a better way to make sure poll gets called when needed.
-      if(allowedToPoll) {
-        callPoll();
-      } else {
-        allowedToPoll = true;
+      if(gameTest > 0)
+      {
+        gameTest--;
       }
-    }, 1000);
+      if (pollsSkipped < 3 && vimMode != "c"){
+        pollsSkipped++;
+      } else {
+        callPoll();
+        pollsSkipped = 0;
+      }
+    }, vimMode == "c" ? 250 : 500);
 
     if (usingFullVim !== useFullVim())
       cleanupPterosaur();
@@ -295,9 +299,8 @@ function updateFromVim(){
     }
     else if (vimMode === "n" && modes.main !== modes.VIM_NORMAL)
     {
+      //If unsent, this has to be outdated info. Don't bother
       if(unsent){
-        //It can't be normal(except for a split second). Force a poll
-        allowedToPoll = true;
         foundChange = false;
       }
       else
@@ -312,13 +315,9 @@ function updateFromVim(){
     }
     else if ((vimMode === "v" || vimMode ==="V") && modes.main !==modes.VIM_VISUAL)
     {
+      //If unsent, this has to be outdated info. Don't bother.
       if(unsent){
-        if (modes.main !== modes.VIM_SELECT)
-        {
-          //It can't be normal(except for a split second). Force a poll
-          allowedToPoll = true;
-          foundChange = false;
-        }
+        foundChange = false;
       }
       else
       {
@@ -360,21 +359,31 @@ function updateFromVim(){
         clearTimeout(pollTimeout);
         pollTimeout = null;
       }
-      allowedToPoll = true;
-    } else if (allowedToPoll) {
+      if (gameTest>0) {
+        gameTest--;
+      }
+    } else {
       callPoll();
     }
 }
 
+//Determines if vim is being used for a game or similar scenario where vim handles user input in a nonstandard way.
+//In these cases, we should spam poll for responsiveness since vim won't trigger the normal autocommands.
+var gameTest = 0;
+
 function callPoll(){
-  if (pollTimeout){
-    clearTimeout(pollTimeout);
+  if (gameTest < 10)
+  {
+    gameTest++;
   }
-  allowedToPoll = false;
-  var pollTimer = (vimMode == "c" ? 100 : 250);
-  pollTimeout = setTimeout(function() {
-    vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'],4);
-  }, pollTimer);
+  if (!pollTimeout){
+    var pollTimer = (vimMode == "c" || gameTest > 4 ? 1 : 250)
+    //if vimMode == "c"(vimMode == "c" 1 : );
+    pollTimeout = setTimeout(function() {
+      pollTimeout = null;
+      vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'], 4);
+    }, pollTimer);
+  }
 }
 
 function createChromeSandbox(){
@@ -1018,7 +1027,6 @@ function getKeyBehavior(textBoxType, key) {
 
 //We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
 function specialKeyHandler(key) {
-    console.log(key)
     if (handlingSpecialKey || textBoxType == "") {
       return Events.PASS_THROUGH;
     }
