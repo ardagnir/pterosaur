@@ -653,10 +653,10 @@ function moveUp(number, shift){
 
 
 function htmlToText(inText) {
-  var tmp = document.createElement('div');
+  var tmp = content.document.createElement('div');
   inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
-  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n').replace(/&nbsp;/g, 's\\s'); //Preserve whitespace
-  return tmp.textContent.replace(/n\\n/g, '\n').replace(/s\\s/g, ' ').replace(/\\\\/g, '\\');
+  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n'); //Preserve newlines
+  return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
 }
 
 function textToHtml(inText) {
