@@ -381,9 +381,17 @@ function callPoll(){
     //if vimMode == "c"(vimMode == "c" 1 : );
     pollTimeout = setTimeout(function() {
       pollTimeout = null;
-      vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  'Vimbed_Poll()'], 4);
+      remoteExpr("Vimbed_Poll()");
     }, pollTimer);
   }
+}
+
+function remoteExpr(expr){
+  //The standard way to do this is:
+  //  vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  expr], 4);
+  //but the below way is 5 times faster because remote-expr from the command line is so slow.
+  //We could speed this up farther by just keeping a vim instance open just for sending remote_exprs, but this is good enough for now.
+  vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-s", "/dev/null"], 6);
 }
 
 function createChromeSandbox(){
@@ -905,7 +913,7 @@ function updateTextbox(preserveMode) {
 
       console.log(vimCommand);
 
-      vimNsIProc.run(false, ["--servername", "pterosaur_" + uid, '--remote-expr',  vimCommand],4);
+      remoteExpr(vimCommand);
     }
 }
 
