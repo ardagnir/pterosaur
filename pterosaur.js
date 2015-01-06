@@ -635,7 +635,11 @@ function htmlToText(inText) {
 }
 
 function textToHtml(inText) {
-  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ /mg, '&nbsp;').replace(/  /g, ' &nbsp;').replace(/\n/g, '<br>')
+  //Spacing rationale
+  //  /^ /mg and  /  /g replacements stop whitespace from collapsing
+  //  / $/ replacement is because firefox doesn't show a selection when it's
+  //    selecting the last space in a line unless that spaces is an &nbsp 
+  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ /mg, '&nbsp;').replace(/  /g, ' &nbsp;').replace(/ $/mg, '&nbsp;').replace(/\n/g, '<br>')
 }
 
 function textBoxSetValue(newVal) {
