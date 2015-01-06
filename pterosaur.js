@@ -627,39 +627,6 @@ function textBoxSetSelection_codeMirror(start, end){
   }
 }
 
-function moveLeft(number, shift){
-  var key = "Left";
-  if (number < 0) {
-    number = -number;
-    key = "Right";
-  }
-  if (shift) {
-    key = "<S-"+key+">";
-  } else {
-    key = "<"+key+">";
-  }
-  for (var i=0; i<number; i++) {
-    events.feedkeys(key);
-  }
-}
-
-function moveUp(number, shift){
-  var key = "Up";
-  if (number < 0) {
-    number = -number;
-    key = "Down";
-  }
-  if (shift) {
-    key = "<S-"+key+">";
-  } else {
-    key = "<"+key+">";
-  }
-  for (var i=0; i<number; i++) {
-    events.feedkeys(key);
-  }
-}
-
-
 function htmlToText(inText) {
   var tmp = content.document.createElement('div');
   inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
