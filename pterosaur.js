@@ -938,22 +938,15 @@ modes.INSERT.params.onKeyPress = function(eventList) {
           break;
         case "<Tab>":
           return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
+        //These are already handled by lean VIM. If we're not leaning vim, let's let the browser handle them.
         case "<Up>":
-          if(textBoxType != "codeMirror")
-            queueForVim(ESC + '[A');
-          break;
+          return PASS;
         case "<Down>":
-          if(textBoxType != "codeMirror")
-            queueForVim(ESC + '[B');
-          break;
+          return PASS;
         case "<Right>":
-          if(textBoxType != "codeMirror")
-            queueForVim(ESC + '[C');
-          break;
+          return PASS;
         case "<Left>":
-          if(textBoxType != "codeMirror")
-            queueForVim(ESC + '[D');
-          break;
+          return PASS;
         case "<lt>":
           queueForVim('<');
           break;
