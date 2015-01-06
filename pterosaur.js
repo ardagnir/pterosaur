@@ -812,6 +812,8 @@ function updateTextbox(preserveMode) {
       else if (["INPUT", "TEXTAREA", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
         textBoxType = "normal";
         let tempText = textBox.value;
+        var cursorPos = textBoxGetSelection()
+
         textBox.value = 0;
         let startScroll = textBox.scrollHeight;
         while (textBox.scrollHeight == startScroll && rows < 300) {
@@ -831,6 +833,8 @@ function updateTextbox(preserveMode) {
         }
 
         textBox.value = tempText;
+        textBoxSetSelectionFromSaved(cursorPos);
+
         console.log("rows: "+rows+",cols:"+cols);
       }
       else {
@@ -1206,7 +1210,7 @@ function startVimbed() {
     command: vimFile.path,
     arguments: ["--servername", "pterosaur_" + uid,
                 "-s", "/dev/null",
-                '+call Vimbed_SetupVimbed("","")'],
+                '+call Vimbed_SetupVimbed("","linebreak")'],
     environment:  env_variables,
     charet: 'UTF-8',
     stdin: function(stdin){
