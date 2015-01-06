@@ -917,11 +917,6 @@ function handleKeySending(key) {
       var value = textBox.rootElement.innerHTML; //We don't need to translate this, since it's going right back in. Doing the same thing with the cursor isn't quite as easy.
       var cursorPos = textBoxGetSelection()
       var oldFocus = dactyl.focusedElement;
-      var valarray = value.split("\n")
-      if (cursorPos.end.column > 0)
-        valarray[cursorPos.end.row - 1] = valarray[cursorPos.end.row - 1].slice(0,cursorPos.end.column - 2) + valarray[cursorPos.end.row - 1].slice(cursorPos.end.column - 1)
-      console.log(valarray.join("\n"))
-      textBoxSetValue(valarray.join("\n"))
 
       events.feedkeys(key);
       if (oldFocus == dactyl.focusedElement) {
