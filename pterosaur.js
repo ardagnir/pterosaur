@@ -134,18 +134,19 @@ function stateCheck(){
     //Call this function every second if it isn't called otherwise
     stateCheckTimeout = setTimeout(function(){
       stateCheckTimeout = null
-      stateCheck();
       if(gameTest > 0)
       {
         gameTest--;
       }
-      if (pollsSkipped < 3 && vimMode != "c"){
-        pollsSkipped++;
-      } else {
-        callPoll();
-        pollsSkipped = 0;
+      if(stateCheck()) {
+        if (pollsSkipped < 3 && modes.main !== modes.VIM_COMMAND){
+          pollsSkipped++;
+        } else {
+          callPoll();
+          pollsSkipped = 0;
+        }
       }
-    }, vimMode == "c" ? 250 : 500);
+    }, modes.main === modes.VIM_COMMAND ? 250 : 500);
 
     if (usingFullVim !== useFullVim())
       cleanupPterosaur();
@@ -222,7 +223,7 @@ function updateFromVim(){
     vimMode = metadata[0];
 
     if (vimMode === "c") {
-      if ( modes.main !== modes.VIM_COMMAND)
+      if (modes.main !== modes.VIM_COMMAND)
       {
         modes.push(modes.VIM_COMMAND);
         foundChange = true;
