@@ -898,14 +898,36 @@ function handleKeySending(key) {
       var cursorPos = textBoxGetSelection()
       var oldFocus = dactyl.focusedElement;
       var valarray = value.split("\n")
-      if (cursorPos.end.column > 0)
-        valarray[cursorPos.end.row - 1] = valarray[cursorPos.end.row - 1].slice(0,cursorPos.end.column - 2) + valarray[cursorPos.end.row - 1].slice(cursorPos.end.column - 1)
-      textBoxSetValue(valarray.join("\n"))
+      var newCursor = false;
+      if (key === "\b") {
+        valarray[cursorPos.end.row - 1] = valarray[cursorPos.end.row -1].slice(0, cursorPos.end.column - 1) + ' ' + valarray[cursorPos.end.row - 1].slice(cursorPos.end.column - 1);
+        //newCursor = cursorPos;
+        newCursor = {};
+        newCursor.start = {};
+        newCursor.start.row = cursorPos.end.row;
+        newCursor.start.column = cursorPos.end.column + 1;
+        newCursor.end = newCursor.start;
+        key = "<BS>";
+      } else if (cursorPos.end.column > 1) {
+        valarray[cursorPos.end.row - 1] = valarray[cursorPos.end.row - 1].slice(0, cursorPos.end.column - 2) + valarray[cursorPos.end.row - 1].slice(cursorPos.end.column - 1)
+        newCursor = {};
+        newCursor.start = {};
+        newCursor.start.row = cursorPos.end.row;
+        newCursor.start.column = cursorPos.end.column - 1;
+        newCursor.end = newCursor.start;
+      }
 
-      events.feedkeys(key);
-      if (oldFocus == dactyl.focusedElement) {
-        textBoxSetValue(value);
-        textBoxSetSelectionFromSaved(cursorPos);
+
+      if (newCursor) {
+        textBoxSetValue(valarray.join("\n"))
+        textBoxSetSelectionFromSaved(newCursor);
+
+        events.feedkeys(key);
+
+        if (oldFocus == dactyl.focusedElement) {
+          textBoxSetValue(value);
+          textBoxSetSelectionFromSaved(cursorPos);
+        }
       }
     }
     finally{
@@ -1143,7 +1165,10 @@ function cleanupPterosaur() {
             ["<BS>"],
             ["Handle backspace key"],
             function(){
-                queueForVim("\b");
+              if(skipKeyPress){
+                return Events.PASS_THROUGH;
+              }
+              queueForVim("\b");
             });
 
         mappings.builtin.add(
