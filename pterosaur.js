@@ -936,8 +936,18 @@ modes.INSERT.params.onKeyPress = function(eventList) {
     }
     const KILL = false, PASS = true;
 
-    if (!useFullVim() || textBoxType == "")
+    if (!useFullVim())
+    {
       return PASS;
+    }
+
+    if (textBoxType === "")
+    {
+      if(stateCheck() && textBoxType === "")
+      {
+        return PASS;
+      }
+    }
 
     let inputChar = DOM.Event.stringify(eventList[0]);
 
