@@ -1350,7 +1350,7 @@ var waitForVim = 0;
 var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
 
 
-group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
+group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", true);
 group.options.add(["pterosaurdebug"], "Display vim in terminal", "string", "");
 group.options.add(["pterosaurautorestart"], "Autorestart vim when it closes.", "boolean", "true");
 
