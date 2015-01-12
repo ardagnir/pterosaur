@@ -1251,43 +1251,50 @@ function startVimbed() {
 
   var stdoutTimeout;
 
-  vimProcess = subprocess.call({ url: window.URL,
-    command: vimFile.path,
-    arguments: ["--servername", "pterosaur_" + uid,
-                "-s", "/dev/null",
-                '+call Vimbed_SetupVimbed("","")'],
-    environment:  env_variables,
-    charet: 'UTF-8',
-    stdin: function(stdin){
-      vimStdin = stdin;
-      stdin.write(ESC)
-    },
-    //TODO: Rather than waiting to update, maybe update right away and leave a standing allowance of 25 ms to update without changes if we receive one?
-    //This only makes sense if we make upate without changes faster by checking directly against saved.
-    stdout: function(data){
-      if(stdoutTimeout){
-        clearTimeout(stdoutTimeout);
-      }
-      if(options["pterosaurdebug"]){
-        if (options["pterosaurdebug"] != oldDebug){
-          debugTerminal = File(FileUtils.File(options["pterosaurdebug"]))
-          oldDebug = options["pterosaurdebug"]
+  var startVimProcess = function(){
+    vimProcess = subprocess.call({ url: window.URL,
+      command: vimFile.path,
+      arguments: ["--servername", "pterosaur_" + uid,
+                  "-s", "/dev/null",
+                  '+call Vimbed_SetupVimbed("","")'],
+      environment:  env_variables,
+      charet: 'UTF-8',
+      stdin: function(stdin){
+        vimStdin = stdin;
+        stdin.write(ESC)
+      },
+      //TODO: Rather than waiting to update, maybe update right away and leave a standing allowance of 25 ms to update without changes if we receive one?
+      //This only makes sense if we make upate without changes faster by checking directly against saved.
+      stdout: function(data){
+        if(stdoutTimeout){
+          clearTimeout(stdoutTimeout);
         }
-        debugTerminal.write(data);
-      }
+        if(options["pterosaurdebug"]){
+          if (options["pterosaurdebug"] != oldDebug){
+            debugTerminal = File(FileUtils.File(options["pterosaurdebug"]))
+            oldDebug = options["pterosaurdebug"]
+          }
+          debugTerminal.write(data);
+        }
 
-      stdoutTimeout = setTimeout(function(){
-        updateFromVim();
-        stdoutTimeout = null;
-      }, 25)
-    },
-    stderr: function(data){
-      console.log("Vim Stderr: "+data);
-    },
-    done: function(result){
-      console.log("Vim done! "+result)
-    }
-  });
+        stdoutTimeout = setTimeout(function(){
+          updateFromVim();
+          stdoutTimeout = null;
+        }, 25)
+      },
+      stderr: function(data){
+      },
+      done: function(result){
+        console.log("Vim shutdown");
+        //If vim closes early, restart it.
+        if(runningPlugin && options["pterosaurautorestart"]) {
+          console.log("Restarting vim");
+          setTimeout(startVimProcess, 100);
+        }
+      }
+    });
+  };
+  startVimProcess();
 }
 
 var savedText = null;
@@ -1317,11 +1324,13 @@ var vimNsIProc = services.Process(dactyl.plugins.io.pathSearch("vim").file)
 
 var vimStdin;
 var ESC = '\x1b';
+var runningPlugin = true;
 
 
 var unsent = 1;
 
 function killVimbed() {
+  runningPlugin = false;
   vimStdin.close();
   dir.remove(true);
 }
@@ -1343,6 +1352,7 @@ var vimGame = false; //If vim is changing on it's own without user input (like i
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", false);
 group.options.add(["pterosaurdebug"], "Display vim in terminal", "string", "");
+group.options.add(["pterosaurautorestart"], "Autorestart vim when it closes.", "boolean", "true");
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
