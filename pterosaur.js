@@ -46,7 +46,7 @@ var INFO =
 ["plugin", { name: "pterosaur",
              version: "0.9",
              href: "http://github.com/ardagnir/pterosaur",
-             summary: "All text is vim",
+             summary: "Pterosaur",
              xmlns: "dactyl" },
     ["author", { email: "jck1089@gmail.com" },
         "James Kolb"],
@@ -54,7 +54,41 @@ var INFO =
         "Gnu AGPL v3"],
     ["project", { name: "Pentadactyl", "min-version": "1.0" }],
     ["p", {},
-        "This plugin provides full vim functionality to all input text-boxes by running a vim process in the background."]];
+        "Pterosaur provides full vim functionality to all input text-boxes by running a vim process in the background."],
+    ["h3", {tag: "pterosaur-options"}, "Options"],
+    ["item", {},
+      ["tags", {}, "fullvim"],
+      ["spec", {}, "fullvim"],
+      ["type", {}, "boolean"],
+      ["default", {}, "true"],
+      ["description", {long: "true"}, ["p", {}, "Set this to ", ["hl", {key: "Boolean"}, "false"], " to disable pterosaur."]]
+    ],
+    ["item", {},
+      ["tags", {}, "pterosaurautorestart"],
+      ["spec", {}, "pterosaurautorestart"],
+      ["type", {}, "boolean"],
+      ["default", {}, "true"],
+      ["description", {long: "true"}, ["p", {}, "If ", ["hl", {key: "Boolean"}, "true"], ", vim will automatically restart when closed."]]
+    ],
+    ["item", {},
+      ["tags", {}, "pterosaurdebug"],
+      ["spec", {}, "pterosaurdebug"],
+      ["type", {}, "string"],
+      ["description", {long: "true"}, ["p", {}, "The name of the tty to send debug output to. This terminal will show the stdout of the vim process used by pterosaur, similarly to if you executed vim in that terminal."], ["p", {}, "Type ", ["str", {}, "tty"], " on a terminal to get the tty name."], ["p", {}, ["em", {}, "Example: "], ["str", {}, "/dev/pts/0"]]]
+    ],
+    ["item", {},
+      ["tags", {}, "pterosaurvimbinary"],
+      ["spec", {}, "pterosaurvimbinary"],
+      ["type", {}, "string"],
+      ["description", {long: "true"}, ["p", {}, "The name of the vim binary to run. This must be a vim version with +clientserver enabled. This will follow links, but NOT aliases."], ["p", {}, ["em", {}, "Note: "], "You must run", ["ex", {}, ":pterosaurrestart"], " or restart firefox (don't forget to change the ", ["tt", {}, ["t", {}, "pentadactylrc"]], " first) for this change to take effect. Autorestart will not check the new binary."], ["p", {}, ["em", {}, "Example: "], ["str", {}, "/usr/bin/vim"]]]
+    ],
+    ["h3", {tag: "pterosaur-commands"}, "Commands"],
+    ["item", {},
+      ["tags", {}, "pterosaurrestart"],
+      ["spec", {}, "pterosaurrestart"],
+      ["description", {long: "true"}, ["p", {}, "Restarts pterosaur. Use this if you changed the value of ", ["o", {}, "pterosaurvimbinary"], " or to bring back vim if you quit without ", ["o", {}, "pterosaurautorestart"], ". "]]
+    ],
+];
 
 
 var plugin_string;
@@ -69,12 +103,12 @@ setTimeout(function(){
     plugin_string = plugin_strings[0].slice(0, plugin_section) + "plugins/pterosaur/"
 
     Components.utils.import("file://" + plugin_string + "subprocess.jsm");
-    startVimbed(false);
+    startVimbed();
   }
 } , 1);
 
 function useFullVim(){
-  return options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
+  return vimStdin && vimFile && options["fullvim"] && !(dactyl.focusedElement && dactyl.focusedElement.type === "password")
 }
 
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
@@ -1213,6 +1247,18 @@ function cleanupPterosaur() {
 }
 
 function startVimbed() {
+  vimFile = null;
+  if (options["pterosaurvimbinary"] != "") {
+    vimFile = dactyl.plugins.io.pathSearch(options["pterosaurvimbinary"]);
+  }
+
+  if (vimFile){
+    vimNsIProc = services.Process(vimFile.file)
+  } else {
+    dactyl.echoerr(_("No vim instance found. Please set one using ':set pterosaurvimbinary'"));
+    return false;
+  }
+
   uid = Math.floor(Math.random()*0x100000000).toString(16)
   dir = FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
   tmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
@@ -1283,13 +1329,22 @@ function startVimbed() {
         }, 25)
       },
       stderr: function(data){
+        console.log("Stderr: " + data);
+        if (data.indexOf("--servername") != -1) {
+          setTimeout(function(){
+            dactyl.echoerr(_("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled."));
+          }, 500);
+          killVimbed();
+        }
       },
       done: function(result){
         console.log("Vim shutdown");
         //If vim closes early, restart it.
         if(runningPlugin && options["pterosaurautorestart"]) {
-          console.log("Restarting vim");
-          setTimeout(startVimProcess, 100);
+          vimRestartTimeout = setTimeout(function(){
+            console.log("Restarting vim");
+            startVimProcess();
+          }, 200);
         }
       }
     });
@@ -1309,6 +1364,7 @@ var sendToVim = "";
 var lastKey = "";
 var allowedToSend = true;
 var pollTimeout;
+var vimRestartTimeout;
 
 var uid;
 var dir;
@@ -1319,10 +1375,11 @@ var debugTerminal = null;
 var oldDebug = "";
 
 var vimProcess;
-var vimFile = dactyl.plugins.io.pathSearch("vim")
-var vimNsIProc = services.Process(dactyl.plugins.io.pathSearch("vim").file)
 
-var vimStdin;
+var vimFile = null;
+var vimNsIProc = null;
+
+var vimStdin = null;
 var ESC = '\x1b';
 var runningPlugin = true;
 
@@ -1331,8 +1388,15 @@ var unsent = 1;
 
 function killVimbed() {
   runningPlugin = false;
-  vimStdin.close();
-  dir.remove(true);
+  clearTimeout(vimRestartTimeout);
+  if (vimStdin) {
+    vimStdin.close();
+    vimStdin = null;
+  }
+  if (dir) {
+    dir.remove(true);
+    dir = null;
+  }
 }
 
 let onUnload = killVimbed
@@ -1351,8 +1415,9 @@ var vimGame = false; //If vim is changing on it's own without user input (like i
 
 
 group.options.add(["fullvim"], "Edit all text inputs using vim", "boolean", true);
-group.options.add(["pterosaurdebug"], "Display vim in terminal", "string", "");
 group.options.add(["pterosaurautorestart"], "Autorestart vim when it closes.", "boolean", "true");
+group.options.add(["pterosaurdebug"], "Display vim in terminal", "string", "");
+group.options.add(["pterosaurvimbinary"], "Set the vim binary with +clientserver for pterosaur to use (no aliases).", "string", (dactyl.plugins.io.pathSearch("vim") || {"path": ""}).path);
 
 modes.addMode("VIM_NORMAL", {
   char: "N",
@@ -1388,14 +1453,11 @@ modes.addMode("VIM_REPLACE", {
 var pterosaurModes = [modes.INSERT, modes.AUTOCOMPLETE, modes.VIM_NORMAL, modes.VIM_COMMAND, modes.VIM_SELECT, modes.VIM_VISUAL, modes.VIM_REPLACE]
 
 
-commands.add(["vim[do]"],
-    "Send command to vim",
-    function (args) {
-        dactyl.focus(pterFocused);
-        let command = args.join(" ").replace(/%/g,"%%").replace(/\\/g,'\\\\');
-        queueForVim(command +"\r");
-        lastKey = "";
+commands.add(["pterosaurrestart"],
+    "Restarts vim process",
+    function () {
+      killVimbed();
+      startVimbed();
     }, {
-      argCount: "+",
-      literal: 0
+      argCount: "0",
     });
