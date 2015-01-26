@@ -1,6 +1,6 @@
 /* This is part of Pterosaur.
  *
- * Copyright (c) 2014 James Kolb <jck1089@gmail.com>
+ * Copyright (c) 2015 James Kolb <jck1089@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -45,10 +45,18 @@ function setupPterosaur(){
 var head;
 if (typeof dactyl != "undefined"){
   head = dactyl;
-  //dactyl.plugins.contexts["pterosaur"] = {INFO: INFO};
 } else if (typeof liberator != "undefined"){
   head = liberator;
 }
+
+var plugin_string;
+
+Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
+Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
+
+var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
+
+var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
     
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 var borrowed = {
@@ -62,20 +70,13 @@ var borrowed = {
   Events: head.plugins.Events,
   focus: function(element){if(typeof dactyl != "undefined"){borrowed.focus(element)} else {element.focus()}},
   editor: head.plugins.editor,
-  io: head.plugins.io,
-  DOM: head.plugins.DOM,
   mappings: head.plugins.mappings,
   File: head.plugins.File,
   commandline: head.plugins.commandline,
-  Events: head.plugins.Events,
   RangeFind: head.plugins.RangeFind,
-  services: head.plugins.services,
   octal: head.plugins.octal
 }
 
-var plugin_string;
-
-Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 setTimeout(startVimbed, 1);
 
 function useFullVim(){
@@ -441,9 +442,9 @@ function textBoxGetSelection(){
       let oldRange = textBox.selection.getRangeAt(0);
 
       fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
-      var preStart = htmlToText(borrowed.DOM.stringify(fromBeginning, true));
+      var preStart = htmlToText(minidactyl.stringify(fromBeginning, true));
       fromBeginning.setEnd(oldRange.endContainer, oldRange.endOffset);
-      var preEnd = htmlToText(borrowed.DOM.stringify(fromBeginning, true));
+      var preEnd = htmlToText(minidactyl.stringify(fromBeginning, true));
 
       var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
       var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
@@ -959,24 +960,21 @@ function handleKeySending(key) {
 var skipKeyPress = false;
 borrowed.modes.INSERT.params.onKeyPress = function(eventList) {
     if (skipKeyPress) {
-      return true;
+      return PASS;
     }
     const KILL = false, PASS = true;
 
-    if (!useFullVim())
-    {
+    if (!useFullVim()) {
       return PASS;
     }
 
-    if (textBoxType === "")
-    {
-      if(stateCheck() && textBoxType === "")
-      {
+    if (textBoxType === "") {
+      if(stateCheck() && textBoxType === "") {
         return PASS;
       }
     }
 
-    let inputChar = borrowed.DOM.Event.stringify(eventList[0]);
+    let inputChar = minidactyl.stringifyEvent(eventList[0]);
 
     if (inputChar[0] === "<"){
       switch(inputChar) {
@@ -1221,11 +1219,11 @@ function cleanupPterosaur() {
 function startVimbed() {
   vimFile = null;
   if (borrowed.options["pterosaurvimbinary"] != "") {
-    vimFile = borrowed.io.pathSearch(borrowed.options["pterosaurvimbinary"]);
+    vimFile = minidactyl.pathSearch(borrowed.options["pterosaurvimbinary"]);
   }
 
   if (vimFile){
-    vimNsIProc = borrowed.services.Process(vimFile.file)
+    vimNsIProc.init(vimFile)
   } else {
     borrowed.echoerr("No vim instance found. Please set one using ':set pterosaurvimbinary'");
     return false;
@@ -1256,14 +1254,14 @@ function startVimbed() {
   if (!messageTmpfile)
       throw Error("io.cantCreateTempFile");
 
-  var TERM = borrowed.services.environment.get("TERM");
+  var TERM = Environment.get("TERM");
 
   if (!TERM || TERM === "linux")
     TERM = "xterm";
 
   var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
   for (var index = 0, len = env_variables.length; index < len; index++){
-    env_variables[index] = env_variables[index] + "=" + borrowed.services.environment.get(env_variables[index]);
+    env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
   }
   env_variables.push("TERM="+TERM);
 
@@ -1349,7 +1347,6 @@ var oldDebug = "";
 var vimProcess;
 
 var vimFile = null;
-var vimNsIProc = null;
 
 var vimStdin = null;
 var ESC = '\x1b';
