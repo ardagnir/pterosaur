@@ -403,7 +403,6 @@ function getWorkDir(workdir) {
 
 var subprocess = {
     call: function(options) {
-        URL = options.url;
         options.mergeStderr = options.mergeStderr || false;
         options.bufferedOutput = options.bufferedOutput || false;
         options.workdir = options.workdir ||  null;
@@ -908,7 +907,7 @@ function subprocess_win32(options) {
         };
 
         worker.onerror = function(errorMsg) {
-            LogError("Got error from windows "+name+": "+errorMsg.message);
+            LogError("Got error from "+name+": "+errorMsg.message);
             exitCode = -2;
         };
 
@@ -1369,7 +1368,7 @@ function subprocess_unix(options) {
      */
     function createStdinWriter() {
         debugLog("Creating new stdin worker\n");
-        stdinWorker = new ChromeWorker(get_worker_url());
+        stdinWorker = new ChromeWorker("subprocess_worker_unix.js");
         stdinWorker.onmessage = function(event) {
             switch (event.data.msg) {
             case "info":
@@ -1470,7 +1469,7 @@ function subprocess_unix(options) {
      *
      */
     function createReader(pipe, name, callbackFunc) {
-        var worker = new ChromeWorker(get_worker_url());
+        var worker = new ChromeWorker("subprocess_worker_unix.js");
         worker.onmessage = function(event) {
             switch(event.data.msg) {
             case "data":
@@ -1499,7 +1498,7 @@ function subprocess_unix(options) {
             }
         };
         worker.onerror = function(error) {
-            LogError("Got error from unix "+name+": "+error.message);
+            LogError("Got error from "+name+": "+error.message);
             exitCode = -2;
         };
 
@@ -1644,280 +1643,4 @@ function subprocess_unix(options) {
             return rv;
         }
     };
-}
-
-var worker_array = 
-[' const BufferSize = 1024;\n \
-\n \
-var libc = null;\n \
-var libcFunc = {};\n \
-\n \
-\n \
-/*\n \
-    struct pollfd {\n \
-         int    fd;       // file descriptor\n \
-         short  events;   // events to look for\n \
-         short  revents;  // events returned\n \
-     };\n \
-*/\n \
-\n \
-var pollfd = new ctypes.StructType("pollfd",\n \
-                        [   {"fd": ctypes.int},\n \
-                            {"events": ctypes.short},\n \
-                            {"revents": ctypes.short}\n \
-                        ]);\n \
-\n \
-var WriteBuffer = ctypes.uint8_t.array(BufferSize);\n \
-var ReadBuffer = ctypes.char.array(BufferSize);\n \
-\n \
-\n \
-const POLLIN     = 0x0001;\n \
-const POLLOUT    = 0x0004;\n \
-\n \
-const POLLERR    = 0x0008;         // some poll error occurred\n \
-const POLLHUP    = 0x0010;         // file descriptor was "hung up"\n \
-const POLLNVAL   = 0x0020;         // requested events "invalid"\n \
-\n \
-const WNOHANG    = 0x01;\n \
-\n \
-const ECHILD = 10;\n \
-\n \
-const pid_t = ctypes.int32_t;\n \
-\n \
-const INDEFINITE = -1;\n \
-const NOWAIT     = 0;\n \
-const WAITTIME   = 200;  // wait time for poll() in ms\n \
-\n \
-function initLibc(libName) {\n \
-    postMessage({msg: "debug", data: "initialising library with "+ libName});\n \
-\n \
-    libc = ctypes.open(libName);\n \
-\n \
-    libcFunc.pollFds = pollfd.array(1);\n \
-\n \
-    // int poll(struct pollfd fds[], nfds_t nfds, int timeout);\n \
-    libcFunc.poll = libc.declare("poll",\n \
-                                  ctypes.default_abi,\n \
-                                  ctypes.int,\n \
-                                  libcFunc.pollFds,\n \
-                                  ctypes.unsigned_int,\n \
-                                  ctypes.int);\n \
-\n \
-    //ssize_t write(int fd, const void *buf, size_t count);\n \
-    // NOTE: buf is declared as array of unsigned int8 instead of char to avoid\n \
-    // implicit charset conversion\n \
-    libcFunc.write = libc.declare("write",\n \
-                                  ctypes.default_abi,\n \
-                                  ctypes.int,\n \
-                                  ctypes.int,\n \
-                                  WriteBuffer,\n \
-                                  ctypes.int);\n \
-\n \
-    //int read(int fd, void *buf, size_t count);\n \
-    libcFunc.read = libc.declare("read",\n \
-                                  ctypes.default_abi,\n \
-                                  ctypes.int,\n \
-                                  ctypes.int,\n \
-                                  ReadBuffer,\n \
-                                  ctypes.int);\n \
-\n \
-    //int pipe(int pipefd[2]);\n \
-    libcFunc.pipefd = ctypes.int.array(2);\n \
-\n \
-    //int close(int fd);\n \
-    libcFunc.close = libc.declare("close",\n \
-                                  ctypes.default_abi,\n \
-                                  ctypes.int,\n \
-                                  ctypes.int);\n \
-\n \
-    //pid_t waitpid(pid_t pid, int *status, int options);\n \
-    libcFunc.waitpid = libc.declare("waitpid",\n \
-                                  ctypes.default_abi,\n \
-                                  pid_t,\n \
-                                  pid_t,\n \
-                                  ctypes.int.ptr,\n \
-                                  ctypes.int);\n \
-}\n \
-\n \
-function closePipe(pipe) {\n \
-    libcFunc.close(pipe);\n \
-}\n \
-\n \
-function writePipe(pipe, data) {\n \
-\n \
-    postMessage({msg: "debug", data: "trying to write to "+pipe});\n \
-\n \
-    let numChunks = Math.floor(data.length / BufferSize);\n \
-    let pData = new WriteBuffer();\n \
-\n \
-    for (var chunk = 0; chunk <= numChunks; chunk ++) {\n \
-        let numBytes = chunk < numChunks ? BufferSize : data.length - chunk * BufferSize;\n \
-        for (var i=0; i < numBytes; i++) {\n \
-            pData[i] = data.charCodeAt(chunk * BufferSize + i) % 256;\n \
-        }\n \
-\n \
-        let bytesWritten = libcFunc.write(pipe, pData, numBytes);\n \
-        if (bytesWritten != numBytes) {\n \
-            closePipe(pipe);\n \
-            libc.close();\n \
-            postMessage({ msg: "error", data: "error: wrote "+bytesWritten+" instead of "+numBytes+" bytes"});\n \
-            close();\n \
-        }\n \
-    }\n \
-    postMessage({msg: "info", data: "wrote "+data.length+" bytes of data"});\n \
-}\n \
-\n \
-\n \
-function readString(data, length, charset) {\n \
-    var r = "";\n \
-    for(var i = 0; i < length; i++) {\n \
-        if(data[i] == 0 && charset != "null") // stop on NULL character for non-binary data\n \
-           break;\n \
-\n \
-        r += String.fromCharCode(data[i]);\n \
-    }\n \
-\n \
-    return r;\n \
-}\n \
-\n \
-function readPipe(pipe, charset, pid, bufferedOutput) {\n \
-    var p = new libcFunc.pollFds;\n \
-    p[0].fd = pipe;\n \
-    p[0].events = POLLIN | POLLERR | POLLHUP;\n \
-    p[0].revents = 0;\n \
-    var pollTimeout = WAITTIME;\n \
-    var exitCode = -1;\n \
-    var readCount = 0;\n \
-    var result, status = ctypes.int();\n \
-    result = 0;\n \
-\n \
-    var dataStr = "";\n \
-    var dataObj = {};\n \
-\n \
-    const i=0;\n \
-    while (true) {\n \
-        if (result == 0) {\n \
-            result = libcFunc.waitpid(pid, status.address(), WNOHANG);\n \
-            if (result > 0) {\n \
-                pollTimeout = NOWAIT;\n \
-                exitCode = parseInt(status.value);\n \
-                postMessage({msg: "debug", data: "waitpid signaled subprocess stop, exitcode="+status.value });\n \
-            }\n \
-            else if (result < 0) {\n \
-              postMessage({msg: "debug", data: "waitpid returned with errno="+ctypes.errno });\n \
-              if (ctypes.errno == ECHILD) {\n \
-                pollTimeout = NOWAIT;\n \
-              }\n \
-            }\n \
-        }\n \
-        p[i].revents = 0;\n \
-        var r = libcFunc.poll(p, 1, pollTimeout);\n \
-        if (pollTimeout == NOWAIT) {\n \
-          readCount = 0;\n \
-        }\n \
-        if (r > 0) {\n \
-            if (p[i].revents & POLLIN) {\n \
-                // postMessage({msg: "debug", data: "reading next chunk"});\n \
-\n \
-                readCount = readPolledFd(p[i].fd, charset, dataObj);\n \
-                if (! bufferedOutput)\n \
-                  postMessage({msg: "data", data: dataObj.value, count: dataObj.value.length});\n \
-                else\n \
-                  dataStr += dataObj.value;\n \
-\n \
-                if (readCount == 0) break;\n \
-            }\n \
-\n \
-            if (p[i].revents & POLLHUP) {\n \
-                postMessage({msg: "debug", data: "poll returned HUP"});\n \
-                break;\n \
-            }\n \
-            else if (p[i].revents & POLLERR) {\n \
-                postMessage({msg: "error", data: "poll returned error"});\n \
-                break;\n \
-            }\n \
-            else if (p[i].revents != POLLIN) {\n \
-                postMessage({msg: "error", data: "poll returned "+p[i]});\n \
-                break;\n \
-            }\n \
-        }\n \
-        else\n \
-            if (pollTimeout == NOWAIT || r < 0) break;\n \
-    }\n \
-\n \
-    // continue reading until the buffer is empty\n \
-    while (readCount > 0) {\n \
-      readCount = readPolledFd(pipe, charset, dataObj);\n \
-      if (! bufferedOutput)\n \
-        postMessage({msg: "data", data: dataObj.value, count: dataObj.value.length});\n \
-      else\n \
-        dataStr += dataObj.value;\n \
-\n \
-      let r = libcFunc.poll(p, 1, NOWAIT);\n \
-    }\n \
-\n \
-    if (bufferedOutput)\n \
-      postMessage({msg: "data", data: dataStr, count: dataStr.length});\n \
-\n \
-    closePipe(pipe);\n \
-    postMessage({msg: "done", data: exitCode });\n \
-    libc.close();\n \
-    close();\n \
-}\n \
-\n \
-function readPolledFd(pipe, charset, dataObj) {\n \
-    var line = new ReadBuffer();\n \
-    var r = libcFunc.read(pipe, line, BufferSize);\n \
-\n \
-    if (r > 0) {\n \
-        var c = readString(line, r, charset);\n \
-        dataObj.value = c;\n \
-    }\n \
-    else\n \
-       dataObj.value = "";\n \
-\n \
-    return r;\n \
-}\n \
-\n \
-onmessage = function (event) {\n \
-    switch (event.data.msg) {\n \
-    case "init":\n \
-        initLibc(event.data.libc);\n \
-        break;\n \
-    case "read":\n \
-        initLibc(event.data.libc);\n \
-        readPipe(event.data.pipe, event.data.charset, event.data.pid, event.data.bufferedOutput);\n \
-        break;\n \
-    case "write":\n \
-        // data contents:\n \
-        //   msg: "write"\n \
-        //   data: the data (string) to write\n \
-        //   pipe: ptr to pipe\n \
-        writePipe(event.data.pipe, event.data.data);\n \
-        postMessage({msg: "info", data: "WriteOK"});\n \
-        break;\n \
-    case "close":\n \
-        postMessage({msg: "debug", data: "closing stdin\\n"});\n \
-\n \
-        closePipe(event.data.pipe);\n \
-        postMessage({msg: "info", data: "ClosedOK"});\n \
-        break;\n \
-    case "stop":\n \
-        libc.close(); // do not use libc after this point\n \
-        close();\n \
-        break;\n \
-    default:\n \
-        throw("error: Unknown command"+event.data.msg+"\\n");\n \
-    }\n \
-    return;\n \
-};'];
-
-var worker_blob = new Blob(worker_array, {type: 'application/javascript'});
-
-var worker_url = null;
-var URL = null;
-var get_worker_url = function(){
-    if (worker_url == null)
-        worker_url = URL.createObjectURL(worker_blob);
-    return worker_url;
 }

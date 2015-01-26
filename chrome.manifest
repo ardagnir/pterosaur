@@ -1,0 +1,3 @@
+content     pterosaur    content/
+
+overlay chrome://browser/content/browser.xul  chrome://pterosaur/content/pterosaur.xul
