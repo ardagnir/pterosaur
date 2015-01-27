@@ -75,7 +75,6 @@ if (head == dactyl || head == liberator) {
     editor: head.plugins.editor,
     mappings: head.plugins.mappings,
     commandline: head.plugins.commandline,
-    RangeFind: head.plugins.RangeFind,
     octal: head.plugins.octal
   }
 }
@@ -456,7 +455,7 @@ function textBoxGetSelection(){
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
     case "contentEditable":
     case "designMode":
-      let fromBeginning = borrowed.RangeFind.nodeContents(textBox.rootElement);
+      let fromBeginning = minidactyl.nodeContents(textBox.rootElement);
       let oldRange = textBox.selection.getRangeAt(0);
 
       fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
@@ -564,7 +563,7 @@ function textBoxSetSelection(start, end){
       start = start.split(",")
       end = end.split(",")
 
-      let range = borrowed.RangeFind.nodeContents(textBox.rootElement);
+      let range = minidactyl.nodeContents(textBox.rootElement);
       let nodes = textBox.rootElement.childNodes;
       let nodeIndex = 0;
       let row = 0;

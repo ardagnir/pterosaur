@@ -416,5 +416,13 @@ var minidactyl = {
             ifstream.close();
         }
       }
+    },
+    nodeContents: function nodeContents(node) {
+      let range = node.ownerDocument.createRange();
+      try {
+        range.selectNodeContents(node);
+      }
+      catch(e) {}
+      return range;
     }
 }
