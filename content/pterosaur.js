@@ -75,7 +75,6 @@ if (head == dactyl || head == liberator) {
     editor: head.plugins.editor,
     mappings: head.plugins.mappings,
     commandline: head.plugins.commandline,
-    octal: head.plugins.octal
   }
 }
 else
@@ -1258,10 +1257,10 @@ function startVimbed() {
   messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
 
 
-  dir.create(Ci.nsIFile.DIRECTORY_TYPE, borrowed.octal(700));
-  tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, borrowed.octal(600));
-  metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, borrowed.octal(600));
-  messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, borrowed.octal(600));
+  dir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o700);
+  tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
 
   tmpfile = new minidactyl.wrappedFile(tmpfile);
   metaTmpfile = new minidactyl.wrappedFile(metaTmpfile);
