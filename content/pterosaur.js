@@ -57,24 +57,42 @@ Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
 var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-    
+
+var emptyModes = {INSERT: "INSERT", AUTOCOMPLETE: "AUTOCOMPLETE", VIM_NORMAL: "VIM_NORMAL", VIM_COMMAND: "VIM_COMMAND", VIM_SELECT: "VIM_SELECT", VIM_VISUAL: "VIM_VISUAL", VIM_REPLACE: "VIM_REPLACE"}
+
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
-var borrowed = {
-  modes: head.plugins.modes,
-  commands: head.plugins.commands,
-  options: head.plugins.options,
-  focusedElement: function() {return head.focusedElement || head.focus;},
-  echo: head.echo,
-  echoerr: head.echoerr,
-  events: head.plugins.events,
-  Events: head.plugins.Events,
-  focus: function(element){if(typeof dactyl != "undefined"){borrowed.focus(element)} else {element.focus()}},
-  editor: head.plugins.editor,
-  mappings: head.plugins.mappings,
-  File: head.plugins.File,
-  commandline: head.plugins.commandline,
-  RangeFind: head.plugins.RangeFind,
-  octal: head.plugins.octal
+if (head == dactyl || head == liberator) {
+  var borrowed = {
+    modes: head.plugins.modes,
+    commands: head.plugins.commands,
+    options: head.plugins.options,
+    focusedElement: function() {return head.focusedElement || head.focus;},
+    echo: head.echo,
+    echoerr: head.echoerr,
+    Events: head.plugins.Events,
+    feedkey: head.plugins.events.feedkeys,
+    focus: function(element){if(typeof dactyl != "undefined"){borrowed.focus(element)} else {if (element) {element.focus()}}},
+    editor: head.plugins.editor,
+    mappings: head.plugins.mappings,
+    commandline: head.plugins.commandline,
+    RangeFind: head.plugins.RangeFind,
+    octal: head.plugins.octal
+  }
+}
+else
+{
+  var borrowed = {
+    modes: emptyModes,
+    commands: null,
+    options: {},
+    focusedElement: function(){return content.document.activeElement;},
+    echo: console.log, //TODO: This is definitly not echoy enough, build an overlay.
+    echoerr: alert,
+    feedkey: minidactyl.feedkey,
+    focus: function(element){if (element) {element.focus}},
+    editor: null,
+    mappings: null,
+  }
 }
 
 setTimeout(startVimbed, 1);
@@ -238,7 +256,7 @@ function updateFromVim(){
       {
         lastVimCommand = metadata[1];
         let modestring = "";
-        //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentborrowed commands
+        //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
         if( borrowed.options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
         borrowed.echo(modestring + metadata[1], borrowed.commandline.FORCE_SINGLELINE);
@@ -375,7 +393,7 @@ function updateFromVim(){
 }
 
 //Determines if vim is being used for a game or similar scenario where vim handles user input in a nonstandard way.
-//In these cases, we should spam poll for responsiveness since vim won't trigger the normal autoborrowed.commands.
+//In these cases, we should spam poll for responsiveness since vim won't trigger the normal autocommands.
 var gameTest = 0;
 
 function callPoll(){
@@ -828,7 +846,9 @@ function updateTextbox(preserveMode) {
 
     if (textBox == null)
     {
-      textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow);
+      if (borrowed.editor){
+        textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow);
+      }
       if(textBox) {
         textBoxType = "designMode";
       } else {
@@ -858,7 +878,9 @@ function updateTextbox(preserveMode) {
         textBoxType = "normal";
       }
       else {
-        textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+        if(borrowed.editor){
+          textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+        }
         if(textBox) {
           borrowed.focus(null);
           textBoxType = "designMode";
@@ -928,7 +950,7 @@ function handleKeySending(key) {
         textBoxSetValue(valarray.join("\n"))
         textBoxSetSelectionFromSaved(newCursor);
 
-        borrowed.events.feedkeys(key);
+        borrowed.feedkey(key);
 
         if (oldFocus == borrowed.focusedElement()) {
           textBoxSetValue(value);
@@ -946,7 +968,7 @@ function handleKeySending(key) {
       var cursorPos = textBoxGetSelection()
       var oldFocus = borrowed.focusedElement();
 
-      borrowed.events.feedkeys(key);
+      borrowed.feedkey(key);
       if (oldFocus == borrowed.focusedElement()) {
         textBox.rootElement.innerHTML = value;
         textBoxSetSelectionFromSaved(cursorPos);
@@ -975,6 +997,7 @@ borrowed.modes.INSERT.params.onKeyPress = function(eventList) {
     }
 
     let inputChar = minidactyl.stringifyEvent(eventList[0]);
+    console.log('-'+dactyl.plugins.DOM.Event.stringify(eventList[0])+'- vs -'+minidactyl.stringifyEvent(eventList[0])+'-');
 
     if (inputChar[0] === "<"){
       switch(inputChar) {
@@ -1063,7 +1086,7 @@ function specialKeyHandler(key) {
             var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
             var cursorPos = textBoxGetSelection()
             var oldFocus = borrowed.focusedElement();
-            borrowed.events.feedkeys(key);
+            borrowed.feedkey(key);
             if(behavior !== "web"){
               if (oldFocus == borrowed.focusedElement() && (behavior != "linecheck" || newLineCheck(value) && (behavior != "spaceCheck" || spaceCheck(value)))) {
                 textBoxSetValue(value);
@@ -1241,9 +1264,9 @@ function startVimbed() {
   metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, borrowed.octal(600));
   messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, borrowed.octal(600));
 
-  tmpfile = borrowed.File(tmpfile);
-  metaTmpfile = borrowed.File(metaTmpfile);
-  messageTmpfile = borrowed.File(messageTmpfile);
+  tmpfile = new minidactyl.wrappedFile(tmpfile);
+  metaTmpfile = new minidactyl.wrappedFile(metaTmpfile);
+  messageTmpfile = new minidactyl.wrappedFile(messageTmpfile);
 
   if (!tmpfile)
       throw Error("io.cantCreateTempFile");
@@ -1287,8 +1310,8 @@ function startVimbed() {
         }
         if(borrowed.options["pterosaurdebug"]){
           if (borrowed.options["pterosaurdebug"] != oldDebug){
-            debugTerminal = borrowed.File(FileUtils.File(borrowed.options["pterosaurdebug"]))
-            oldDebug = borrowed.options["pterosaurdebug"]
+            debugTerminal = new minidactyl.wrappedFile(FileUtils.File(borrowed.options["pterosaurdebug"]));
+            oldDebug = borrowed.options["pterosaurdebug"];
           }
           debugTerminal.write(data);
         }
@@ -1415,14 +1438,16 @@ borrowed.modes.addMode("VIM_REPLACE", {
 
 var pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.AUTOCOMPLETE, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE]
 
-borrowed.commands.add(["pterosaurrestart"],
-    "Restarts vim process",
-    function () {
-      killVimbed();
-      startVimbed();
-    }, {
-      argCount: "0",
-    });
+if(borrowed.commands){
+  borrowed.commands.add(["pterosaurrestart"],
+      "Restarts vim process",
+      function () {
+        killVimbed();
+        startVimbed();
+      }, {
+        argCount: "0",
+      });
+  }
 }
 
 function trySetupPterosaur(){
