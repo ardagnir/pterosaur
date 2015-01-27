@@ -42,7 +42,7 @@
  */
 
 function setupPterosaur(){
-var head;
+var head = null;
 if (typeof dactyl != "undefined"){
   head = dactyl;
 } else if (typeof liberator != "undefined"){
@@ -58,10 +58,12 @@ var Environment = Components.classes["@mozilla.org/process/environment;1"].getSe
 
 var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
 
+var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
+
 var emptyModes = {INSERT: "INSERT", AUTOCOMPLETE: "AUTOCOMPLETE", VIM_NORMAL: "VIM_NORMAL", VIM_COMMAND: "VIM_COMMAND", VIM_SELECT: "VIM_SELECT", VIM_VISUAL: "VIM_VISUAL", VIM_REPLACE: "VIM_REPLACE"}
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
-if (head == dactyl || head == liberator) {
+if (head) {
   var borrowed = {
     modes: head.plugins.modes,
     commands: head.plugins.commands,
@@ -82,7 +84,7 @@ else
   var borrowed = {
     modes: emptyModes,
     commands: null,
-    options: {},
+    options: null,
     focusedElement: function(){return content.document.activeElement;},
     echo: console.log, //TODO: This is definitly not echoy enough, build an overlay.
     echoerr: alert,
@@ -96,7 +98,7 @@ else
 setTimeout(startVimbed, 1);
 
 function useFullVim(){
-  return vimStdin && vimFile && borrowed.options["fullvim"] && !(borrowed.focusedElement() && borrowed.focusedElement().type === "password")
+  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(borrowed.focusedElement() && borrowed.focusedElement().type === "password")
 }
 
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
@@ -255,7 +257,7 @@ function updateFromVim(){
         lastVimCommand = metadata[1];
         let modestring = "";
         //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
-        if( borrowed.options["guioptions"].indexOf("s") == -1)
+        if( borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
         borrowed.echo(modestring + metadata[1], borrowed.commandline.FORCE_SINGLELINE);
         foundChange = true;
@@ -995,7 +997,6 @@ borrowed.modes.INSERT.params.onKeyPress = function(eventList) {
     }
 
     let inputChar = minidactyl.stringifyEvent(eventList[0]);
-    console.log('-'+dactyl.plugins.DOM.Event.stringify(eventList[0])+'- vs -'+minidactyl.stringifyEvent(eventList[0])+'-');
 
     if (inputChar[0] === "<"){
       switch(inputChar) {
@@ -1239,8 +1240,14 @@ function cleanupPterosaur() {
 
 function startVimbed() {
   vimFile = null;
-  if (borrowed.options["pterosaurvimbinary"] != "") {
-    vimFile = minidactyl.pathSearch(borrowed.options["pterosaurvimbinary"]);
+  try{
+    vimFile = FileUtils.File(prefs.getCharPref("vimbinary"));
+  }
+  catch (e) {
+    vimFile = minidactyl.pathSearch(prefs.getCharPref("vimbinary") || "vim");
+    if (vimFile) {
+      prefs.setCharPref("vimbinary", vimFile.path);
+    }
   }
 
   if (vimFile){
@@ -1306,12 +1313,20 @@ function startVimbed() {
         if(stdoutTimeout){
           clearTimeout(stdoutTimeout);
         }
-        if(borrowed.options["pterosaurdebug"]){
-          if (borrowed.options["pterosaurdebug"] != oldDebug){
-            debugTerminal = new minidactyl.wrappedFile(FileUtils.File(borrowed.options["pterosaurdebug"]));
-            oldDebug = borrowed.options["pterosaurdebug"];
+        var debugtty = prefs.getCharPref("debugtty");
+        if(debugtty){
+          if (debugtty != oldDebug){
+            try{
+              debugTerminal = new minidactyl.wrappedFile(FileUtils.File(debugtty));
+            }
+            catch(e){
+              debugTerminal = null;
+            }
+            oldDebug = debugtty;
           }
-          debugTerminal.write(data);
+          if (debugTerminal) {
+            debugTerminal.write(data);
+          }
         }
 
         stdoutTimeout = setTimeout(function(){
@@ -1331,7 +1346,7 @@ function startVimbed() {
       done: function(result){
         console.log("Vim shutdown");
         //If vim closes early, restart it.
-        if(runningPlugin && borrowed.options["pterosaurautorestart"]) {
+        if(runningPlugin && prefs.getBoolPref("autorestart")) {
           vimRestartTimeout = setTimeout(function(){
             console.log("Restarting vim");
             startVimProcess();
@@ -1391,8 +1406,7 @@ function killVimbed() {
 
 let onUnload = killVimbed
 
-
-//If this doesn't match borrowed.options["fullvim"] we need to perform cleanup
+//Is pterosaur being used?
 var usingFullVim = false;
 var strictVimCheck = false;
 var leanVimCheck = false;
@@ -1448,6 +1462,7 @@ if(borrowed.commands){
   }
 }
 
+var attempts = 0;
 function trySetupPterosaur(){
   var head;
   if (typeof dactyl != "undefined"){
@@ -1457,9 +1472,10 @@ function trySetupPterosaur(){
   } else if (typeof liberator != "undefined"){
     head = liberator;
   }
-  if(head){
+  if(head || attempts > 4){
     setupPterosaur();
   } else {
+    attempts += 1;
     setTimeout(trySetupPterosaur, 300);
   }
 }
