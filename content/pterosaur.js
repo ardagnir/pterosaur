@@ -54,13 +54,15 @@ var plugin_string;
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
+minidactyl.console = console;
+minidactyl.window = window;
+minidactyl.KeyboardEvent = KeyboardEvent;
+
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
 var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
 
 var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
-
-var emptyModes = {INSERT: "INSERT", AUTOCOMPLETE: "AUTOCOMPLETE", VIM_NORMAL: "VIM_NORMAL", VIM_COMMAND: "VIM_COMMAND", VIM_SELECT: "VIM_SELECT", VIM_VISUAL: "VIM_VISUAL", VIM_REPLACE: "VIM_REPLACE"}
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (head) {
@@ -75,24 +77,33 @@ if (head) {
     feedkey: head.plugins.events.feedkeys,
     focus: function(element){if(typeof dactyl != "undefined"){borrowed.focus(element)} else {if (element) {element.focus()}}},
     editor: head.plugins.editor,
-    mappings: head.plugins.mappings,
+    mappings: head.plugins.mappings.builtin,
     commandline: head.plugins.commandline,
   }
 }
 else
 {
   var borrowed = {
-    modes: emptyModes,
+    modes: {"INSERT": {char:'I'}, addMode: function(name, object) { borrowed.modes[name] = object; }, main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;}, push: function(mode){borrowed.modes.main = borrowed.modes[mode];}},
     commands: null,
     options: null,
     focusedElement: function(){return content.document.activeElement;},
-    echo: console.log, //TODO: This is definitly not echoy enough, build an overlay.
+    echo: function(out) {console.log(out)}, //TODO: This is definitly not echoy enough, build an overlay.
     echoerr: alert,
     feedkey: minidactyl.feedkey,
     focus: function(element){if (element) {element.focus}},
     editor: null,
-    mappings: null,
+    mappings: {
+      add: function(mode, keylist, desc, callback){
+        keylist.forEach( function(key){ minidactyl.keyHandler.addKeyDown(key, callback);});
+      }, remove: function(mode, key){
+        return minidactyl.keyHandler.removeKeyDown(key);
+      }
+    },
+    commandline:{FORCE_SINGLELINE: 0},
+    Events: {PASS_THROUGH: {}}
   }
+  borrowed.modes.main = borrowed.modes.INSERT;
 }
 
 setTimeout(startVimbed, 1);
@@ -155,7 +166,6 @@ function stateCheck(){
       pollsSkipped = 0;
     }
 
-    //Call this function every second if it isn't called otherwise
     stateCheckTimeout = setTimeout(function(){
       stateCheckTimeout = null
       if(gameTest > 0)
@@ -802,15 +812,15 @@ function textBoxGetValue_codeMirror(){
 function cleanupForTextbox() {
     if(pterFocused){
       try{
-        pterFocused.ownerDocument.removeEventListener("click", pterClicked, false)
+        pterFocused.ownerDocument.removeEventListener("click", pterClicked, false);
       }
       catch(e){
          //This is probably a dead object error. We don't need to remove the event in that case.
-         console.log("Caught error (dead object errors are ok): " + e)
+         console.log("Caught error (dead object errors are ok): " + e);
       }
       pterFocused = null;
     }
-    console.log("cleanup")
+    console.log("cleanup");
     unsent=1;
 }
 
@@ -818,12 +828,13 @@ function setupForTextbox() {
     console.log("setup")
     //Clear lingering command text
     if (vimMode === "c")
-      vimStdin.write(ESC+"i")
+      vimStdin.write(ESC+"i");
 
     pterFocused = borrowed.focusedElement();
 
     if(pterFocused){
-      pterFocused.ownerDocument.addEventListener("click", pterClicked, false)
+      pterFocused.ownerDocument.addEventListener("click", pterClicked, false);
+      minidactyl.keyHandler.setListener(pterFocused);
     }
 
     updateTextbox(0);
@@ -880,6 +891,8 @@ function updateTextbox(preserveMode) {
       else {
         if(borrowed.editor){
           textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+        } else {
+          textBox = null;
         }
         if(textBox) {
           borrowed.focus(null);
@@ -910,8 +923,6 @@ function updateTextbox(preserveMode) {
       vimCommand = vimCommand.replace(/<rowEnd>/, cursorPos.end.row);
       vimCommand = vimCommand.replace(/<columnEnd>/, cursorPos.end.column);
       vimCommand = vimCommand.replace(/<preserveMode>/, preserveMode);
-
-      console.log(vimCommand);
 
       remoteExpr(vimCommand);
     }
@@ -980,11 +991,13 @@ function handleKeySending(key) {
 }
 
 var skipKeyPress = false;
-borrowed.modes.INSERT.params.onKeyPress = function(eventList) {
+
+function onKeyPress(eventList) {
+    const KILL = false, PASS = true;
     if (skipKeyPress) {
+      console.log('skipped');
       return PASS;
     }
-    const KILL = false, PASS = true;
 
     if (!useFullVim()) {
       return PASS;
@@ -1032,6 +1045,15 @@ borrowed.modes.INSERT.params.onKeyPress = function(eventList) {
       queueForVim(inputChar);
     }
     return KILL;
+}
+
+if(head){
+  borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
+} else {
+  minidactyl.keyHandler.onKeyPress = function(e){
+    var eventList = [e];
+    return onKeyPress(eventList);
+  }
 }
 
 function queueForVim(key) {
@@ -1123,45 +1145,45 @@ function spaceCheck(value){
 function handleLeanVim() {
     leanVimCheck = leanVim() && useFullVim();
     if (leanVimCheck) {
-      borrowed.mappings.builtin.add(
+      borrowed.mappings.add(
           [borrowed.modes.INSERT],
           ["<Up>"],
           ["Override websites' up behavior"],
           function(){queueForVim(ESC + '[A');});
-      borrowed.mappings.builtin.add(
+      borrowed.mappings.add(
           [borrowed.modes.INSERT],
           ["<Down>"],
           ["Override websites' down behavior"],
           function(){queueForVim(ESC + '[B');});
-      borrowed.mappings.builtin.add(
+      borrowed.mappings.add(
           [borrowed.modes.INSERT],
           ["<Right>"],
           ["Override websites' right behavior"],
           function(){queueForVim(ESC + '[C');});
-      borrowed.mappings.builtin.add(
+      borrowed.mappings.add(
           [borrowed.modes.INSERT],
           ["<Left>"],
           ["Override websites' left behavior"],
           function(){queueForVim(ESC + '[D');});
     } else {
-      borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Up>");
-      borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Down>");
-      borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Right>");
-      borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Left>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Up>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Down>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Right>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Left>");
     }
 }
 
 function handleStrictVim() {
     strictVimCheck = strictVim() && useFullVim();
     if (strictVimCheck) {
-      borrowed.mappings.builtin.add(
+      borrowed.mappings.add(
           [borrowed.modes.INSERT],
           ["<Tab>"],
           ["Override websites' tab behavior"],
           function(){specialKeyHandler("<Tab>");});
 
     } else {
-      borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Tab>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Tab>");
     }
 }
 
@@ -1169,9 +1191,11 @@ function handleStrictVim() {
 function cleanupPterosaur() {
     usingFullVim = useFullVim();
     if (usingFullVim) {
-        borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Space>");
-        borrowed.mappings.builtin.remove(borrowed.modes.INSERT, "<Return>");
-        borrowed.mappings.builtin.add(
+        if(head){
+          borrowed.mappings.remove(borrowed.modes.INSERT, "<Space>");
+          borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
+        }
+        borrowed.mappings.add(
             [borrowed.modes.INSERT],
             ["<Esc>", "<C-[>"],
             ["Handle escape key"],
@@ -1185,7 +1209,7 @@ function cleanupPterosaur() {
               }
             });
 
-        borrowed.mappings.builtin.add(
+        borrowed.mappings.add(
             [borrowed.modes.INSERT],
             ["<BS>"],
             ["Handle backspace key"],
@@ -1196,7 +1220,7 @@ function cleanupPterosaur() {
               queueForVim("\b");
             });
 
-        borrowed.mappings.builtin.add(
+        borrowed.mappings.add(
             [borrowed.modes.INSERT],
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
@@ -1205,7 +1229,7 @@ function cleanupPterosaur() {
             },
             {noTransaction: true});
 
-        borrowed.mappings.builtin.add(
+        borrowed.mappings.add(
             [borrowed.modes.INSERT],
             ["<S-Return>"],
             ["Override websites' carriage return behavior"],
@@ -1214,27 +1238,28 @@ function cleanupPterosaur() {
             },
             {noTransaction: true});
 
-        borrowed.mappings.builtin.add(
+        borrowed.mappings.add(
             [borrowed.modes.INSERT],
             ["<Return>"],
             ["Override websites' carriage return behavior"],
             function(){return specialKeyHandler("<Return>");});
     }
     else {
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<Esc>");
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<C-[>");
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<BS>");
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<C-r>");
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<Return>");
-        borrowed.mappings.builtin.remove( borrowed.modes.INSERT, "<S-Return>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<Esc>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<C-[>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<BS>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<C-r>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<Return>");
+        borrowed.mappings.remove( borrowed.modes.INSERT, "<S-Return>");
 
-        borrowed.mappings.builtin.add([borrowed.modes.INSERT],
-            ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
-            function () {
-                console.log("got here")
-                borrowed.editor.expandAbbreviation(borrowed.modes.INSERT);
-                return borrowed.Events.PASS_THROUGH;
-        });
+        if(head) {
+          borrowed.mappings.add([borrowed.modes.INSERT],
+              ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
+              function () {
+                  borrowed.editor.expandAbbreviation(borrowed.modes.INSERT);
+                  return borrowed.Events.PASS_THROUGH;
+          });
+        }
     }
 }
 
@@ -1404,7 +1429,7 @@ function killVimbed() {
   }
 }
 
-let onUnload = killVimbed
+let onUnload = killVimbed;
 
 //Is pterosaur being used?
 var usingFullVim = false;
@@ -1462,7 +1487,7 @@ if(borrowed.commands){
   }
 }
 
-var attempts = 0;
+var pterosaurStartupAttempts = 0;
 function trySetupPterosaur(){
   var head;
   if (typeof dactyl != "undefined"){
@@ -1472,10 +1497,10 @@ function trySetupPterosaur(){
   } else if (typeof liberator != "undefined"){
     head = liberator;
   }
-  if(head || attempts > 4){
+  if(head || pterosaurStartupAttempts > 4){
     setupPterosaur();
   } else {
-    attempts += 1;
+    pterosaurStartupAttempts += 1;
     setTimeout(trySetupPterosaur, 300);
   }
 }

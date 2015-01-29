@@ -294,35 +294,45 @@ var minidactyl = {
      */
     //NOTE: Do not use with pentadactyl. Use pentadactyl's feedkeys instead.
     feedkey: function (key, focusedElement) {
-      let evt_obj = key;
-      let now = Date.now();
-      key = this.stringifyEvent(evt_obj);
-      for (let type in values(["keydown", "keypress", "keyup"])) {
-        let evt = update({}, evt_obj, { type: type });
+      let evt_obj = minidactyl.parse(key)[0];
+      ["keydown", "keypress", "keyup"].forEach(function(type){
+        let evt = {};
+        for(var dictKey in evt_obj){
+          evt[dictKey] = evt_obj[dictKey];
+        }
+        evt['type'] = type;
+        evt['key'] = key;
+        //let evt = update({}, evt_obj, { type: type });
         if (type !== "keypress" && !evt.keyCode)
           evt.keyCode = evt._keyCode || 0;
 
         evt.isMacro = true;
-        evt.dactylMode = mode;
-        evt.dactylSavedEvents = savedEvents;
-        DOM.Event.feedingEvent = evt;
+        //evt.dactylMode = mode;
+        //evt.dactylSavedEvents = savedEvents;
+        //DOM.Event.feedingEvent = evt;
 
-        let doc = document.commandDispatcher.focusedWindow.document;
+        //let doc = document.commandDispatcher.focusedWindow.document;
+//TODO_DESIGNMODE
+        let doc = minidactyl.window.content.document;
+
+        
         //dactyl.focusedElement
-        let target = focusedElement
+        let target = minidactyl.window.content.document.activeElement
           || ["complete", "interactive"].indexOf(doc.readyState) >= 0 && doc.documentElement
           || doc.defaultView;
 
-        if (target instanceof Element && !this.isInputElement(target) &&
-            ["<Return>", "<Space>"].indexOf(key) == -1)
-          target = target.ownerDocument.documentElement;
+        //if (target instanceof Element && !this.isInputElement(target) &&
+            //["<Return>", "<Space>"].indexOf(key) == -1)
+         // target = target.ownerDocument.documentElement;
 
-        let event = DOM.Event(doc, type, evt);
+        //let event = DOM.Event(doc, type, evt_obj);
+        //let event = target.ownerDocument.createEvent('KeyEvents');
+        let event = new minidactyl.KeyboardEvent(type, evt);
         //if (!evt_obj.dactylString && !mode)
-          this.dispatchEvent(target, event, evt);
+          minidactyl.dispatchEvent(target, event, evt);
         //else if (type === "keypress")
          //events.events.keypress.call(events, event);
-      }
+      });
     },
     isInputElement: function isInputElement(elem) {
         return elem instanceof Ci.nsIDOMElement && true/*TODO: DOM(elem).isEditable*/ ||
@@ -339,22 +349,25 @@ var minidactyl = {
      */
     dispatchEvent: function dispatch(target, event, extra) {
           try {
-              this.feedingEvent = extra;
+              //this.feedingEvent = extra;
 
               if (target instanceof Ci.nsIDOMElement)
+{
                   return (target.ownerDocument || target.document || target).defaultView
                          .QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
                          .dispatchDOMEventViaPresShell(target, event, true);
+}
               else {
                   target.dispatchEvent(event);
                   return !event.defaultPrevented;
               }
           }
           catch (e) {
-              util.reportError(e);
+              minidactyl.console.log(e)
+              //util.reportError(e);
           }
           finally {
-              this.feedingEvent = null;
+              //this.feedingEvent = null;
           }
     },
     wrappedFile: function( file ) {
@@ -424,5 +437,140 @@ var minidactyl = {
       }
       catch(e) {}
       return range;
-    }
+    },
+    keyHandler: {
+      mappings: {},
+      listener: null,
+      addKeyDown: function(key, callback){
+        minidactyl.keyHandler.mappings[key]=callback;
+      },
+      removeKeyDown: function(key){
+        delete minidactyl.keyHandler.mappings[key];
+      },
+      setListener: function(listener){
+        if(minidactyl.keyHandler.listener != listener){
+          if(minidactyl.keyHandler.listener) {
+            try{
+              minidactyl.keyHandler.listener.removeEventListener("keydown", minidactyl.keyHandler.keydown, false);
+            } catch(e){}
+            try{
+              minidactyl.keyHandler.listener.removeEventListener("keypress", minidactyl.keyHandler.keypress, false);
+            } catch(e){}
+          }
+          minidactyl.keyHandler.listener = listener;
+          if(listener) {
+            minidactyl.keyHandler.listener.addEventListener("keydown", minidactyl.keyHandler.keydown, false);
+            minidactyl.keyHandler.listener.addEventListener("keypress", minidactyl.keyHandler.keypress, false);
+          }
+        }
+      },
+      keydown: function(e){
+        var callback = minidactyl.keyHandler.mappings[minidactyl.stringifyEvent(e)];
+        if (callback) {
+          let returnVal = callback();
+          if(!returnVal) {
+            e.preventDefault();
+          }
+          return returnVal;
+        }
+      },
+      onKeyPress: function(){
+        //override this
+      },
+      keypress: function(e){
+        let returnVal = minidactyl.keyHandler.onKeyPress(e);
+        if(!returnVal) {
+          e.preventDefault();
+        }
+        return returnVal;
+      }
+    },
+    parse: function parse(input, unknownOk=true) {
+        //if (isArray(input))
+         //   return array.flatten(input.map(k => this.parse(k, unknownOk)));
+
+        let out = [];
+        for (let match in minidactyl.iterateRegex(/<.*?>?>|[^<]|<(?!.*>)/g, input)) {
+            let evt_str = match[0];
+
+            let evt_obj = { ctrlKey: false, shiftKey: false, altKey: false, metaKey: false,
+                            keyCode: 0, charCode: 0, type: "keypress" };
+
+            if (evt_str.length == 1) {
+                evt_obj.charCode = evt_str.charCodeAt(0);
+                evt_obj._keyCode = this.key_code[evt_str[0].toLowerCase()];
+                evt_obj.shiftKey = evt_str !== evt_str.toLowerCase();
+            }
+            else {
+                let [match, modifier, keyname] = evt_str.match(/^<((?:[*12CASM⌘]-)*)(.+?)>$/i) || [false, '', ''];
+                modifier = new Set(modifier.toUpperCase());
+                keyname = keyname.toLowerCase();
+                evt_obj.dactylKeyname = keyname;
+                if (/^u[0-9a-f]+$/.test(keyname))
+                    keyname = String.fromCharCode(parseInt(keyname.substr(1), 16));
+
+                if (keyname && (unknownOk || keyname.length == 1 || /mouse$/.test(keyname) ||
+                                this.key_code[keyname] || this.pseudoKeys.has(keyname))) {
+                    evt_obj.globKey  = modifier.has("*");
+                    evt_obj.ctrlKey  = modifier.has("C");
+                    evt_obj.altKey   = modifier.has("A");
+                    evt_obj.shiftKey = modifier.has("S");
+                    evt_obj.metaKey  = modifier.has("M") || modifier.has("⌘");
+                    evt_obj.dactylShift = evt_obj.shiftKey;
+
+                    if (keyname.length == 1) { // normal characters
+                        if (evt_obj.shiftKey)
+                            keyname = keyname.toUpperCase();
+
+                        evt_obj.dactylShift = evt_obj.shiftKey && keyname.toUpperCase() == keyname.toLowerCase();
+                        evt_obj.charCode = keyname.charCodeAt(0);
+                        evt_obj.keyCode = this.key_code[keyname.toLowerCase()];
+                    }
+                    else if (this.pseudoKeys.has(keyname)) {
+                        evt_obj.dactylString = "<" + this.key_key[keyname] + ">";
+                    }
+                    else if (/mouse$/.test(keyname)) { // mouse events
+                        evt_obj.type = (modifier.has("2") ? "dblclick" : "click");
+                        evt_obj.button = ["leftmouse", "middlemouse", "rightmouse"].indexOf(keyname);
+                        delete evt_obj.keyCode;
+                        delete evt_obj.charCode;
+                    }
+                    else { // spaces, control characters, and <
+                        evt_obj.keyCode = this.key_code[keyname];
+                        evt_obj.charCode = 0; }
+                }
+                else { // an invalid sequence starting with <, treat as a literal
+                    out = out.concat(this.parse("<lt>" + evt_str.substr(1)));
+                    continue;
+                }
+            }
+
+            // TODO: make a list of characters that need keyCode and charCode somewhere
+            if (evt_obj.keyCode == 32 || evt_obj.charCode == 32)
+                evt_obj.charCode = evt_obj.keyCode = 32; // <Space>
+            if (evt_obj.keyCode == 60 || evt_obj.charCode == 60)
+                evt_obj.charCode = evt_obj.keyCode = 60; // <lt>
+
+            evt_obj.modifiers = (evt_obj.ctrlKey  && Ci.nsIDOMNSEvent.CONTROL_MASK)
+                              | (evt_obj.altKey   && Ci.nsIDOMNSEvent.ALT_MASK)
+                              | (evt_obj.shiftKey && Ci.nsIDOMNSEvent.SHIFT_MASK)
+                              | (evt_obj.metaKey  && Ci.nsIDOMNSEvent.META_MASK);
+
+            out.push(evt_obj);
+        }
+        return out;
+    },
+    iterateRegex: function iterate(regexp, string, lastIndex) {
+        regexp.lastIndex = lastIndex = lastIndex || 0;
+        let match;
+        while (match = regexp.exec(string)) {
+            lastIndex = regexp.lastIndex;
+            yield match;
+            regexp.lastIndex = lastIndex;
+            if (match[0].length == 0 || !regexp.global)
+                break;
+        }
+    },
+    pseudoKeys: Set(["count", "leader", "nop", "pass"]),
+
 }
