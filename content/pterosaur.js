@@ -68,6 +68,10 @@ var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstanc
 
 var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
 
+var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
+
+minidactyl.focusManager = focusManager;
+
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (head) {
   var borrowed = {
@@ -88,14 +92,19 @@ if (head) {
 else
 {
   var borrowed = {
-    modes: {"INSERT": {char:'I'}, addMode: function(name, object) { borrowed.modes[name] = object; }, main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;}, push: function(mode){borrowed.modes.main = mode;}},
+    modes: {"INSERT": {char:'I'},
+            addMode: function(name, object) { borrowed.modes[name] = object; },
+            main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;},
+            push: function(mode){borrowed.modes.main = mode;},
+            reset: function(){if(focusedElement){focusedElement.ownerDocument.childNodes()[1].focus();}}
+    },
     commands: null,
     options: null,
-    focusedElement: function(){return content.document.activeElement;},
+    focusedElement: function(){return focusManager.getFocusedElementForWindow(window, true, {});},
     echo: function(out) {console.log(out)}, //TODO: This is definitly not echoy enough, build an overlay.
     echoerr: alert,
     feedkey: minidactyl.feedkey,
-    focus: function(element){if (element) {element.focus}},
+    focus: function(element){if (element) {element.focus()}},
     editor: null,
     mappings: {
       add: function(mode, keylist, desc, callback){

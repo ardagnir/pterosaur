@@ -317,7 +317,7 @@ var minidactyl = {
 
         
         //dactyl.focusedElement
-        let target = minidactyl.window.content.document.activeElement
+        let target = minidactyl.focusManager.getFocusedElementForWindow(minidactyl.window, true, {})
           || ["complete", "interactive"].indexOf(doc.readyState) >= 0 && doc.documentElement
           || doc.defaultView;
 
