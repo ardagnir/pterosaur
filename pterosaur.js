@@ -346,11 +346,11 @@ function textBoxGetSelection_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.wrapped = content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   sandbox.stringify = JSON.stringify;
   var sandboxScript="\
-    var aceEditor = ace.edit(editor);\
+    var aceEditor = wrapped.ace.edit(editor);\
     range =  stringify(aceEditor.getSession().getSelection().getRange());\
   ";
   Components.utils.evalInSandbox(sandboxScript, sandbox);
@@ -472,12 +472,14 @@ function textBoxSetSelection_ace(start, end){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.start = start.split(",");
-  sandbox.end = end.split(",");
-  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.start = start
+  sandbox.end = end
+  sandbox.wrapped = content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(editor);\
+    var aceEditor = wrapped.ace.edit(editor);\
+    start = start.split(',');\
+    end = end.split(',');\
     aceEditor.getSession().getSelection().setSelectionRange(\
                                           {'start': {'row':start[2], 'column':start[1]},\
                                            'end':   {'row':end[2],   'column':end[1]}});\
@@ -489,12 +491,12 @@ function textBoxSetSelection_codeMirror(start, end){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.start = start.split(",");
-  sandbox.end = end.split(",");
   sandbox.editor = textBox.wrappedJSObject;
 
   var sandboxScript="\
-        editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
+    start = start.split(',');\
+    end = end.split(',');\
+    editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
 }
@@ -570,10 +572,10 @@ function textBoxSetValue_ace(newVal){
   if (!sandbox)
     return;
   sandbox.newVal = newVal;
-  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.wrapped = content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(editor);\
+    var aceEditor = wrapped.ace.edit(editor);\
     if (aceEditor.getSession().getValue()!=newVal){\
       aceEditor.getSession().setValue(newVal);\
     }\
@@ -619,10 +621,10 @@ function textBoxGetValue_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.ace = content.wrappedJSObject.ace;
+  sandbox.wrapped = content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
-    var aceEditor = ace.edit(editor);\
+    var aceEditor = wrapped.ace.edit(editor);\
     value = aceEditor.getSession().getValue();\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
