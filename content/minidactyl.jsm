@@ -465,13 +465,18 @@ var minidactyl = {
         }
       },
       keydown: function(e){
-        var callback = minidactyl.keyHandler.mappings[minidactyl.stringifyEvent(e)];
-        if (callback) {
-          let returnVal = callback();
-          if(!returnVal) {
-            e.preventDefault();
+        if (minidactyl.editing()){
+          var callback = minidactyl.keyHandler.mappings[minidactyl.stringifyEvent(e)];
+          if (callback) {
+            let returnVal = callback();
+            if(!returnVal) {
+              e.preventDefault();
+            }
+            return returnVal;
           }
-          return returnVal;
+        }
+        else{
+          return true;
         }
       },
       onKeyPress: function(){

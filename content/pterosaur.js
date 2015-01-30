@@ -41,6 +41,8 @@
  *   DEALINGS IN THE SOFTWARE.
  */
 
+var pterosaur = {} //For accessing variables using the debugger.
+
 function setupPterosaur(){
 var head = null;
 if (typeof dactyl != "undefined"){
@@ -57,6 +59,8 @@ Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 minidactyl.console = console;
 minidactyl.window = window;
 minidactyl.KeyboardEvent = KeyboardEvent;
+
+minidactyl.editing = function () {return textBoxType !== ""};
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
@@ -105,6 +109,10 @@ else
   }
   borrowed.modes.main = borrowed.modes.INSERT;
 }
+
+pterosaur.borrowed = borrowed;
+pterosaur.getTextBox = function(){return textBox;}
+pterosaur.getTextBoxType = function(){return textBoxType;}
 
 setTimeout(startVimbed, 1);
 
@@ -924,13 +932,13 @@ function updateTextbox(preserveMode) {
 
       vimCommand = "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)";
 
-      console.log(vimCommand);
-
       vimCommand = vimCommand.replace(/<rowStart>/, cursorPos.start.row);
       vimCommand = vimCommand.replace(/<columnStart>/, cursorPos.start.column);
       vimCommand = vimCommand.replace(/<rowEnd>/, cursorPos.end.row);
       vimCommand = vimCommand.replace(/<columnEnd>/, cursorPos.end.column);
       vimCommand = vimCommand.replace(/<preserveMode>/, preserveMode);
+
+      console.log(vimCommand);
 
       remoteExpr(vimCommand);
     }
@@ -1003,7 +1011,6 @@ var skipKeyPress = false;
 function onKeyPress(eventList) {
     const KILL = false, PASS = true;
     if (skipKeyPress) {
-      console.log('skipped');
       return PASS;
     }
 
@@ -1012,7 +1019,8 @@ function onKeyPress(eventList) {
     }
 
     if (textBoxType === "") {
-      if(stateCheck() && textBoxType === "") {
+      stateCheck();
+      if(textBoxType === "") {
         return PASS;
       }
     }
