@@ -84,7 +84,7 @@ if (head) {
 else
 {
   var borrowed = {
-    modes: {"INSERT": {char:'I'}, addMode: function(name, object) { borrowed.modes[name] = object; }, main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;}, push: function(mode){borrowed.modes.main = borrowed.modes[mode];}},
+    modes: {"INSERT": {char:'I'}, addMode: function(name, object) { borrowed.modes[name] = object; }, main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;}, push: function(mode){borrowed.modes.main = mode;}},
     commands: null,
     options: null,
     focusedElement: function(){return content.document.activeElement;},
