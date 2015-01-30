@@ -302,7 +302,9 @@ function updateFromVim(){
     }
 
     if (val !== savedText){
-      textBoxSetValue(val)
+      if(!unsent){
+        textBoxSetValue(val)
+      }
       savedText = val;
       foundChange = true;
     }
@@ -921,6 +923,8 @@ function updateTextbox(preserveMode) {
       var vimCommand;
 
       vimCommand = "Vimbed_UpdateText(<rowStart>, <columnStart>, <rowEnd>, <columnEnd>, <preserveMode>)";
+
+      console.log(vimCommand);
 
       vimCommand = vimCommand.replace(/<rowStart>/, cursorPos.start.row);
       vimCommand = vimCommand.replace(/<columnStart>/, cursorPos.start.column);
