@@ -96,7 +96,7 @@ else
             addMode: function(name, object) { borrowed.modes[name] = object; },
             main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;},
             push: function(mode){borrowed.modes.main = mode;},
-            reset: function(){if(focusedElement){focusedElement.ownerDocument.childNodes()[1].focus();}}
+            reset: function(){focusManager.clearFocus(window);}
     },
     commands: null,
     options: null,
