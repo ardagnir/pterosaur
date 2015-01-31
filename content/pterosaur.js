@@ -463,11 +463,10 @@ function remoteExpr(expr){
   //but the below way is 5 times faster because remote-expr from the command line is so slow.
   //We could speed this up farther by just keeping a vim instance open just for sending remote_exprs, but this is good enough for now.
   try{
-  vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-s", "/dev/null"], 6);
+    vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-s", "/dev/null"], 6);
   }
   catch (e){
     console.trace();
-
   }
 }
 
@@ -1146,6 +1145,9 @@ function specialKeyHandler(key) {
           }
         }
 
+        if(behavior != "vim"){
+          allowedToSend = false;
+        }
         if (behavior !== "web") {
           if (key === "<Return>") {
             queueForVim("\r");
@@ -1156,7 +1158,7 @@ function specialKeyHandler(key) {
             return;
           }
         }
-        allowedToSend = false;
+
         setTimeout( function() {
           handlingSpecialKey=true;
           try {
@@ -1170,6 +1172,8 @@ function specialKeyHandler(key) {
                 textBoxSetSelectionFromSaved(cursorPos);
               }
             }
+          } catch(e) {
+            console.trace();
           } finally {
             handlingSpecialKey=false;
             allowedToSend = true;
@@ -1188,9 +1192,10 @@ function specialKeyHandler(key) {
       return false;
 }
 
-//Returns true if the non-newline text is the same. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
+//Returns true if the non-newline text is the same but the text is longer. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
 function newLineCheck(value){
-  return textBoxGetValue().replace(/\n/g,"") === value.replace(/\n/g,"")
+  var newVal = textBoxGetValue();
+  return newVal.replace(/\n/g,"") === value.replace(/\n/g,"") && newVal.length>value.length;
 }
 
 function spaceCheck(value){
