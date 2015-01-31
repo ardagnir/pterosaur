@@ -1138,6 +1138,14 @@ function specialKeyHandler(key) {
     }
     var behavior = getKeyBehavior(textBoxType, key)
     if (behavior !== "vim") {
+        //Make sure any autocomplete is calculated before we send the enter key
+        if(webKeyTimeout){
+          webKeyTimeout = null;
+          if (!leanVim() && stateCheck() && [ESC, '\r', '\t', ''].indexOf(lastKey) == -1){
+            handleKeySending(lastKey);
+          }
+        }
+
         if (behavior !== "web") {
           if (key === "<Return>") {
             queueForVim("\r");
