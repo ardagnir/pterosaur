@@ -147,7 +147,11 @@ function updateVim(){
       clearTimeout(webKeyTimeout);
       webKeyTimeout = null;
     }
-    if (!stateCheck() || vimNsIProc.isRunning)
+    if(vimNsIProc.isRunning){
+      setTimeout(updateVim, 10);
+      return;
+    }
+    if (!stateCheck() || vimNsIProc.isRunning) //Yes, we just checked isrunning, but it has a good chance of changing due to statecheck
     {
       if(!useFullVim() || textBoxType == "")
       {
@@ -177,27 +181,34 @@ function updateVim(){
 var stateCheckTimeout = null;
 var pollsSkipped = 0;
 
+function stateCheckTimeoutFunc(){
+  if (vimNsIProc.isRunning)
+  {
+    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, 50);
+    return;
+  }
+  stateCheckTimeout = null
+  if(gameTest > 0)
+  {
+    gameTest--;
+  }
+  if(stateCheck()) {
+    if (pollsSkipped < 3 && borrowed.modes.main !== borrowed.modes.VIM_COMMAND){
+      pollsSkipped++;
+    } else {
+      callPoll();
+      pollsSkipped = 0;
+    }
+  }
+}
+
 function stateCheck(){
     if (stateCheckTimeout) {
       clearTimeout(stateCheckTimeout);
       pollsSkipped = 0;
     }
 
-    stateCheckTimeout = setTimeout(function(){
-      stateCheckTimeout = null
-      if(gameTest > 0)
-      {
-        gameTest--;
-      }
-      if(stateCheck()) {
-        if (pollsSkipped < 3 && borrowed.modes.main !== borrowed.modes.VIM_COMMAND){
-          pollsSkipped++;
-        } else {
-          callPoll();
-          pollsSkipped = 0;
-        }
-      }
-    }, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
+    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
 
     if (usingFullVim !== useFullVim())
       cleanupPterosaur();
@@ -266,7 +277,7 @@ function updateFromVim(){
     else
     {
       //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
-      setTimeout(update, 20);
+      setTimeout(updateFromVim, 20);
       return;
     }
 
@@ -425,6 +436,15 @@ function updateFromVim(){
 //In these cases, we should spam poll for responsiveness since vim won't trigger the normal autocommands.
 var gameTest = 0;
 
+function pollTimeoutFunc(){
+    if(!vimNsIProc.isRunning){
+      pollTimeout = null;
+      remoteExpr("Vimbed_Poll()");
+    }else{
+      pollTimeout = setTimeout(pollTimeoutFunc, 50);
+    }
+}
+
 function callPoll(){
   if (gameTest < 10)
   {
@@ -433,10 +453,7 @@ function callPoll(){
   if (!pollTimeout){
     var pollTimer = (vimMode == "c" || gameTest > 4 ? 1 : 250)
     //if vimMode == "c"(vimMode == "c" 1 : );
-    pollTimeout = setTimeout(function() {
-      pollTimeout = null;
-      remoteExpr("Vimbed_Poll()");
-    }, pollTimer);
+    pollTimeout = setTimeout(pollTimeoutFunc, pollTimer);
   }
 }
 
@@ -445,7 +462,13 @@ function remoteExpr(expr){
   //  vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  expr], 4);
   //but the below way is 5 times faster because remote-expr from the command line is so slow.
   //We could speed this up farther by just keeping a vim instance open just for sending remote_exprs, but this is good enough for now.
+  try{
   vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-s", "/dev/null"], 6);
+  }
+  catch (e){
+    console.trace();
+
+  }
 }
 
 function createChromeSandbox(){
