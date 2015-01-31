@@ -41,9 +41,16 @@
  *   DEALINGS IN THE SOFTWARE.
  */
 
-var pterosaur = {} //For accessing variables using the debugger.
+var exports = {};
 
-function setupPterosaur(){
+function pterosaurWindow(thisWindow){
+var imports = ["FileUtils", "Ci", "setTimeout", "clearTimeout"];
+this.data = {}; //For accessing data when debugging
+
+imports.forEach(function(item){
+  this[item] = thisWindow[item];
+})
+
 var head = null;
 if (typeof dactyl != "undefined"){
   head = dactyl;
@@ -57,8 +64,8 @@ Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
 minidactyl.console = console;
-minidactyl.window = window;
-minidactyl.KeyboardEvent = KeyboardEvent;
+minidactyl.window = thisWindow;
+minidactyl.KeyboardEvent = thisWindow.KeyboardEvent;
 
 minidactyl.editing = function () {return textBoxType !== ""};
 
@@ -67,6 +74,18 @@ var Environment = Components.classes["@mozilla.org/process/environment;1"].getSe
 var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
 
 var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
+var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getDefaultBranch("extensions.pterosaur.");
+
+var vimPath = "";
+try{
+  vimPath = minidactyl.pathSearch("vim");
+}
+catch (e){
+}
+defaultPrefs.setCharPref("vimbinary", vimPath);
+defaultPrefs.setBoolPref("enabled", true);
+defaultPrefs.setBoolPref("autorestart", true);
+defaultPrefs.setCharPref("debugtty", "");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 
@@ -96,13 +115,13 @@ else
             addMode: function(name, object) { borrowed.modes[name] = object; },
             main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;},
             push: function(mode){borrowed.modes.main = mode;},
-            reset: function(){focusManager.clearFocus(window);}
+            reset: function(){focusManager.clearFocus(thisWindow);}
     },
     commands: null,
     options: null,
-    focusedElement: function(){return focusManager.getFocusedElementForWindow(window, true, {});},
+    focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
     echo: function(out) {console.log(out)}, //TODO: This is definitly not echoy enough, build an overlay.
-    echoerr: alert,
+    echoerr: function(out) {thisWindow.alert(out)},
     feedkey: minidactyl.feedkey,
     focus: function(element){if (element) {element.focus()}},
     editor: null,
@@ -119,9 +138,9 @@ else
   borrowed.modes.main = borrowed.modes.INSERT;
 }
 
-pterosaur.borrowed = borrowed;
-pterosaur.getTextBox = function(){return textBox;}
-pterosaur.getTextBoxType = function(){return textBoxType;}
+this.data.borrowed = borrowed;
+this.data.getTextBox = function(){return textBox;}
+this.data.getTextBoxType = function(){return textBoxType;}
 
 setTimeout(startVimbed, 1);
 
@@ -471,11 +490,11 @@ function remoteExpr(expr){
 }
 
 function createChromeSandbox(){
-  return new Components.utils.Sandbox(document.nodePrincipal, {wantXrays:false});
+  return new Components.utils.Sandbox(thisWindow.document.nodePrincipal, {wantXrays:false});
 }
 
 function createSandbox(){
-  var doc = textBox.ownerDocument || content;
+  var doc = textBox.ownerDocument || thisWindow.content;
   var protocol = doc.location.protocol;
   var host = doc.location.host;
   //I don't think these can be non-strings, but there's no harm in being paranoid.
@@ -527,7 +546,7 @@ function textBoxGetSelection_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.wrapped = content.wrappedJSObject;
+  sandbox.wrapped = thisWindow.content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   sandbox.stringify = JSON.stringify;
   var sandboxScript="\
@@ -666,7 +685,7 @@ function textBoxSetSelection_ace(start, end){
     return;
   sandbox.start = start
   sandbox.end = end
-  sandbox.wrapped = content.wrappedJSObject;
+  sandbox.wrapped = thisWindow.content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
     var aceEditor = wrapped.ace.edit(editor);\
@@ -708,7 +727,7 @@ function textBoxSetSelection_codeMirror(start, end){
 }
 
 function htmlToText(inText) {
-  var tmp = content.document.createElement('div');
+  var tmp = thisWindow.content.document.createElement('div');
   inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
   tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n'); //Preserve newlines
   return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
@@ -749,7 +768,7 @@ function textBoxSetValue_ace(newVal){
   if (!sandbox)
     return;
   sandbox.newVal = newVal;
-  sandbox.wrapped = content.wrappedJSObject;
+  sandbox.wrapped = thisWindow.content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
     var aceEditor = wrapped.ace.edit(editor);\
@@ -809,7 +828,7 @@ function textBoxGetValue_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.wrapped = content.wrappedJSObject;
+  sandbox.wrapped = thisWindow.content.wrappedJSObject;
   sandbox.editor = textBox.parentNode.wrappedJSObject;
   var sandboxScript="\
     var aceEditor = wrapped.ace.edit(editor);\
@@ -912,7 +931,7 @@ function updateTextbox(preserveMode) {
       }
     } else {
       if(borrowed.focusedElement().isContentEditable) {
-        var doc = textBox.ownerDocument || content;
+        var doc = textBox.ownerDocument || thisWindow.content;
 
         textBoxType = "contentEditable";
         textBox = {};
@@ -1339,7 +1358,7 @@ function startVimbed() {
   if (vimFile){
     vimNsIProc.init(vimFile)
   } else {
-    borrowed.echoerr("No vim instance found. Please set one using ':set pterosaurvimbinary'");
+    borrowed.echoerr("No vim instance found. Please set one using 'extensions.pterosaur.vimbinary' preference in about:config.");
     return false;
   }
 
@@ -1382,7 +1401,7 @@ function startVimbed() {
   var stdoutTimeout;
 
   var startVimProcess = function(){
-    vimProcess = subprocess.call({ url: window.URL,
+    vimProcess = subprocess.call({ url: thisWindow.URL,
       command: vimFile.path,
       arguments: ["--servername", "pterosaur_" + uid,
                   "-s", "/dev/null",
@@ -1411,14 +1430,22 @@ function startVimbed() {
             oldDebug = debugtty;
           }
           if (debugTerminal) {
-            debugTerminal.write(data);
+            try{
+              debugTerminal.write(data);
+            }
+            catch(e){
+              console.log("Failed to write to tty.");
+            }
+
           }
         }
 
-        stdoutTimeout = setTimeout(function(){
-          updateFromVim();
-          stdoutTimeout = null;
-        }, 25)
+        if (runningPlugin){
+          stdoutTimeout = setTimeout(function(){
+            updateFromVim();
+            stdoutTimeout = null;
+          }, 25)
+        }
       },
       stderr: function(data){
         console.log("Stderr: " + data);
@@ -1490,7 +1517,7 @@ function killVimbed() {
   }
 }
 
-let onUnload = killVimbed;
+this.onUnload = killVimbed;
 
 //Is pterosaur being used?
 var usingFullVim = false;
@@ -1548,8 +1575,7 @@ if(borrowed.commands){
   }
 }
 
-var pterosaurStartupAttempts = 0;
-function trySetupPterosaur(){
+exports.setup = function(thisWindow, startupAttempts){
   var head;
   if (typeof dactyl != "undefined"){
     if (dactyl.fullyInitialized){
@@ -1558,11 +1584,14 @@ function trySetupPterosaur(){
   } else if (typeof liberator != "undefined"){
     head = liberator;
   }
-  if(head || pterosaurStartupAttempts > 4){
-    setupPterosaur();
+  if(head || startupAttempts > 4){
+    thisWindow.pterosaurWindow = (new pterosaurWindow(thisWindow));
   } else {
-    pterosaurStartupAttempts += 1;
-    setTimeout(trySetupPterosaur, 300);
+    thisWindow.setTimeout(function(){exports.setup(thisWindow, (startupAttempts || 0) + 1);}, 300);
   }
 }
-trySetupPterosaur();
+
+exports.shutdown = function(thisWindow){
+  if(thisWindow.pterosaurWindow)
+    thisWindow.pterosaurWindow.onUnload()
+}
