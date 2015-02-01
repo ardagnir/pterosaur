@@ -78,7 +78,7 @@ minidactyl.editing = function () {return textBoxType !== ""};
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
-var vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+var vimNsIProc = null;
 
 var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
 var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getDefaultBranch("extensions.pterosaur.");
@@ -1398,7 +1398,9 @@ function cleanupPterosaur() {
     }
 }
 
+var vimbedError;
 function startVimbed() {
+  vimbedError = false;
   vimFile = null;
   try{
     vimFile = FileUtils.File(prefs.getCharPref("vimbinary"));
@@ -1411,8 +1413,10 @@ function startVimbed() {
   }
 
   if (vimFile){
+    vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
     vimNsIProc.init(vimFile)
   } else {
+    vimNsIProc = null;
     borrowed.echoerr("No vim instance found. Please set one using 'extensions.pterosaur.vimbinary' preference in about:config.");
     return false;
   }
@@ -1509,12 +1513,13 @@ function startVimbed() {
             borrowed.echoerr("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled.");
           }, 500);
           killVimbed();
+          vimbedError = true;
         }
       },
       done: function(result){
         console.log("Vim shutdown");
         //If vim closes early, restart it.
-        if(runningPlugin && prefs.getBoolPref("autorestart")) {
+        if(runningPlugin && prefs.getBoolPref("autorestart") && !vimbedError) {
           vimRestartTimeout = setTimeout(function(){
             console.log("Restarting vim");
             startVimProcess();
