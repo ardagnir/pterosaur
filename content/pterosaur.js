@@ -912,7 +912,9 @@ function setupForTextbox() {
 
     if(pterFocused){
       pterFocused.ownerDocument.addEventListener("click", pterClicked, false);
-      minidactyl.keyHandler.setListener(pterFocused);
+      if(!head){
+        minidactyl.keyHandler.setListener(pterFocused);
+      }
     }
 
     updateTextbox(0);
