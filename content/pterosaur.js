@@ -44,6 +44,7 @@
 var exports = {};
 
 function pterosaurWindow(thisWindow){
+var pterosaur = this;
 var imports = ["FileUtils", "Ci", "setTimeout", "clearTimeout"];
 this.data = {}; //For accessing data when debugging
 
@@ -70,11 +71,12 @@ var plugin_string;
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
-minidactyl.console = console;
-minidactyl.window = thisWindow;
-minidactyl.KeyboardEvent = thisWindow.KeyboardEvent;
+pterosaur.minidactyl = new minidactyl();
+pterosaur.minidactyl.console = console;
+pterosaur.minidactyl.window = thisWindow;
+pterosaur.minidactyl.KeyboardEvent = thisWindow.KeyboardEvent;
 
-minidactyl.editing = function () {return textBoxType !== ""};
+pterosaur.minidactyl.editing = function () {return textBoxType !== ""};
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
@@ -85,7 +87,7 @@ var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getS
 
 var vimPath = "";
 try{
-  vimPath = minidactyl.pathSearch("vim");
+  vimPath = pterosaur.minidactyl.pathSearch("vim");
 }
 catch (e){
 }
@@ -96,7 +98,7 @@ defaultPrefs.setCharPref("debugtty", "");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 
-minidactyl.focusManager = focusManager;
+pterosaur.minidactyl.focusManager = focusManager;
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (head) {
@@ -131,14 +133,14 @@ else
     focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
     echo: function(out) {if(out != ""){setTimeout(function(){modeText.textContent = out},1);}},
     echoerr: function(out) {thisWindow.alert(out)},
-    feedkey: minidactyl.feedkey,
+    feedkey: pterosaur.minidactyl.feedkey,
     focus: function(element){if (element) {element.focus()}},
     editor: null,
     mappings: {
       add: function(mode, keylist, desc, callback){
-        keylist.forEach( function(key){ minidactyl.keyHandler.addKeyDown(key, callback);});
+        keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
       }, remove: function(mode, key){
-        return minidactyl.keyHandler.removeKeyDown(key);
+        return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
       }
     },
     commandline:{FORCE_SINGLELINE: 0},
@@ -540,13 +542,13 @@ function textBoxGetSelection(){
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
     case "contentEditable":
     case "designMode":
-      let fromBeginning = minidactyl.nodeContents(textBox.rootElement);
+      let fromBeginning = pterosaur.minidactyl.nodeContents(textBox.rootElement);
       let oldRange = textBox.selection.getRangeAt(0);
 
       fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
-      var preStart = htmlToText(minidactyl.stringify(fromBeginning, true));
+      var preStart = htmlToText(pterosaur.minidactyl.stringify(fromBeginning, true));
       fromBeginning.setEnd(oldRange.endContainer, oldRange.endOffset);
-      var preEnd = htmlToText(minidactyl.stringify(fromBeginning, true));
+      var preEnd = htmlToText(pterosaur.minidactyl.stringify(fromBeginning, true));
 
       var rowStart = 1 + preStart.replace(/[^\n]/g, "").length;
       var columnStart = 1 + preStart.replace(/[^]*\n/, "").length;
@@ -648,7 +650,7 @@ function textBoxSetSelection(start, end){
       start = start.split(",")
       end = end.split(",")
 
-      let range = minidactyl.nodeContents(textBox.rootElement);
+      let range = pterosaur.minidactyl.nodeContents(textBox.rootElement);
       let nodes = textBox.rootElement.childNodes;
       let nodeIndex = 0;
       let row = 0;
@@ -913,7 +915,7 @@ function setupForTextbox() {
     if(pterFocused){
       pterFocused.ownerDocument.addEventListener("click", pterClicked, false);
       if(!head){
-        minidactyl.keyHandler.setListener(pterFocused);
+        pterosaur.minidactyl.keyHandler.setListener(pterFocused);
       }
     }
 
@@ -1094,7 +1096,7 @@ function onKeyPress(eventList) {
       }
     }
 
-    let inputChar = minidactyl.stringifyEvent(eventList[0]);
+    let inputChar = pterosaur.minidactyl.stringifyEvent(eventList[0]);
 
     if (inputChar[0] === "<"){
       switch(inputChar) {
@@ -1171,7 +1173,7 @@ borrowed.modes.addMode("VIM_REPLACE", {
 if(head){
   borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
 } else {
-  minidactyl.keyHandler.onKeyPress = function(e){
+  pterosaur.minidactyl.keyHandler.onKeyPress = function(e){
     var eventList = [e];
     return onKeyPress(eventList);
   }
@@ -1406,7 +1408,7 @@ function startVimbed() {
     vimFile = FileUtils.File(prefs.getCharPref("vimbinary"));
   }
   catch (e) {
-    vimFile = minidactyl.pathSearch(prefs.getCharPref("vimbinary") || "vim");
+    vimFile = pterosaur.minidactyl.pathSearch(prefs.getCharPref("vimbinary") || "vim");
     if (vimFile) {
       prefs.setCharPref("vimbinary", vimFile.path);
     }
@@ -1433,9 +1435,9 @@ function startVimbed() {
   metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
   messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
 
-  tmpfile = new minidactyl.wrappedFile(tmpfile);
-  metaTmpfile = new minidactyl.wrappedFile(metaTmpfile);
-  messageTmpfile = new minidactyl.wrappedFile(messageTmpfile);
+  tmpfile = new pterosaur.minidactyl.wrappedFile(tmpfile);
+  metaTmpfile = new pterosaur.minidactyl.wrappedFile(metaTmpfile);
+  messageTmpfile = new pterosaur.minidactyl.wrappedFile(messageTmpfile);
 
   if (!tmpfile)
       throw Error("io.cantCreateTempFile");
@@ -1481,7 +1483,7 @@ function startVimbed() {
         if(debugtty){
           if (debugtty != oldDebug){
             try{
-              debugTerminal = new minidactyl.wrappedFile(FileUtils.File(debugtty));
+              debugTerminal = new pterosaur.minidactyl.wrappedFile(FileUtils.File(debugtty));
             }
             catch(e){
               debugTerminal = null;
