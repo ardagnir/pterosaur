@@ -428,6 +428,7 @@ var minidactyl = function(){
             ifstream.close();
         }
       }
+      this.path = file.path;
     };
     this.nodeContents = function nodeContents(node) {
       let range = node.ownerDocument.createRange();

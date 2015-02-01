@@ -45,7 +45,7 @@ var exports = {};
 
 function pterosaurWindow(thisWindow){
 var pterosaur = this;
-var imports = ["FileUtils", "Ci", "setTimeout", "clearTimeout"];
+var imports = ["FileUtils", "Ci", "setTimeout", "clearTimeout", "XMLHttpRequest"];
 this.data = {}; //For accessing data when debugging
 
 imports.forEach(function(item){
@@ -1443,16 +1443,21 @@ function startVimbed() {
   tmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
   metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
   messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
+  vimbedFile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/vimbed.vim");
 
 
   dir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o700);
   tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
   metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
   messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  vimbedFile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
 
   tmpfile = new pterosaur.minidactyl.wrappedFile(tmpfile);
   metaTmpfile = new pterosaur.minidactyl.wrappedFile(metaTmpfile);
   messageTmpfile = new pterosaur.minidactyl.wrappedFile(messageTmpfile);
+  vimbedFile = new pterosaur.minidactyl.wrappedFile(vimbedFile);
+
+  copyVimbedFile(vimbedFile);
 
   if (!tmpfile)
       throw Error("io.cantCreateTempFile");
@@ -1481,6 +1486,7 @@ function startVimbed() {
       command: vimFile.path,
       arguments: ["--servername", "pterosaur_" + uid,
                   "-s", "/dev/null",
+                  "-S", vimbedFile.path,
                   '+call Vimbed_SetupVimbed("","")'],
       environment:  env_variables,
       charet: 'UTF-8',
@@ -1548,6 +1554,23 @@ function startVimbed() {
   startVimProcess();
 }
 
+function copyVimbedFile(destination){
+  var request = new XMLHttpRequest();
+  request.open("GET", "chrome://pterosaur/content/vimbed/plugin/vimbed.vim", true);  // async=true
+  request.responseType = "text";
+  request.onerror = function(event) {
+    console.log("Failed to load vimbed from pterosaur.");
+  };
+  request.onload = function(event) {
+    if (request.response) {
+      destination.write(request.response);
+    }
+    else
+      request.onerror(event);
+  };
+  request.send();
+}
+
 var savedText = null;
 var savedCursorStart = null;
 var savedCursorEnd = null;
@@ -1567,6 +1590,8 @@ var dir;
 var tmpfile;
 var metaTmpfile;
 var messageTmpfile;
+var vimbedFile;
+
 var debugTerminal = null;
 var oldDebug = "";
 
