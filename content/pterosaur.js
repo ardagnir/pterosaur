@@ -52,10 +52,10 @@ imports.forEach(function(item){
 })
 
 var head = null;
-if (typeof dactyl != "undefined"){
-  head = dactyl;
-} else if (typeof liberator != "undefined"){
-  head = liberator;
+if (typeof thisWindow.dactyl != "undefined"){
+  head = thisWindow.dactyl;
+} else if (typeof thisWindow.liberator != "undefined"){
+  head = thisWindow.liberator;
 }
 
 if(!head) {
@@ -1590,12 +1590,12 @@ if(borrowed.commands){
 
 exports.setup = function(thisWindow, startupAttempts){
   var head;
-  if (typeof dactyl != "undefined"){
-    if (dactyl.fullyInitialized){
-      head = dactyl;
+  if (typeof thisWindow.dactyl != "undefined"){
+    if (thisWindow.dactyl.fullyInitialized){
+      head = thisWindow.dactyl;
     }
-  } else if (typeof liberator != "undefined"){
-    head = liberator;
+  } else if (typeof thisWindow.liberator != "undefined"){
+    head = thisWindow.liberator;
   }
   if(head || startupAttempts > 4){
     thisWindow.pterosaurWindow = (new pterosaurWindow(thisWindow));
