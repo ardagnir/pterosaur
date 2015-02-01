@@ -92,6 +92,7 @@ defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
 defaultPrefs.setCharPref("debugtty", "");
+defaultPrefs.setBoolPref("contentonly", false);
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (head) {
@@ -157,7 +158,8 @@ this.data.getTextBoxType = function(){return textBoxType;}
 setTimeout(startVimbed, 1);
 
 function useFullVim(){
-  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(borrowed.focusedElement() && borrowed.focusedElement().type === "password")
+  var focusedElement = borrowed.focusedElement();
+  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(focusedElement && focusedElement.type === "password") && !(prefs.getBoolPref("contentonly") && focusedElement.ownerDocument != thisWindow.content.document);
 }
 
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
