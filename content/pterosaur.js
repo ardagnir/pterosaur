@@ -131,7 +131,14 @@ else
     commands: null,
     options: null,
     focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
-    echo: function(out) {if(out != ""){setTimeout(function(){modeText.textContent = out},1);}},
+    echo: function(out) {
+      if(out === ""){
+        borrowed.modes.updateModeline();
+      }
+      else {
+        setTimeout(function(){modeText.textContent = out},1);
+      }
+    },
     echoerr: function(out) {thisWindow.alert(out)},
     feedkey: pterosaur.minidactyl.feedkey,
     focus: function(element){if (element) {element.focus()}},
@@ -328,6 +335,8 @@ function updateFromVim(){
         //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
         if( borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
+        if(!head)
+          modestring = "COMMAND "
         borrowed.echo(modestring + metadata[1], borrowed.commandline.FORCE_SINGLELINE);
         foundChange = true;
       }
@@ -345,7 +354,7 @@ function updateFromVim(){
     }
 
     let messages = messageTmpfile.read();
-    if (messages && messages!=="\n")
+    if (messages && messages!=="\n" && vimMode!="c")
     {
       //TODO: If another message is written right now, we could lose it.
       messageTmpfile.write("");
@@ -353,7 +362,7 @@ function updateFromVim(){
       if(!unsent)
       {
         //TODO: We don't neccesarily want singleline, but without it we lose focus.
-        borrowed.echo(messages, borrowed.commandline.FORCE_SINGLELINE);
+        borrowed.echo(messages.split("\n").slice(-1)[0], borrowed.commandline.FORCE_SINGLELINE);
       }
 
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
@@ -900,6 +909,9 @@ function cleanupForTextbox() {
       }
       pterFocused = null;
     }
+    if(!head){
+      modeLine.style.display="none";
+    }
     console.log("cleanup");
     unsent=1;
 }
@@ -988,6 +1000,9 @@ function updateTextbox(preserveMode) {
     if (textBoxType) {
       if(borrowed.modes.main == borrowed.modes.INSERT){
         borrowed.modes.push(borrowed.modes.VIM_INSERT);
+      }
+      if(!head){
+        modeLine.style.display="block";
       }
       if (textBox) {
           var text = textBoxGetValue()
