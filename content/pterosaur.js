@@ -163,7 +163,7 @@ function useFullVim(){
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
 
 function leanVim(){
-  return textBoxType === "ace" ||  [borrowed.modes.INSERT, borrowed.modes.AUTOCOMPLETE, borrowed.modes.VIM_SELECT].indexOf(borrowed.modes.main) == -1;
+  return textBoxType === "ace" ||  [borrowed.modes.VIM_INSERT, borrowed.modes.VIM_SELECT].indexOf(borrowed.modes.main) == -1;
 }
 //Strict vim is like leanvim but also forces tabs and carriage returns to vim
 function strictVim(){
