@@ -52,7 +52,12 @@ var Environment = Components.classes["@mozilla.org/process/environment;1"].getSe
 
 Components.utils.import("resource://gre/modules/FileUtils.jsm");
 
-var minidactyl = function(){
+var minidactyl = function(console, window, editing, focusManager){
+    this.console = console;
+    this.window = window;
+    this.editing = editing;
+    this.focusManager = focusManager;
+    var thisInst = this;
     /**
      * Converts a given DOM Node, Range, or Selection to a string. If
      * *html* is true, the output is HTML, otherwise it is presentation
@@ -302,6 +307,8 @@ var minidactyl = function(){
         }
         evt['type'] = type;
         evt['key'] = key;
+        evt['bubbles'] = true;
+        evt['cancelable'] = true;
         //let evt = update({}, evt_obj, { type: type });
         if (type !== "keypress" && !evt.keyCode)
           evt.keyCode = evt._keyCode || 0;
@@ -327,7 +334,7 @@ var minidactyl = function(){
 
         //let event = DOM.Event(doc, type, evt_obj);
         //let event = target.ownerDocument.createEvent('KeyEvents');
-        let event = new thisInst.KeyboardEvent(type, evt);
+        let event = new thisInst.window.KeyboardEvent(type, evt);
         //if (!evt_obj.dactylString && !mode)
           thisInst.dispatchEvent(target, event, evt);
         //else if (type === "keypress")
@@ -438,7 +445,6 @@ var minidactyl = function(){
       catch(e) {}
       return range;
     };
-    var thisInst = this;
     this.keyHandler = {
       mappings: {},
       listener: null,
@@ -448,29 +454,13 @@ var minidactyl = function(){
       removeKeyDown: function(key){
         delete thisInst.keyHandler.mappings[key];
       },
-      setListener: function(listener){
-        if(thisInst.keyHandler.listener != listener){
-          if(thisInst.keyHandler.listener) {
-            try{
-              thisInst.keyHandler.listener.removeEventListener("keydown", thisInst.keyHandler.keydown, false);
-            } catch(e){}
-            try{
-              thisInst.keyHandler.listener.removeEventListener("keypress", thisInst.keyHandler.keypress, false);
-            } catch(e){}
-          }
-          thisInst.keyHandler.listener = listener;
-          if(listener) {
-            thisInst.keyHandler.listener.addEventListener("keydown", thisInst.keyHandler.keydown, false);
-            thisInst.keyHandler.listener.addEventListener("keypress", thisInst.keyHandler.keypress, false);
-          }
-        }
-      },
       keydown: function(e){
         if (thisInst.editing()){
           var callback = thisInst.keyHandler.mappings[thisInst.stringifyEvent(e)];
           if (callback) {
             let returnVal = callback();
             if(!returnVal) {
+              e.stopPropagation();
               e.preventDefault();
             }
             return returnVal;
@@ -486,11 +476,15 @@ var minidactyl = function(){
       keypress: function(e){
         let returnVal = thisInst.keyHandler.onKeyPress(e);
         if(!returnVal) {
+          e.stopPropagation();
           e.preventDefault();
         }
         return returnVal;
       }
     };
+    thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
+    thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
+
     this.parse = function parse(input, unknownOk=true) {
         //if (isArray(input))
          //   return array.flatten(input.map(k => this.parse(k, unknownOk)));

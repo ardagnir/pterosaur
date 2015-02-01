@@ -71,12 +71,9 @@ var plugin_string;
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
-pterosaur.minidactyl = new minidactyl();
-pterosaur.minidactyl.console = console;
-pterosaur.minidactyl.window = thisWindow;
-pterosaur.minidactyl.KeyboardEvent = thisWindow.KeyboardEvent;
+var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 
-pterosaur.minidactyl.editing = function () {return textBoxType !== ""};
+pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager);
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
@@ -95,10 +92,6 @@ defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
 defaultPrefs.setCharPref("debugtty", "");
-
-var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
-
-pterosaur.minidactyl.focusManager = focusManager;
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (head) {
@@ -926,9 +919,6 @@ function setupForTextbox() {
 
     if(pterFocused){
       pterFocused.ownerDocument.addEventListener("click", pterClicked, false);
-      if(!head){
-        pterosaur.minidactyl.keyHandler.setListener(pterFocused);
-      }
     }
 
     updateTextbox(0);
@@ -1211,7 +1201,7 @@ function getKeyBehavior(textBoxType, key) {
     return "vim";
   }
   if(key === "<Return>"){
-    if(textBoxType === "codeMirror") //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
+    if(textBoxType === "codeMirror" && head) //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
       return "vim";
     else
       return "linecheck";
@@ -1261,6 +1251,9 @@ function specialKeyHandler(key) {
               if (oldFocus == borrowed.focusedElement() && (behavior != "linecheck" || newLineCheck(value) && (behavior != "spaceCheck" || spaceCheck(value)))) {
                 textBoxSetValue(value);
                 textBoxSetSelectionFromSaved(cursorPos);
+              }
+              else {
+                sendToVim=""
               }
             }
           } catch(e) {
