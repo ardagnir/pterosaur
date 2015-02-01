@@ -118,7 +118,7 @@ if (head) {
 else
 {
   var borrowed = {
-    modes: {"INSERT": {char:'I', name: "INSERT"},
+    modes: {"INSERT": {char:'I', name: ""},
             addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
             main: null,
             pop: function(){borrowed.modes.main = borrowed.modes.INSERT; borrowed.modes.updateModeline();},
@@ -442,10 +442,14 @@ function updateFromVim(){
       }
       borrowed.modes.push(borrowed.modes.VIM_REPLACE);
     }
-    else if (vimMode === "i" && borrowed.modes.main !== borrowed.modes.INSERT)
+    else if (vimMode === "i" && borrowed.modes.main !== borrowed.modes.VIM_INSERT)
     {
       borrowed.echo("");
-      borrowed.modes.pop();
+      if (borrowed.modes.main !== borrowed.modes.INSERT)
+      {
+        borrowed.modes.pop();
+      }
+      borrowed.modes.push(borrowed.modes.VIM_INSERT);
     }
 
     if (foundChange){
@@ -978,6 +982,9 @@ function updateTextbox(preserveMode) {
     }
 
     if (textBoxType) {
+      if(borrowed.modes.main == borrowed.modes.INSERT){
+        borrowed.modes.push(borrowed.modes.VIM_INSERT);
+      }
       if (textBox) {
           var text = textBoxGetValue()
           var cursorPos = textBoxGetSelection()
@@ -1123,6 +1130,42 @@ function onKeyPress(eventList) {
     return KILL;
 }
 
+borrowed.modes.addMode("VIM_INSERT", {
+  char: "I",
+  desription: "Vim normal mode",
+  bases: [borrowed.modes.INSERT]
+});
+
+borrowed.modes.addMode("VIM_NORMAL", {
+  char: "N",
+  desription: "Vim normal mode",
+  bases: [borrowed.modes.VIM_INSERT]
+});
+
+borrowed.modes.addMode("VIM_COMMAND", {
+  char: "e",
+  desription: "Vim normal mode",
+  bases: [borrowed.modes.VIM_NORMAL]
+});
+
+borrowed.modes.addMode("VIM_SELECT", {
+  char: "s",
+  desription: "Vim selection mode",
+  bases: [borrowed.modes.VIM_NORMAL]
+});
+
+borrowed.modes.addMode("VIM_VISUAL", {
+  char: "V",
+  desription: "Vim visual mode",
+  bases: [borrowed.modes.VIM_NORMAL]
+});
+
+borrowed.modes.addMode("VIM_REPLACE", {
+  char: "R",
+  desription: "Vim replace mode",
+  bases: [borrowed.modes.VIM_NORMAL]
+});
+
 if(head){
   borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
 } else {
@@ -1236,30 +1279,30 @@ function handleLeanVim() {
     leanVimCheck = leanVim() && useFullVim();
     if (leanVimCheck) {
       borrowed.mappings.add(
-          [borrowed.modes.INSERT],
+          [borrowed.modes.VIM_INSERT],
           ["<Up>"],
           ["Override websites' up behavior"],
           function(){queueForVim(ESC + '[A');});
       borrowed.mappings.add(
-          [borrowed.modes.INSERT],
+          [borrowed.modes.VIM_INSERT],
           ["<Down>"],
           ["Override websites' down behavior"],
           function(){queueForVim(ESC + '[B');});
       borrowed.mappings.add(
-          [borrowed.modes.INSERT],
+          [borrowed.modes.VIM_INSERT],
           ["<Right>"],
           ["Override websites' right behavior"],
           function(){queueForVim(ESC + '[C');});
       borrowed.mappings.add(
-          [borrowed.modes.INSERT],
+          [borrowed.modes.VIM_INSERT],
           ["<Left>"],
           ["Override websites' left behavior"],
           function(){queueForVim(ESC + '[D');});
     } else {
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Up>");
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Down>");
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Right>");
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Left>");
+      borrowed.mappings.remove(borrowed.modes.VIM_INSERT, "<Up>");
+      borrowed.mappings.remove(borrowed.modes.VIM_INSERT, "<Down>");
+      borrowed.mappings.remove(borrowed.modes.VIM_INSERT, "<Right>");
+      borrowed.mappings.remove(borrowed.modes.VIM_INSERT, "<Left>");
     }
 }
 
@@ -1267,13 +1310,13 @@ function handleStrictVim() {
     strictVimCheck = strictVim() && useFullVim();
     if (strictVimCheck) {
       borrowed.mappings.add(
-          [borrowed.modes.INSERT],
+          [borrowed.modes.VIM_INSERT],
           ["<Tab>"],
           ["Override websites' tab behavior"],
           function(){specialKeyHandler("<Tab>");});
 
     } else {
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Tab>");
+      borrowed.mappings.remove(borrowed.modes.VIM_INSERT, "<Tab>");
     }
 }
 
@@ -1286,7 +1329,7 @@ function cleanupPterosaur() {
           borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
         }
         borrowed.mappings.add(
-            [borrowed.modes.INSERT],
+            [borrowed.modes.VIM_INSERT],
             ["<Esc>", "<C-[>"],
             ["Handle escape key"],
             function(){
@@ -1300,7 +1343,7 @@ function cleanupPterosaur() {
             });
 
         borrowed.mappings.add(
-            [borrowed.modes.INSERT],
+            [borrowed.modes.VIM_INSERT],
             ["<BS>"],
             ["Handle backspace key"],
             function(){
@@ -1311,7 +1354,7 @@ function cleanupPterosaur() {
             });
 
         borrowed.mappings.add(
-            [borrowed.modes.INSERT],
+            [borrowed.modes.VIM_INSERT],
             ["<C-r>"],
             "Override refresh and send <C-r> to vim.",
             function(){
@@ -1320,7 +1363,7 @@ function cleanupPterosaur() {
             {noTransaction: true});
 
         borrowed.mappings.add(
-            [borrowed.modes.INSERT],
+            [borrowed.modes.VIM_INSERT],
             ["<S-Return>"],
             ["Override websites' carriage return behavior"],
             function(){
@@ -1329,18 +1372,18 @@ function cleanupPterosaur() {
             {noTransaction: true});
 
         borrowed.mappings.add(
-            [borrowed.modes.INSERT],
+            [borrowed.modes.VIM_INSERT],
             ["<Return>"],
             ["Override websites' carriage return behavior"],
             function(){return specialKeyHandler("<Return>");});
     }
     else {
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<Esc>");
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<C-[>");
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<BS>");
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<C-r>");
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<Return>");
-        borrowed.mappings.remove( borrowed.modes.INSERT, "<S-Return>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<Esc>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<C-[>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<BS>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<C-r>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<Return>");
+        borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<S-Return>");
 
         if(head) {
           borrowed.mappings.add([borrowed.modes.INSERT],
@@ -1528,7 +1571,9 @@ function killVimbed() {
 
 this.onUnload = function(){
   runningPlugin = false;
-  thisWindow.document.getElementById("main-window").removeChild(modeLine)
+  if(!head){
+    thisWindow.document.getElementById("main-window").removeChild(modeLine)
+  }
   killVimbed();
 }
 
@@ -1543,38 +1588,7 @@ var waitForVim = 0;
 
 var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
 
-borrowed.modes.addMode("VIM_NORMAL", {
-  char: "N",
-  desription: "Vim normal mode",
-  bases: [borrowed.modes.INSERT]
-});
-
-
-borrowed.modes.addMode("VIM_COMMAND", {
-  char: "e",
-  desription: "Vim normal mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_SELECT", {
-  char: "s",
-  desription: "Vim selection mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_VISUAL", {
-  char: "V",
-  desription: "Vim visual mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_REPLACE", {
-  char: "R",
-  desription: "Vim replace mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-var pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.AUTOCOMPLETE, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE]
+var pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.VIM_INSERT, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE]
 
 if(borrowed.commands){
   borrowed.commands.add(["pterosaurrestart"],
