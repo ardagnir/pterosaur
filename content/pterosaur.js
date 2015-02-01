@@ -58,6 +58,13 @@ if (typeof dactyl != "undefined"){
   head = liberator;
 }
 
+if(!head) {
+  var modeLine = thisWindow.document.createElement('div');
+  var modeText = thisWindow.document.createTextNode('');
+  modeLine.appendChild(modeText);
+  thisWindow.document.getElementById("main-window").appendChild(modeLine)
+}
+
 var plugin_string;
 
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
@@ -111,16 +118,18 @@ if (head) {
 else
 {
   var borrowed = {
-    modes: {"INSERT": {char:'I'},
-            addMode: function(name, object) { borrowed.modes[name] = object; },
-            main: null, pop: function(){borrowed.modes.main = borrowed.modes.INSERT;},
-            push: function(mode){borrowed.modes.main = mode;},
-            reset: function(){focusManager.clearFocus(thisWindow);}
+    modes: {"INSERT": {char:'I', name: "INSERT"},
+            addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
+            main: null,
+            pop: function(){borrowed.modes.main = borrowed.modes.INSERT; borrowed.modes.updateModeline();},
+            push: function(mode){borrowed.modes.main = mode; borrowed.modes.updateModeline()},
+            reset: function(){focusManager.clearFocus(thisWindow);},
+            updateModeline: function(){modeText.textContent = borrowed.modes.main.name.replace("VIM_","");}
     },
     commands: null,
     options: null,
     focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
-    echo: function(out) {console.log(out)}, //TODO: This is definitly not echoy enough, build an overlay.
+    echo: function(out) {if(out != ""){setTimeout(function(){modeText.textContent = out},1);}},
     echoerr: function(out) {thisWindow.alert(out)},
     feedkey: minidactyl.feedkey,
     focus: function(element){if (element) {element.focus()}},
@@ -136,6 +145,7 @@ else
     Events: {PASS_THROUGH: {}}
   }
   borrowed.modes.main = borrowed.modes.INSERT;
+  borrowed.modes.updateModeline();
 }
 
 this.data.borrowed = borrowed;
@@ -1505,7 +1515,6 @@ var runningPlugin = true;
 var unsent = 1;
 
 function killVimbed() {
-  runningPlugin = false;
   clearTimeout(vimRestartTimeout);
   if (vimStdin) {
     vimStdin.close();
@@ -1517,7 +1526,11 @@ function killVimbed() {
   }
 }
 
-this.onUnload = killVimbed;
+this.onUnload = function(){
+  runningPlugin = false;
+  thisWindow.document.getElementById("main-window").removeChild(modeLine)
+  killVimbed();
+}
 
 //Is pterosaur being used?
 var usingFullVim = false;
