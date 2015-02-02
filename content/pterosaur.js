@@ -96,6 +96,7 @@ defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
 defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setBoolPref("contentonly", false);
+defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
 if (pluginType == "dactyl") {
@@ -1498,13 +1499,31 @@ function startVimbed() {
 
   var stdoutTimeout;
 
+
+  var pterosaurRcExists = false;
+
+  try{
+    FileUtils.File(prefs.getCharPref("rcfile"));
+    pterosaurRcExists = true;
+  } catch(e){ }
+
   var startVimProcess = function(){
     vimProcess = subprocess.call({ url: thisWindow.URL,
       command: vimFile.path,
-      arguments: ["--servername", "pterosaur_" + uid,
+      arguments: function(){
+        if(pterosaurRcExists){
+          return ["--servername", "pterosaur_" + uid,
                   "-s", "/dev/null",
                   "-S", vimbedFile.path,
-                  '+call Vimbed_SetupVimbed("","")'],
+                  "-S", prefs.getCharPref("rcfile"),
+                  '+call Vimbed_SetupVimbed("","")'];
+        } else {
+          return ["--servername", "pterosaur_" + uid,
+                  "-s", "/dev/null",
+                  "-S", vimbedFile.path,
+                  '+call Vimbed_SetupVimbed("","")'];
+        }
+      }(),
       environment:  env_variables,
       charet: 'UTF-8',
       stdin: function(stdin){
