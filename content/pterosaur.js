@@ -73,7 +73,7 @@ Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 
-pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager);
+pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, head);
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
