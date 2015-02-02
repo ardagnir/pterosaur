@@ -305,7 +305,7 @@ function stateCheck(){
       return false;
     }
 
-    //THe text was changd outside of vim
+    //The text was changd outside of vim
     if (savedText != null && textBoxGetValue() != savedText)
     {
       updateTextbox(1);
@@ -772,7 +772,7 @@ function textBoxSetSelection_codeMirror(start, end){
 function htmlToText(inText) {
   var tmp = thisWindow.content.document.createElement('div');
   inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
-  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n'); //Preserve newlines
+  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n').replace(/&nbsp;/g, ' '); //Preserve newlines
   return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
 }
 
