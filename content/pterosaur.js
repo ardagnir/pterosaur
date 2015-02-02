@@ -173,10 +173,20 @@ function setupPluginConnections(){
       feedkey: pterosaur.minidactyl.feedkey,
       focus: function(element){if (element) {element.focus()}},
       editor: head.plugins.editor,
-      mappings: head.plugins.mappings,
+      mappings: {
+        add: function(mode, keylist, desc, callback){
+          keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
+        }, remove: function(mode, key){
+          return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
+        }
+      },
     }
     borrowed.modes.push = borrowed.modes.set;
-    borrowed.modes.pop = function(){};
+    borrowed.modes.pop = function(){
+      if(borrowed.modes.main == borrowed.modes.VIM_COMMAND) {
+        borrowed.modes.set(borrowed.modes.VIM_NORMAL);
+      }
+    };
 
     borrowed.commands.add(["pterosaurrestart"],
         "Restarts vim process",
@@ -267,6 +277,9 @@ function setupPluginConnections(){
 }
 this.getTextBox = function(){return textBox;}
 this.getTextBoxType = function(){return textBoxType;}
+this.strictVim = strictVim;
+this.leanVim = leanVim;
+this.useFullVim = useFullVim;
 
 setupPluginConnections();
 
@@ -443,9 +456,9 @@ function updateFromVim(){
         lastVimCommand = metadata[1];
         let modestring = "";
         //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
-        if( borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
+        if(pluginType == "dactyl" && borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
-        if(!pluginType)
+        else if(!pluginType)
           modestring = "COMMAND "
         borrowed.echo(modestring + metadata[1]);
         foundChange = true;
@@ -1303,17 +1316,11 @@ function specialKeyHandler(key) {
           }
         }
 
-        if(behavior != "vim"){
-          allowedToSend = false;
-        }
         if (behavior !== "web") {
           if (key === "<Return>") {
             queueForVim("\r");
           } else if (key === "<Tab>"){
             queueForVim("\t");
-          }
-          if (behavior=="vim"){
-            return;
           }
         }
 
