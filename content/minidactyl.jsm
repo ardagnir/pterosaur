@@ -501,6 +501,13 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
       }
     }
 
+    this.shutdown = function(){
+      if(this.pluginType != "dactyl"){
+        thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
+        thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
+      }
+    }
+
     this.parse = function parse(input, unknownOk=true) {
         //if (isArray(input))
          //   return array.flatten(input.map(k => this.parse(k, unknownOk)));

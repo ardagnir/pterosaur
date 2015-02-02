@@ -135,14 +135,13 @@ function setupPluginConnections(){
       commands: head.plugins.commands,
       options: head.plugins.options,
       focusedElement: function() {return head.focusedElement;},
-      echo: head.echo,
+      echo: function(msg){head.echo(msg, head.plugins.commandline.FORCE_SINGLELINE);},
       echoerr: head.echoerr,
       Events: head.plugins.Events,
       feedkey: head.plugins.events.feedkeys,
       focus: function(element){borrowed.focus(element)},
       editor: head.plugins.editor,
       mappings: head.plugins.mappings.builtin,
-      commandline: head.plugins.commandline,
     }
 
     if(usingFullVim){
@@ -167,7 +166,7 @@ function setupPluginConnections(){
       commands: head.plugins.commands,
       options: head.plugins.options,
       focusedElement: function() {return head.focus;},
-      echo: head.echo,
+      echo: function(msg){head.echo(msg, head.plugins.commandline.FORCE_SINGLELINE);},
       echoerr: head.echoerr,
       Events: head.plugins.Events,
       //feedkey: head.plugins.events.feedkeys,
@@ -175,7 +174,6 @@ function setupPluginConnections(){
       focus: function(element){if (element) {element.focus()}},
       editor: head.plugins.editor,
       mappings: head.plugins.mappings,
-      commandline: head.plugins.commandline,
     }
     borrowed.modes.push = borrowed.modes.set;
     borrowed.modes.pop = function(){};
@@ -221,7 +219,6 @@ function setupPluginConnections(){
           return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
         }
       },
-      commandline:{FORCE_SINGLELINE: 0},
       Events: {PASS_THROUGH: {}}
     }
     borrowed.modes.main = borrowed.modes.INSERT;
@@ -450,7 +447,7 @@ function updateFromVim(){
           modestring = "VIM COMMAND "
         if(!pluginType)
           modestring = "COMMAND "
-        borrowed.echo(modestring + metadata[1], borrowed.commandline.FORCE_SINGLELINE);
+        borrowed.echo(modestring + metadata[1]);
         foundChange = true;
       }
     }
@@ -475,7 +472,7 @@ function updateFromVim(){
       if(!unsent)
       {
         //TODO: We don't neccesarily want singleline, but without it we lose focus.
-        borrowed.echo(messages.split("\n").slice(-1)[0], borrowed.commandline.FORCE_SINGLELINE);
+        borrowed.echo(messages.split("\n").slice(-1)[0]);
       }
 
       //We've clearing the entered command. Don't need/want to clear it later and lose our message.
@@ -1713,9 +1710,10 @@ function killVimbed() {
 
 this.onUnload = function(){
   runningPlugin = false;
-  if(!head){
+  if(!pluginType){
     thisWindow.document.getElementById("main-window").removeChild(modeLine)
   }
+  pterosaur.minidactyl.shutdown();
   killVimbed();
 }
 }
