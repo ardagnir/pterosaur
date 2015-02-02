@@ -67,7 +67,7 @@ pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return tex
 var vimNsIProc = null;
 var vimPath = "";
 try{
-  vimPath = pterosaur.minidactyl.pathSearch("vim");
+  vimPath = pterosaur.minidactyl.pathSearch("vim").path;
 }
 catch (e){
 }
