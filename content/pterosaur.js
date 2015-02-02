@@ -1316,6 +1316,7 @@ function specialKeyHandler(key) {
           }
         }
 
+        allowedToSend = false;
         if (behavior !== "web") {
           if (key === "<Return>") {
             queueForVim("\r");
