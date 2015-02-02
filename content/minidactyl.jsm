@@ -52,7 +52,7 @@ var Environment = Components.classes["@mozilla.org/process/environment;1"].getSe
 
 Components.utils.import("resource://gre/modules/FileUtils.jsm");
 
-var minidactyl = function(console, window, editing, focusManager, head){
+var minidactyl = function(console, window, editing, focusManager, pluginType){
     this.console = console;
     this.window = window;
     this.editing = editing;
@@ -482,7 +482,7 @@ var minidactyl = function(console, window, editing, focusManager, head){
         return returnVal;
       }
     };
-    if(!head){
+    if(pluginType != "dactyl"){
       thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
       thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
     }

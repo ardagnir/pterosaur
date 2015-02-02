@@ -53,10 +53,13 @@ imports.forEach(function(item){
 })
 
 var head = null;
+var pluginType = "";
 if (typeof thisWindow.dactyl != "undefined"){
   head = thisWindow.dactyl;
+  pluginType = "dactyl";
 } else if (typeof thisWindow.liberator != "undefined"){
   head = thisWindow.liberator;
+  pluginType = "vimperator";
 }
 
 if(!head) {
@@ -73,7 +76,7 @@ Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 
-pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, head);
+pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, pluginType);
 
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
@@ -95,21 +98,40 @@ defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setBoolPref("contentonly", false);
 
 //TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
-if (head) {
+if (pluginType == "dactyl") {
   var borrowed = {
     modes: head.plugins.modes,
     commands: head.plugins.commands,
     options: head.plugins.options,
-    focusedElement: function() {return head.focusedElement || head.focus;},
+    focusedElement: function() {return head.focusedElement;},
     echo: head.echo,
     echoerr: head.echoerr,
     Events: head.plugins.Events,
     feedkey: head.plugins.events.feedkeys,
-    focus: function(element){if(typeof dactyl != "undefined"){borrowed.focus(element)} else {if (element) {element.focus()}}},
+    focus: function(element){borrowed.focus(element)},
     editor: head.plugins.editor,
     mappings: head.plugins.mappings.builtin,
     commandline: head.plugins.commandline,
   }
+}
+else if (pluginType == "vimperator") {
+  var borrowed = {
+    modes: head.plugins.modes,
+    commands: head.plugins.commands,
+    options: head.plugins.options,
+    focusedElement: function() {return head.focus;},
+    echo: head.echo,
+    echoerr: head.echoerr,
+    Events: head.plugins.Events,
+    //feedkey: head.plugins.events.feedkeys,
+    feedkey: pterosaur.minidactyl.feedkey,
+    focus: function(element){if (element) {element.focus()}},
+    editor: head.plugins.editor,
+    mappings: head.plugins.mappings,
+    commandline: head.plugins.commandline,
+  }
+  borrowed.modes.push = borrowed.modes.set;
+  borrowed.modes.pop = function(){};
 }
 else
 {
@@ -159,7 +181,7 @@ setTimeout(startVimbed, 1);
 
 function useFullVim(){
   var focusedElement = borrowed.focusedElement();
-  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(focusedElement && focusedElement.type === "password") && !(prefs.getBoolPref("contentonly") && focusedElement.ownerDocument != thisWindow.content.document);
+  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(focusedElement && focusedElement.type === "password") && !(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument != thisWindow.content.document);
 }
 
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
@@ -943,8 +965,8 @@ function updateTextbox(preserveMode) {
 
     if (textBox == null)
     {
-      if (borrowed.editor){
-        textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow);
+      if (borrowed.editor && borrowed.editor.getEditor){
+        textBox = borrowed.editor.getEditor(thisWindow.document.commandDispatcher.focusedWindow);
       }
       if(textBox) {
         textBoxType = "designMode";
@@ -976,7 +998,7 @@ function updateTextbox(preserveMode) {
       }
       else {
         if(borrowed.editor){
-          textBox = borrowed.editor.getEditor(document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
+          textBox = borrowed.editor.getEditor(thisWindow.document.commandDispatcher.focusedWindow); //Tabbing into designmode sets focusedEelement to html instead of null
         } else {
           textBox = null;
         }
@@ -1177,7 +1199,7 @@ borrowed.modes.addMode("VIM_REPLACE", {
   bases: [borrowed.modes.VIM_NORMAL]
 });
 
-if(head){
+if(pluginType == "dactyl"){
   borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
 } else {
   pterosaur.minidactyl.keyHandler.onKeyPress = function(e){
