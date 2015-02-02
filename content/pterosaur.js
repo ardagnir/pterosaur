@@ -52,131 +52,226 @@ imports.forEach(function(item){
   this[item] = thisWindow[item];
 })
 
-var head = null;
-var pluginType = "";
-if (typeof thisWindow.dactyl != "undefined"){
-  head = thisWindow.dactyl;
-  pluginType = "dactyl";
-} else if (typeof thisWindow.liberator != "undefined"){
-  head = thisWindow.liberator;
-  pluginType = "vimperator";
-}
-
-if(!head) {
-  var modeLine = thisWindow.document.createElement('div');
-  var modeText = thisWindow.document.createTextNode('');
-  modeLine.appendChild(modeText);
-  thisWindow.document.getElementById("main-window").appendChild(modeLine)
-}
-
-var plugin_string;
+var pluginType = "placeholder";
 
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
-
-pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, pluginType);
-
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
-
-var vimNsIProc = null;
-
 var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
 var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getDefaultBranch("extensions.pterosaur.");
 
+pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, "");
+
+var vimNsIProc = null;
 var vimPath = "";
 try{
   vimPath = pterosaur.minidactyl.pathSearch("vim");
 }
 catch (e){
 }
-defaultPrefs.setCharPref("vimbinary", vimPath);
+
+defaultPrefs.setBoolPref("contentonly", false);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
+defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
-defaultPrefs.setBoolPref("contentonly", false);
 defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
 
-//TODO: Some of these don't need to be borrowed. Others should communicate with pentadactyl/vimperator better.
-if (pluginType == "dactyl") {
-  var borrowed = {
-    modes: head.plugins.modes,
-    commands: head.plugins.commands,
-    options: head.plugins.options,
-    focusedElement: function() {return head.focusedElement;},
-    echo: head.echo,
-    echoerr: head.echoerr,
-    Events: head.plugins.Events,
-    feedkey: head.plugins.events.feedkeys,
-    focus: function(element){borrowed.focus(element)},
-    editor: head.plugins.editor,
-    mappings: head.plugins.mappings.builtin,
-    commandline: head.plugins.commandline,
-  }
-}
-else if (pluginType == "vimperator") {
-  var borrowed = {
-    modes: head.plugins.modes,
-    commands: head.plugins.commands,
-    options: head.plugins.options,
-    focusedElement: function() {return head.focus;},
-    echo: head.echo,
-    echoerr: head.echoerr,
-    Events: head.plugins.Events,
-    //feedkey: head.plugins.events.feedkeys,
-    feedkey: pterosaur.minidactyl.feedkey,
-    focus: function(element){if (element) {element.focus()}},
-    editor: head.plugins.editor,
-    mappings: head.plugins.mappings,
-    commandline: head.plugins.commandline,
-  }
-  borrowed.modes.push = borrowed.modes.set;
-  borrowed.modes.pop = function(){};
-}
-else
-{
-  var borrowed = {
-    modes: {"INSERT": {char:'I', name: ""},
-            addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
-            main: null,
-            pop: function(){borrowed.modes.main = borrowed.modes.INSERT; borrowed.modes.updateModeline();},
-            push: function(mode){borrowed.modes.main = mode; borrowed.modes.updateModeline()},
-            reset: function(){focusManager.clearFocus(thisWindow);},
-            updateModeline: function(){modeText.textContent = borrowed.modes.main.name.replace("VIM_","");}
-    },
-    commands: null,
-    options: null,
-    focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
-    echo: function(out) {
-      if(out === ""){
-        borrowed.modes.updateModeline();
-      }
-      else {
-        setTimeout(function(){modeText.textContent = out},1);
-      }
-    },
-    echoerr: function(out) {thisWindow.alert(out)},
-    feedkey: pterosaur.minidactyl.feedkey,
-    focus: function(element){if (element) {element.focus()}},
-    editor: null,
-    mappings: {
-      add: function(mode, keylist, desc, callback){
-        keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
-      }, remove: function(mode, key){
-        return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
-      }
-    },
-    commandline:{FORCE_SINGLELINE: 0},
-    Events: {PASS_THROUGH: {}}
-  }
-  borrowed.modes.main = borrowed.modes.INSERT;
-  borrowed.modes.updateModeline();
-}
+var borrowed;
+var modeLine;
+var modeText;
+//Is pterosaur being used?
+var usingFullVim = false;
+var strictVimCheck = false;
+var leanVimCheck = false;
 
-this.data.borrowed = borrowed;
-this.data.getTextBox = function(){return textBox;}
-this.data.getTextBoxType = function(){return textBoxType;}
+var debugMode =false;
+
+var waitForVim = 0;
+
+var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
+
+var pterosaurModes;
+
+function setupPluginConnections(){
+  var head;
+  var newPluginType;
+  if (typeof thisWindow.dactyl != "undefined"){
+    head = thisWindow.dactyl;
+    newPluginType = "dactyl";
+  } else if (typeof thisWindow.liberator != "undefined"){
+    head = thisWindow.liberator;
+    newPluginType = "vimperator";
+  } else {
+    head = null;
+    newPluginType = "";
+  }
+
+  setTimeout(setupPluginConnections, 5);
+  if(pluginType == newPluginType){
+    return;
+  }
+
+  var oldPluginType = pluginType;
+  pluginType = newPluginType;
+
+
+  if(!pluginType) {
+    modeLine = thisWindow.document.createElement('div');
+    modeText = thisWindow.document.createTextNode('');
+    modeLine.appendChild(modeText);
+    thisWindow.document.getElementById("main-window").appendChild(modeLine)
+  } else if (!oldPluginType) {
+    thisWindow.document.removeChild(modeLine);
+  }
+
+  pterosaur.minidactyl.setPluginType(pluginType);
+
+  if (pluginType == "dactyl") {
+    borrowed = {
+      modes: head.plugins.modes,
+      commands: head.plugins.commands,
+      options: head.plugins.options,
+      focusedElement: function() {return head.focusedElement;},
+      echo: head.echo,
+      echoerr: head.echoerr,
+      Events: head.plugins.Events,
+      feedkey: head.plugins.events.feedkeys,
+      focus: function(element){borrowed.focus(element)},
+      editor: head.plugins.editor,
+      mappings: head.plugins.mappings.builtin,
+      commandline: head.plugins.commandline,
+    }
+
+    if(usingFullVim){
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Space>");
+      borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
+    }
+
+    borrowed.commands.add(["pterosaurrestart"],
+        "Restarts vim process",
+        function () {
+          killVimbed();
+          startVimbed();
+        }, {
+          argCount: "0",
+        });
+
+    borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
+  }
+  else if (pluginType == "vimperator") {
+    borrowed = {
+      modes: head.plugins.modes,
+      commands: head.plugins.commands,
+      options: head.plugins.options,
+      focusedElement: function() {return head.focus;},
+      echo: head.echo,
+      echoerr: head.echoerr,
+      Events: head.plugins.Events,
+      //feedkey: head.plugins.events.feedkeys,
+      feedkey: pterosaur.minidactyl.feedkey,
+      focus: function(element){if (element) {element.focus()}},
+      editor: head.plugins.editor,
+      mappings: head.plugins.mappings,
+      commandline: head.plugins.commandline,
+    }
+    borrowed.modes.push = borrowed.modes.set;
+    borrowed.modes.pop = function(){};
+
+    borrowed.commands.add(["pterosaurrestart"],
+        "Restarts vim process",
+        function () {
+          killVimbed();
+          startVimbed();
+        }, {
+          argCount: "0",
+        });
+
+  } else {
+    borrowed = {
+      modes: {"INSERT": {char:'I', name: ""},
+              addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
+              main: null,
+              pop: function(){borrowed.modes.main = borrowed.modes.INSERT; borrowed.modes.updateModeline();},
+              push: function(mode){borrowed.modes.main = mode; borrowed.modes.updateModeline()},
+              reset: function(){focusManager.clearFocus(thisWindow);},
+              updateModeline: function(){modeText.textContent = borrowed.modes.main.name.replace("VIM_","");}
+      },
+      commands: null,
+      options: null,
+      focusedElement: function(){return focusManager.getFocusedElementForWindow(thisWindow, true, {});},
+      echo: function(out) {
+        if(out === ""){
+          borrowed.modes.updateModeline();
+        }
+        else {
+          setTimeout(function(){modeText.textContent = out},1);
+        }
+      },
+      echoerr: function(out) {thisWindow.alert(out)},
+      feedkey: pterosaur.minidactyl.feedkey,
+      focus: function(element){if (element) {element.focus()}},
+      editor: null,
+      mappings: {
+        add: function(mode, keylist, desc, callback){
+          keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
+        }, remove: function(mode, key){
+          return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
+        }
+      },
+      commandline:{FORCE_SINGLELINE: 0},
+      Events: {PASS_THROUGH: {}}
+    }
+    borrowed.modes.main = borrowed.modes.INSERT;
+    borrowed.modes.updateModeline();
+  }
+
+  borrowed.modes.addMode("VIM_INSERT", {
+    char: "I",
+    desription: "Vim normal mode",
+    bases: [borrowed.modes.INSERT]
+  });
+
+  borrowed.modes.addMode("VIM_NORMAL", {
+    char: "N",
+    desription: "Vim normal mode",
+    bases: [borrowed.modes.VIM_INSERT]
+  });
+
+  borrowed.modes.addMode("VIM_COMMAND", {
+    char: "e",
+    desription: "Vim normal mode",
+    bases: [borrowed.modes.VIM_NORMAL]
+  });
+
+  borrowed.modes.addMode("VIM_SELECT", {
+    char: "s",
+    desription: "Vim selection mode",
+    bases: [borrowed.modes.VIM_NORMAL]
+  });
+
+  borrowed.modes.addMode("VIM_VISUAL", {
+    char: "V",
+    desription: "Vim visual mode",
+    bases: [borrowed.modes.VIM_NORMAL]
+  });
+
+  borrowed.modes.addMode("VIM_REPLACE", {
+    char: "R",
+    desription: "Vim replace mode",
+    bases: [borrowed.modes.VIM_NORMAL]
+  });
+
+  pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.VIM_INSERT, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE];
+
+  pterosaur.borrowed = borrowed;
+}
+this.getTextBox = function(){return textBox;}
+this.getTextBoxType = function(){return textBoxType;}
+
+setupPluginConnections();
 
 setTimeout(startVimbed, 1);
 
@@ -353,7 +448,7 @@ function updateFromVim(){
         //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
         if( borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
           modestring = "VIM COMMAND "
-        if(!head)
+        if(!pluginType)
           modestring = "COMMAND "
         borrowed.echo(modestring + metadata[1], borrowed.commandline.FORCE_SINGLELINE);
         foundChange = true;
@@ -927,7 +1022,7 @@ function cleanupForTextbox() {
       }
       pterFocused = null;
     }
-    if(!head){
+    if(!pluginType){
       modeLine.style.display="none";
     }
     console.log("cleanup");
@@ -1016,7 +1111,7 @@ function updateTextbox(preserveMode) {
       if(borrowed.modes.main == borrowed.modes.INSERT){
         borrowed.modes.push(borrowed.modes.VIM_INSERT);
       }
-      if(!head){
+      if(!pluginType){
         modeLine.style.display="block";
       }
       if (textBox) {
@@ -1164,49 +1259,9 @@ function onKeyPress(eventList) {
     return KILL;
 }
 
-borrowed.modes.addMode("VIM_INSERT", {
-  char: "I",
-  desription: "Vim normal mode",
-  bases: [borrowed.modes.INSERT]
-});
-
-borrowed.modes.addMode("VIM_NORMAL", {
-  char: "N",
-  desription: "Vim normal mode",
-  bases: [borrowed.modes.VIM_INSERT]
-});
-
-borrowed.modes.addMode("VIM_COMMAND", {
-  char: "e",
-  desription: "Vim normal mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_SELECT", {
-  char: "s",
-  desription: "Vim selection mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_VISUAL", {
-  char: "V",
-  desription: "Vim visual mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-borrowed.modes.addMode("VIM_REPLACE", {
-  char: "R",
-  desription: "Vim replace mode",
-  bases: [borrowed.modes.VIM_NORMAL]
-});
-
-if(pluginType == "dactyl"){
-  borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
-} else {
-  pterosaur.minidactyl.keyHandler.onKeyPress = function(e){
-    var eventList = [e];
-    return onKeyPress(eventList);
-  }
+pterosaur.minidactyl.keyHandler.onKeyPress = function(e){
+  var eventList = [e];
+  return onKeyPress(eventList);
 }
 
 function queueForVim(key) {
@@ -1226,7 +1281,7 @@ function getKeyBehavior(textBoxType, key) {
     return "vim";
   }
   if(key === "<Return>"){
-    if(textBoxType === "codeMirror" && head) //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
+    if(textBoxType === "codeMirror" && pluginType) //Carriage returns are broken in pentadactyl for codemirror, so we have to handle them in vim
       return "vim";
     else
       return "linecheck";
@@ -1361,7 +1416,7 @@ function handleStrictVim() {
 function cleanupPterosaur() {
     usingFullVim = useFullVim();
     if (usingFullVim) {
-        if(head){
+        if(pluginType == "dactyl"){
           borrowed.mappings.remove(borrowed.modes.INSERT, "<Space>");
           borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
         }
@@ -1422,7 +1477,7 @@ function cleanupPterosaur() {
         borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<Return>");
         borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<S-Return>");
 
-        if(head) {
+        if(pluginType == "dactyl") {
           borrowed.mappings.add([borrowed.modes.INSERT],
               ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
               function () {
@@ -1503,8 +1558,10 @@ function startVimbed() {
   var pterosaurRcExists = false;
 
   try{
-    FileUtils.File(prefs.getCharPref("rcfile"));
-    pterosaurRcExists = true;
+    var rcFile = FileUtils.File(prefs.getCharPref("rcfile"));
+    if (rcFile.exists()) {
+      pterosaurRcExists = true;
+    }
   } catch(e){ }
 
   var startVimProcess = function(){
@@ -1661,30 +1718,6 @@ this.onUnload = function(){
   }
   killVimbed();
 }
-
-//Is pterosaur being used?
-var usingFullVim = false;
-var strictVimCheck = false;
-var leanVimCheck = false;
-
-var debugMode =false;
-
-var waitForVim = 0;
-
-var vimGame = false; //If vim is changing on it's own without user input (like in a game), we need to poll more aggressively
-
-var pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.VIM_INSERT, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE]
-
-if(borrowed.commands){
-  borrowed.commands.add(["pterosaurrestart"],
-      "Restarts vim process",
-      function () {
-        killVimbed();
-        startVimbed();
-      }, {
-        argCount: "0",
-      });
-  }
 }
 
 exports.setup = function(thisWindow, startupAttempts){
@@ -1696,7 +1729,7 @@ exports.setup = function(thisWindow, startupAttempts){
   } else if (typeof thisWindow.liberator != "undefined"){
     head = thisWindow.liberator;
   }
-  if(head || startupAttempts > 4){
+  if(head || startupAttempts > 1){
     thisWindow.pterosaurWindow = (new pterosaurWindow(thisWindow));
   } else {
     thisWindow.setTimeout(function(){exports.setup(thisWindow, (startupAttempts || 0) + 1);}, 300);

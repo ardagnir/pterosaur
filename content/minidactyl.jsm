@@ -57,6 +57,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
     this.window = window;
     this.editing = editing;
     this.focusManager = focusManager;
+    this.pluginType = pluginType;
     var thisInst = this;
     /**
      * Converts a given DOM Node, Range, or Selection to a string. If
@@ -482,9 +483,22 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         return returnVal;
       }
     };
-    if(pluginType != "dactyl"){
+
+    if(this.pluginType != "dactyl"){
       thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
       thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
+    }
+
+    this.setPluginType = function(newPluginType){
+      if(this.pluginType != "dactyl"){
+        thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
+        thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
+      }
+      this.pluginType = newPluginType;
+      if(this.pluginType != "dactyl"){
+        thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
+        thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
+      }
     }
 
     this.parse = function parse(input, unknownOk=true) {
