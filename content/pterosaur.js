@@ -1575,6 +1575,7 @@ function startVimbed() {
   } catch(e){ }
 
   var startVimProcess = function(){
+    var thisUid = uid;
     vimProcess = subprocess.call({ url: thisWindow.URL,
       command: vimFile.path,
       arguments: function(){
@@ -1625,7 +1626,7 @@ function startVimbed() {
           }
         }
 
-        if (runningPlugin){
+        if (thisUid == uid){
           stdoutTimeout = setTimeout(function(){
             updateFromVim();
             stdoutTimeout = null;
@@ -1645,7 +1646,7 @@ function startVimbed() {
       done: function(result){
         console.log("Vim shutdown");
         //If vim closes early, restart it.
-        if(runningPlugin && prefs.getBoolPref("autorestart") && !vimbedError) {
+        if(thisUid == uid && prefs.getBoolPref("autorestart") && !vimbedError) {
           vimRestartTimeout = setTimeout(function(){
             console.log("Restarting vim");
             startVimProcess();
@@ -1704,12 +1705,11 @@ var vimFile = null;
 
 var vimStdin = null;
 var ESC = '\x1b';
-var runningPlugin = true;
-
 
 var unsent = 1;
 
 function killVimbed() {
+  uid = 0;
   clearTimeout(vimRestartTimeout);
   if (vimStdin) {
     vimStdin.close();
@@ -1722,7 +1722,6 @@ function killVimbed() {
 }
 
 this.onUnload = function(){
-  runningPlugin = false;
   if(!pluginType){
     thisWindow.document.getElementById("main-window").removeChild(modeLine)
   }
