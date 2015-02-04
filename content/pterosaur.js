@@ -124,7 +124,7 @@ function setupPluginConnections(){
     modeLine.appendChild(modeText);
     thisWindow.document.getElementById("main-window").appendChild(modeLine)
   } else if (!oldPluginType) {
-    thisWindow.document.removeChild(modeLine);
+    modeLine.parentNode.removeChild(modeLine);
   }
 
   pterosaur.minidactyl.setPluginType(pluginType);
