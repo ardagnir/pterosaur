@@ -455,12 +455,17 @@ function updateFromVim(){
       {
         lastVimCommand = metadata[1];
         let modestring = "";
-        //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
-        if(pluginType == "dactyl" && borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
-          modestring = "VIM COMMAND "
-        else if(!pluginType)
-          modestring = "COMMAND "
-        borrowed.echo(modestring + metadata[1]);
+        if (metadata[1][0] == "@")
+          borrowed.echo("INPUT: " + metadata[1].slice(1));
+        else
+        {
+          //If we aren't showing the mode, we need to add it here to distinguish vim commands from pentadactyl commands
+          if(pluginType == "dactyl" && borrowed.options && borrowed.options["guioptions"].indexOf("s") == -1)
+            modestring = "VIM COMMAND "
+          else if(!pluginType)
+            modestring = "COMMAND "
+          borrowed.echo(modestring + metadata[1]);
+        }
         foundChange = true;
       }
     }
