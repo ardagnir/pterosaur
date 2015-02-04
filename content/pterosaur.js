@@ -1037,7 +1037,7 @@ function cleanupForTextbox() {
       }
       pterFocused = null;
     }
-    if(!pluginType){
+    if(!pluginType) {
       modeLine.style.display="none";
     }
     console.log("cleanup");
@@ -1152,6 +1152,8 @@ function updateTextbox(preserveMode) {
       console.log(vimCommand);
 
       remoteExpr(vimCommand);
+    } else if(pluginType == "vimperator") {
+      borrowed.modes.reset();
     }
 }
 
