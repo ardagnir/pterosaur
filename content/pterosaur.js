@@ -271,7 +271,7 @@ function setupPluginConnections(){
     bases: [borrowed.modes.VIM_NORMAL]
   });
 
-  pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.VIM_INSERT, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE];
+  pterosaurModes = [borrowed.modes.INSERT, borrowed.modes.AUTOCOMPLETE, borrowed.modes.VIM_INSERT, borrowed.modes.VIM_NORMAL, borrowed.modes.VIM_COMMAND, borrowed.modes.VIM_SELECT, borrowed.modes.VIM_VISUAL, borrowed.modes.VIM_REPLACE];
 
   pterosaur.borrowed = borrowed;
 }
