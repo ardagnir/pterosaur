@@ -62,14 +62,18 @@ The easiest way to make sure you have +clientserver is to install your distro's 
     make
     sudo make install
 
-If you don't want to overwrite your normal vim, you can change
+If you don't want to overwrite your normal vim, you can change the last line to something like:
+
     sudo cp src/vim /usr/bin/pterosaurvim
 
-In this case, make sure to edit firefox's about:config and set extensions.pterosaur.vimbinary to /usr/bin/pterosaurvim
+In this case, make sure to edit firefox's **about:config** and set `extensions.pterosaur.vimbinary` to `/usr/bin/pterosaurvim`
 
 ##Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
+
+##Privacy
+Be aware that since pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
 
 ##Bugs
 - If you find a bug, please create a github issue.
