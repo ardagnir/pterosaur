@@ -7,53 +7,84 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 
 
 ##Requirements
-- Pterosaur requires [Pentadactyl](http://5digits.org/pentadactyl/) and [Vim](http://www.vim.org) (your version needs to have +clientserver).
+- Pterosaur requires [Vim](http://www.vim.org).
+- Your vim version needs to have +clientserver). See [Vim Info](#vim-info) for more information.
 - Pterosaur works best in GNU/Linux.
 - Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
-##Setup
-**Step 1:** If you don't have the [vimbed](https://github.com/ardagnir/vimbed) plugin, install it first using your plugin-manager. If you use pathogen:
+##Installing
+**Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, move pterosuar *out* of the pentadactyl plugins directory. Don't worry too much about the --recursive flag. The Makefile will take care of the submodule for you.)
+    git clone --recursvie http://github.com/ardagnir/pterosaur
 
-    cd ~/.vim/bundle
-    git clone http://github.com/ardagnir/vimbed
-    
-**Step 2:** Clone pterosaur to your pentadactyl plugin directory
-
-    mkdir -p ~/.pentadactyl/plugins
-    cd ~/.pentadactyl/plugins
-    git clone http://github.com/ardagnir/pterosaur
-
-**Step 3:** Pterosaur's full-vim editing is disabled by default. Type `:set fullvim` in firefox to enable it.
+**Step 2:** Make and install pterosaur.
+    cd pterosaur
+    make
+    make install
 
 ##How it works
-Pterosaur uses vimbed to run an actual vim instance in the background and routes keystrokes through vim.
+Pterosaur uses [vimbed](http://github.com/ardagnir/vimbed) to run an actual vim instance in the background and routes keystrokes through vim.
 
-##Bugs
-- If you find a bug, please create a github issue.
+Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
 
-- Pterosaur does not yet support google docs (Pentadactyl itself has problems with google docs. Pterosaur can use gmail and google search just fine.)
+##Pentadactyl/Vimperator Integration
+Pterosaur integrates well with both pentadactyl and vimperator.
 
-##Notes
-- Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
+While pterosaur allows you to edit text with vim, pentadactyl and vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [build it yourself](http://5digits.org/coding) for newer versions of Firefox.)
+
+##Configuration
+Pterosaur can be configured by editing various configuration options. These can be editing in Firefox through the about:config or in Pentadactyl/Vimperator using the ":set!" command.
+
+**enabled**: set to false to disable pterosaur
+
+**contentonly**: When set to false pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to false.
+
+**autorestart**: Defaults to true. If you quit vim with autorestart enabled, vim will start back up automatically. Otherwise, typing :q in normal mode will make pterosaur unusable.
+
+**vimbinary**: Set this to the vimbinary you want pterosaur to use. Pick a terminal vim binary with +clientserver enabled. (See [Vim Info](#vim-info))
+
+**debugtty**: Set this to a tty to display pterosaurs running vim process on that tty. Type `tty` in any terminal window to get the string you'll need to type. It should look something like `/dev/pts/0`
+
+**rcfile**: Set this to a file (default: ~/.pterosaurrc) to have pterosaur's vim load that file on startup. This is useful for pterosaur-specific vim settings.
+
+##Vim Info
+Pterosaur requires that you use a terminal version of vim with +clientserver support compiled in. You can test your vim's clientserver support by running:
+    vim --version | grep clientserver
+
++clientserver is usually good enough, but if you want to use plugins that call vim's "input()" function in pterosaur you also need to have vim compiled without gui support. (Often terminal vim can be run in gui mode with a -g flag. Support for this breaks the "input()" function in headless vim.)
+
+The easiest way to make sure you have +clientserver is to install your distro's "biggest" vim package. If you want to build an appropriate vim yourself, here's an example:
+    hg clone https://vim.googlecode.com/hg/ vim
+    cd vim
+    ./configure --with-features=huge --disable-gui
+    make
+    sudo make install
+
+If you don't want to overwrite your normal vim, you can change
+    sudo cp src/vim /usr/bin/pterosaurvim
+
+In this case, make sure to edit firefox's about:config and set extensions.pterosaur.vimbinary to /usr/bin/pterosaurvim
 
 ##Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
+
+##Bugs
+- If you find a bug, please create a github issue.
+
+- Pterosaur does not yet support google docs.
 
 ##Troubleshooting
 Pterosaur should "just work", but if it doesn't:
 
 1. Make sure you are running master. It is the stable version.
 
-2. Make sure you have `:set fullvim` in pentadactyl and have vimbed installed.
+2. Make sure the [vimbinary](#configuration) points to a version of vim with [+clientserver](#vim-info) enabled.
 
-3. Run `:!vim --version | grep server` from INSIDE pentadactyl. Make sure it shows +clientserver.
+3. Set the [debugtty](#configuration) to a terminal and see if vim is running correctly.
 
-4. Run firefox from a terminal and type `:set pterosaurdebug` into pentadactyl. This will display the background vim process in the terminal window.
+4. Run `vim --serverlist`. See if there's a server starting with "PTEROSAUR"
 
-5. Run `vim --serverlist`. If you have vim running but you don't see a server starting with `PTEROSAUR_`, your vim's +clientserver probably isn't working. If you're on a mac, you probably need XQuartz.
-
-6. If there's still a problem, create an issue.
+6. If there's still a problem, create an issue and let me know the results of steps 3 and 4, as well as your operating system, firefox version, the webpage you're having problems with, and if you're running Pentadactyl/Vimperator.
 
 ##Hacking/Contributing
 - One of the best ways to contribute is to report bugs in the issues section.
