@@ -45,12 +45,6 @@ var exports = {};
 
 function pterosaurWindow(thisWindow){
 var pterosaur = this;
-var imports = ["FileUtils", "Ci", "setTimeout", "clearTimeout", "XMLHttpRequest"];
-this.data = {}; //For accessing data when debugging
-
-imports.forEach(function(item){
-  this[item] = thisWindow[item];
-})
 
 var pluginType = "placeholder";
 
@@ -112,7 +106,7 @@ function setupPluginConnections(){
     newPluginType = "";
   }
 
-  setTimeout(setupPluginConnections, 5);
+  thisWindow.setTimeout(setupPluginConnections, 5);
   if(pluginType == newPluginType){
     return;
   }
@@ -218,7 +212,7 @@ function setupPluginConnections(){
           borrowed.modes.updateModeline();
         }
         else {
-          setTimeout(function(){modeText.textContent = out},1);
+          thisWindow.setTimeout(function(){modeText.textContent = out},1);
         }
       },
       echoerr: function(out) {thisWindow.alert(out)},
@@ -286,7 +280,7 @@ this.useFullVim = useFullVim;
 
 setupPluginConnections();
 
-setTimeout(startVimbed, 1);
+thisWindow.setTimeout(startVimbed, 1);
 
 function useFullVim(){
   var focusedElement = borrowed.focusedElement();
@@ -314,11 +308,11 @@ var webKeyTimeout = null;
 function updateVim(){
   if(sendToVim !== "" && allowedToSend) {
     if (webKeyTimeout){
-      clearTimeout(webKeyTimeout);
+      thisWindow.clearTimeout(webKeyTimeout);
       webKeyTimeout = null;
     }
     if(vimNsIProc.isRunning){
-      setTimeout(updateVim, 10);
+      thisWindow.setTimeout(updateVim, 10);
       return;
     }
     if (!stateCheck() || vimNsIProc.isRunning) //Yes, we just checked isrunning, but it has a good chance of changing due to statecheck
@@ -327,20 +321,20 @@ function updateVim(){
       {
         sendToVim = "";
       } else {
-        setTimeout(updateVim, 10);
+        thisWindow.setTimeout(updateVim, 10);
       }
       return;
     }
 
     if (pollTimeout && vimMode != "c"){
-      clearTimeout(pollTimeout);
+      thisWindow.clearTimeout(pollTimeout);
       pollTimeout = null;
     }
     let tempSendToVim = sendToVim;
     sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
-    webKeyTimeout = setTimeout(function() {
+    webKeyTimeout = thisWindow.setTimeout(function() {
       if (!leanVim() && stateCheck() && [ESC, '\r', '\t', ''].indexOf(lastKey) == -1){
         handleKeySending(lastKey);
       }
@@ -354,7 +348,7 @@ var pollsSkipped = 0;
 function stateCheckTimeoutFunc(){
   if (vimNsIProc.isRunning)
   {
-    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, 50);
+    stateCheckTimeout = thisWindow.setTimeout(stateCheckTimeoutFunc, 50);
     return;
   }
   stateCheckTimeout = null
@@ -375,11 +369,11 @@ function stateCheckTimeoutFunc(){
 var restarting = false;
 function stateCheck(){
     if (stateCheckTimeout) {
-      clearTimeout(stateCheckTimeout);
+      thisWindow.clearTimeout(stateCheckTimeout);
       pollsSkipped = 0;
     }
 
-    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
+    stateCheckTimeout = thisWindow.setTimeout(stateCheckTimeoutFunc, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
 
     if (usingFullVim !== useFullVim())
       cleanupPterosaur();
@@ -395,7 +389,7 @@ function stateCheck(){
       killVimbed();
       restarting = true;
       //The delay here is mostly so you can see the about:config value change.
-      setTimeout(function(){
+      thisWindow.setTimeout(function(){
         restarting = false;
         prefs.setBoolPref("restartnow", false);
         startVimbed();
@@ -445,14 +439,14 @@ function stateCheck(){
 
 function updateFromVim(){
     if(vimNsIProc.isRunning){
-      setTimeout(updateFromVim, 10);
+      thisWindow.setTimeout(updateFromVim, 10);
       return;
     }
 
     if (!stateCheck() || vimNsIProc.isRunning)
     {
       if(useFullVim() && textBoxType) {
-        setTimeout(updateFromVim, 10);
+        thisWindow.setTimeout(updateFromVim, 10);
       }
       return;
     }
@@ -466,7 +460,7 @@ function updateFromVim(){
     else
     {
       //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
-      setTimeout(updateFromVim, 20);
+      thisWindow.setTimeout(updateFromVim, 20);
       return;
     }
 
@@ -621,7 +615,7 @@ function updateFromVim(){
 
     if (foundChange){
       if (pollTimeout){
-        clearTimeout(pollTimeout);
+        thisWindow.clearTimeout(pollTimeout);
         pollTimeout = null;
       }
       if (gameTest>0) {
@@ -641,7 +635,7 @@ function pollTimeoutFunc(){
       pollTimeout = null;
       remoteExpr("Vimbed_Poll()");
     }else{
-      pollTimeout = setTimeout(pollTimeoutFunc, 50);
+      pollTimeout = thisWindow.setTimeout(pollTimeoutFunc, 50);
     }
 }
 
@@ -653,7 +647,7 @@ function callPoll(){
   if (!pollTimeout){
     var pollTimer = (vimMode == "c" || gameTest > 4 ? 1 : 250)
     //if vimMode == "c"(vimMode == "c" 1 : );
-    pollTimeout = setTimeout(pollTimeoutFunc, pollTimer);
+    pollTimeout = thisWindow.setTimeout(pollTimeoutFunc, pollTimer);
   }
 }
 
@@ -1087,12 +1081,12 @@ function setupForTextbox() {
 }
 
 function pterClicked(){
-  setTimeout(stateCheck, 1);
+  thisWindow.setTimeout(stateCheck, 1);
 }
 
 function updateTextbox(preserveMode) {
     if (vimNsIProc.isRunning){
-      setTimeout(function(){updateTextbox(preserveMode);}, 25);
+      thisWindow.setTimeout(function(){updateTextbox(preserveMode);}, 25);
       return;
     }
 
@@ -1308,7 +1302,7 @@ function onKeyPress(eventList) {
           if (inputChar.slice(0,3)==="<C-" && inputChar.length == 5) {
             queueForVim(String.fromCharCode(inputChar[3].charCodeAt(0)-96));
           } else {
-            setTimeout(stateCheck,1);
+            thisWindow.setTimeout(stateCheck,1);
             return PASS;
           }
       }
@@ -1378,7 +1372,7 @@ function specialKeyHandler(key) {
         }
         allowedToSend = false;
 
-        setTimeout( function() {
+        thisWindow.setTimeout( function() {
           handlingSpecialKey=true;
           try {
             var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
@@ -1551,7 +1545,7 @@ function startVimbed() {
   vimbedError = false;
   vimFile = null;
   try{
-    vimFile = FileUtils.File(prefs.getCharPref("vimbinary"));
+    vimFile = thisWindow.FileUtils.File(prefs.getCharPref("vimbinary"));
   }
   catch (e) {
     vimFile = pterosaur.minidactyl.pathSearch(prefs.getCharPref("vimbinary") || "vim");
@@ -1570,18 +1564,18 @@ function startVimbed() {
   }
 
   uid = Math.floor(Math.random()*0x100000000).toString(16)
-  dir = FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
-  tmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
-  metaTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
-  messageTmpfile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
-  vimbedFile = FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/vimbed.vim");
+  dir = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
+  tmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
+  metaTmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
+  messageTmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
+  vimbedFile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/vimbed.vim");
 
 
-  dir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o700);
-  tmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  metaTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  messageTmpfile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  vimbedFile.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  dir.create(thisWindow.Ci.nsIFile.DIRECTORY_TYPE, 0o700);
+  tmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  metaTmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  messageTmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+  vimbedFile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
 
   tmpfile = new pterosaur.minidactyl.wrappedFile(tmpfile);
   metaTmpfile = new pterosaur.minidactyl.wrappedFile(metaTmpfile);
@@ -1616,7 +1610,7 @@ function startVimbed() {
   var pterosaurRcExists = false;
 
   try{
-    var rcFile = FileUtils.File(prefs.getCharPref("rcfile"));
+    var rcFile = thisWindow.FileUtils.File(prefs.getCharPref("rcfile"));
     if (rcFile.exists()) {
       pterosaurRcExists = true;
     }
@@ -1651,13 +1645,13 @@ function startVimbed() {
       //This only makes sense if we make upate without changes faster by checking directly against saved.
       stdout: function(data){
         if(stdoutTimeout){
-          clearTimeout(stdoutTimeout);
+          thisWindow.clearTimeout(stdoutTimeout);
         }
         var debugtty = prefs.getCharPref("debugtty");
         if(debugtty){
           if (debugtty != oldDebug){
             try{
-              debugTerminal = new pterosaur.minidactyl.wrappedFile(FileUtils.File(debugtty));
+              debugTerminal = new pterosaur.minidactyl.wrappedFile(thisWindow.FileUtils.File(debugtty));
             }
             catch(e){
               debugTerminal = null;
@@ -1676,7 +1670,7 @@ function startVimbed() {
         }
 
         if (thisUid == uid){
-          stdoutTimeout = setTimeout(function(){
+          stdoutTimeout = thisWindow.setTimeout(function(){
             updateFromVim();
             stdoutTimeout = null;
           }, 25)
@@ -1685,7 +1679,7 @@ function startVimbed() {
       stderr: function(data){
         console.log("Stderr: " + data);
         if (data.indexOf("--servername") != -1) {
-          setTimeout(function(){
+          thisWindow.setTimeout(function(){
             borrowed.echoerr("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled.");
           }, 500);
           killVimbed();
@@ -1696,7 +1690,7 @@ function startVimbed() {
         console.log("Vim shutdown");
         //If vim closes early, restart it.
         if(thisUid == uid && prefs.getBoolPref("autorestart") && !vimbedError) {
-          vimRestartTimeout = setTimeout(function(){
+          vimRestartTimeout = thisWindow.setTimeout(function(){
             console.log("Restarting vim");
             startVimProcess();
           }, 200);
@@ -1708,7 +1702,7 @@ function startVimbed() {
 }
 
 function copyVimbedFile(destination){
-  var request = new XMLHttpRequest();
+  var request = new thisWindow.XMLHttpRequest();
   request.open("GET", "chrome://pterosaur/content/vimbed/plugin/vimbed.vim", true);  // async=true
   request.responseType = "text";
   request.onerror = function(event) {
@@ -1759,7 +1753,7 @@ var unsent = 1;
 
 function killVimbed() {
   uid = 0;
-  clearTimeout(vimRestartTimeout);
+  thisWindow.clearTimeout(vimRestartTimeout);
   if (vimStdin) {
     vimStdin.close();
     vimStdin = null;
@@ -1772,7 +1766,9 @@ function killVimbed() {
 
 this.onUnload = function(){
   if(!pluginType){
-    thisWindow.document.getElementById("main-window").removeChild(modeLine)
+    try{
+      thisWindow.document.getElementById("main-window").removeChild(modeLine)
+    } catch(e){}
   } else if (pluginType == "dactyl"){
     borrowed.commands.user.remove("pterosaurrestart");
   } else if (pluginType == "vimperator"){
