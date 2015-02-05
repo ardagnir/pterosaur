@@ -188,7 +188,7 @@ function setupPluginConnections(){
       }
     };
 
-    borrowed.commands.add(["pterosaurrestart"],
+    borrowed.commands.addUserCommand(["pterosaurrestart"],
         "Restarts vim process",
         function () {
           killVimbed();
@@ -1732,6 +1732,10 @@ function killVimbed() {
 this.onUnload = function(){
   if(!pluginType){
     thisWindow.document.getElementById("main-window").removeChild(modeLine)
+  } else if (pluginType == "dactyl"){
+    borrowed.commands.user.remove("pterosaurrestart");
+  } else if (pluginType == "vimperator"){
+    borrowed.commands.removeUserCommand("pterosaurrestart");
   }
   pterosaur.minidactyl.shutdown();
   killVimbed();
