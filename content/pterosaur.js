@@ -76,6 +76,7 @@ catch (e){
 defaultPrefs.setBoolPref("contentonly", false);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
+defaultPrefs.setBoolPref("restartnow", false);
 defaultPrefs.setBoolPref("allowPrivate", false);
 defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
@@ -371,6 +372,7 @@ function stateCheckTimeoutFunc(){
   }
 }
 
+var restarting = false;
 function stateCheck(){
     if (stateCheckTimeout) {
       clearTimeout(stateCheckTimeout);
@@ -387,6 +389,19 @@ function stateCheck(){
 
     if (leanVimCheck !== (leanVim() && usingFullVim))
       handleLeanVim();
+
+    if(prefs.getBoolPref("restartnow") && !restarting)
+    {
+      killVimbed();
+      restarting = true;
+      //The delay here is mostly so you can see the about:config value change.
+      setTimeout(function(){
+        restarting = false;
+        prefs.setBoolPref("restartnow", false);
+        startVimbed();
+      },500);
+      return false;
+    }
 
     //We're not using pterosaur. Exit out.
     if (!usingFullVim || pterosaurModes.indexOf(borrowed.modes.main) === -1)  {
@@ -1058,7 +1073,6 @@ function cleanupForTextbox() {
 }
 
 function setupForTextbox() {
-    console.log("setup")
     //Clear lingering command text
     if (vimMode === "c")
       vimStdin.write(ESC+"i");
@@ -1551,7 +1565,7 @@ function startVimbed() {
     vimNsIProc.init(vimFile)
   } else {
     vimNsIProc = null;
-    borrowed.echoerr("No vim instance found. Please set one using 'extensions.pterosaur.vimbinary' preference in about:config.");
+    borrowed.echoerr("No vim instance found. Please set one using the 'extensions.pterosaur.vimbinary' preference in about:config.");
     return false;
   }
 
