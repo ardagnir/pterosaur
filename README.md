@@ -39,6 +39,8 @@ Pterosaur can be configured by editing various configuration options. These can 
 
 **contentonly**: When set to false, pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to false.
 
+**allowprivate**: By default, pterosaur will *not* send keys typed in private browsing mode to vim. If you set this to true, it will not treat private browsing any differently than normal browsing.
+
 **autorestart**: Defaults to true. If you quit vim with autorestart enabled, vim will start back up automatically. Otherwise, typing :q in normal mode will make pterosaur unusable.
 
 **vimbinary**: Set this to the path of the vim binary you want pterosaur to use. Pick a [terminal vim binary with +clientserver enabled](#vim-info).
@@ -66,7 +68,7 @@ If you don't want to overwrite your normal vim, you can change the last line to 
 
     sudo cp src/vim /usr/bin/pterosaurvim
 
-In this case, make sure to edit firefox's **about:config** and set `extensions.pterosaur.vimbinary` to `/usr/bin/pterosaurvim`
+In this case, make sure to edit firefox's **about:config** and set [extensions.pterosaur.vimbinary](#configuration) to `/usr/bin/pterosaurvim`
 
 ##Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
@@ -74,6 +76,8 @@ In this case, make sure to edit firefox's **about:config** and set `extensions.p
 
 ##Privacy
 Be aware that since pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
+
+By default Pterosaur is disabled in private browsing mode. You can enable pterosaur in prvate browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
 
 ##Bugs
 - If you find a bug, please create a github issue.

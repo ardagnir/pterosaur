@@ -56,6 +56,7 @@ var pluginType = "placeholder";
 
 Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
 Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
+Components.utils.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
 
 var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
 var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
@@ -75,6 +76,7 @@ catch (e){
 defaultPrefs.setBoolPref("contentonly", false);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
+defaultPrefs.setBoolPref("allowPrivate", false);
 defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
@@ -287,7 +289,13 @@ setTimeout(startVimbed, 1);
 
 function useFullVim(){
   var focusedElement = borrowed.focusedElement();
-  return vimStdin && vimFile && prefs.getBoolPref("enabled") && !(focusedElement && focusedElement.type === "password") && !(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument != thisWindow.content.document);
+  if(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument != thisWindow.content.document)
+    return false;
+  if (focusedElement && focusedElement.type === "password")
+    return false;
+  if (PrivateBrowsingUtils.isWindowPrivate(thisWindow) && !prefs.getBoolPref("allowPrivate"))
+    return false;
+  return vimStdin && vimFile && prefs.getBoolPref("enabled");
 }
 
 //In strict/lean vim we avoid handling keys by browser and handle them more strictly within vim.
