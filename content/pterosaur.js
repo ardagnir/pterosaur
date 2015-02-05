@@ -1077,6 +1077,11 @@ function pterClicked(){
 }
 
 function updateTextbox(preserveMode) {
+    if (vimNsIProc.isRunning){
+      setTimeout(function(){updateTextbox(preserveMode);}, 25);
+      return;
+    }
+
     var vimpInsert = false;
     lastKey = "";
     unsent=1
