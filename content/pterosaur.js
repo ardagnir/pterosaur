@@ -1069,6 +1069,7 @@ function pterClicked(){
 }
 
 function updateTextbox(preserveMode) {
+    var vimpInsert = false;
     lastKey = "";
     unsent=1
     vimGame = false;
@@ -1091,17 +1092,22 @@ function updateTextbox(preserveMode) {
       }
     } else {
       if(borrowed.focusedElement().isContentEditable) {
-        var doc = textBox.ownerDocument || thisWindow.content;
+        if(borrowed.focusedElement().offsetHeight == 0){
+          textBoxType = ""; //This is probably google doc type stuff that we can't handle.
+          vimpInsert = true;
+        } else {
+          var doc = textBox.ownerDocument || thisWindow.content;
 
-        textBoxType = "contentEditable";
-        textBox = {};
-        textBox.rootElement = borrowed.focusedElement();
-        //Prserve any tags that wrap the WHOLE contenteditable
-        while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName && textBox.rootElement.childNodes[0].tagName != "BR") {
-          textBox.rootElement = textBox.rootElement.childNodes[0]
+          textBoxType = "contentEditable";
+          textBox = {};
+          textBox.rootElement = borrowed.focusedElement();
+          //Prserve any tags that wrap the WHOLE contenteditable
+          while (textBox.rootElement.childNodes.length == 1 && textBox.rootElement.childNodes[0].tagName && textBox.rootElement.childNodes[0].tagName != "BR") {
+            textBox.rootElement = textBox.rootElement.childNodes[0]
+          }
+
+          textBox.selection = doc.getSelection();
         }
-
-        textBox.selection = doc.getSelection();
       } else if(/ace_text-input/.test(textBox.className)) {
         textBoxType = "ace";
       }
@@ -1158,7 +1164,11 @@ function updateTextbox(preserveMode) {
 
       remoteExpr(vimCommand);
     } else if(pluginType == "vimperator") {
-      borrowed.modes.reset();
+      if (vimpInsert){
+        borrowed.modes.main = borrowed.modes.INSERT;
+      } else {
+        borrowed.modes.main = borrowed.modes.NORMAL;
+      }
     }
 }
 

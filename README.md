@@ -78,7 +78,7 @@ Be aware that since pterosaur sends all your keystrokes through vim, it can temp
 ##Bugs
 - If you find a bug, please create a github issue.
 
-- Pterosaur does not yet support google docs.
+- Pterosaur does not yet support vim mode for google docs and will fail over to normal editing.
 
 ##Troubleshooting
 Pterosaur should "just work", but if it doesn't:
