@@ -421,6 +421,11 @@ function stateCheck(){
 }
 
 function updateFromVim(){
+    if(vimNsIProc.isRunning){
+      setTimeout(updateFromVim, 10);
+      return;
+    }
+
     if (!stateCheck() || vimNsIProc.isRunning)
     {
       if(useFullVim() && textBoxType) {
@@ -635,7 +640,7 @@ function remoteExpr(expr){
   //but the below way is 5 times faster because remote-expr from the command line is so slow.
   //We could speed this up farther by just keeping a vim instance open just for sending remote_exprs, but this is good enough for now.
   try{
-    vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-s", "/dev/null"], 6);
+    vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-v", "-s", "/dev/null"], 7);
   }
   catch (e){
     console.trace();
@@ -1581,18 +1586,19 @@ function startVimbed() {
     vimProcess = subprocess.call({ url: thisWindow.URL,
       command: vimFile.path,
       arguments: function(){
+        var toCall = ["--servername", "pterosaur_" + uid,
+                      "-s", "/dev/null",
+                      "-S", vimbedFile.path];
+
+
+
         if(pterosaurRcExists){
-          return ["--servername", "pterosaur_" + uid,
-                  "-s", "/dev/null",
-                  "-S", vimbedFile.path,
-                  "-S", prefs.getCharPref("rcfile"),
-                  '+call Vimbed_SetupVimbed("","")'];
-        } else {
-          return ["--servername", "pterosaur_" + uid,
-                  "-s", "/dev/null",
-                  "-S", vimbedFile.path,
-                  '+call Vimbed_SetupVimbed("","")'];
+          toCall.push("-S");
+          toCall.push(prefs.getCharPref("rcfile"));
         }
+        toCall.push("-vf");
+        toCall.push('+call Vimbed_SetupVimbed("","")');
+        return toCall;
       }(),
       environment:  env_variables,
       charet: 'UTF-8',
