@@ -1351,8 +1351,8 @@ function specialKeyHandler(key) {
           }
         }
 
-        if(borrowed.modes.main == borrowed.modes.VIM_SELECT){
-          //We can't send the tab/return yet if we're in select because we'll break autocompletes that highlight the completion.
+        if(borrowed.modes.main == borrowed.modes.VIM_SELECT || textBoxType != "normal" || ["INPUT", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) == -1){
+          //We can't send the tab/return yet if we're in select because we'll break autocompletes that highlight the completion. We also don't want to return when it will send us to a new line.
           allowedToSend = false;
         }
         if (behavior !== "web") {
