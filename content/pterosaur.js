@@ -1351,7 +1351,10 @@ function specialKeyHandler(key) {
           }
         }
 
-        allowedToSend = false;
+        if(borrowed.modes.main == borrowed.modes.VIM_SELECT){
+          //We can't send the tab/return yet if we're in select because we'll break autocompletes that highlight the completion.
+          allowedToSend = false;
+        }
         if (behavior !== "web") {
           if (key === "<Return>") {
             queueForVim("\r");
@@ -1359,6 +1362,7 @@ function specialKeyHandler(key) {
             queueForVim("\t");
           }
         }
+        allowedToSend = false;
 
         setTimeout( function() {
           handlingSpecialKey=true;
