@@ -1788,7 +1788,7 @@ exports.setup = function(thisWindow, startupAttempts){
   } else if (typeof thisWindow.liberator != "undefined"){
     head = thisWindow.liberator;
   }
-  if(head || startupAttempts > 1){
+  if(head || startupAttempts > 0){
     thisWindow.pterosaurWindow = (new pterosaurWindow(thisWindow));
   } else {
     thisWindow.setTimeout(function(){exports.setup(thisWindow, (startupAttempts || 0) + 1);}, 300);
