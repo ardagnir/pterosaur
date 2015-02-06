@@ -13,11 +13,12 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 - Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
 ##Installing
-**Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, just move pterosuar *out* of the Pentadactyl plugins directory and `git pull`.)
+**Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, just move pterosuar *out* of the Pentadactyl plugins directory and `git pull`)
 
     git clone --recursvie http://github.com/ardagnir/pterosaur
 
 **Step 2:** Make and install pterosaur.
+
     cd pterosaur
     make
     make install
@@ -30,35 +31,35 @@ Pterosaur attempts to be unobtrusive, so even though it edits every non-password
 ##Pentadactyl/Vimperator Integration
 Pterosaur integrates well with both Pentadactyl and Vimperator.
 
-While pterosaur allows you to edit text with vim, Pentadactyl and Vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [build it yourself](http://5digits.org/coding) for newer versions of Firefox.)
+While Pterosaur allows you to edit text with vim, Pentadactyl and Vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [build it yourself](http://5digits.org/coding) for newer versions of Firefox.)
 
 ##Configuration
-Pterosaur can be configured by editing various configuration options. These can be edited in Firefox through the **about:config** or in Pentadactyl/Vimperator using the **:set!** command.
+Pterosaur can be configured by editing various configuration options. These can be edited in Firefox through the **about:config** or in Pentadactyl/Vimperator using the **:set!** command. All the following extensions begin with **extensions.pterosaur.**
 
-**enabled**: set to false to disable pterosaur
+**enabled**: set to false to disable Pterosaur
 
-**contentonly**: When set to false, pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to false.
+**contentonly**: When set to false, Pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to false.
 
-**allowprivate**: By default, pterosaur will *not* send keys typed in private browsing mode to vim. If you set this to true, it will not treat private browsing any differently than normal browsing.
+**allowprivate**: By default, Pterosaur will *not* send keys typed in private browsing mode to vim. If you set this to true, it will not treat private browsing any differently than normal browsing.
 
-**autorestart**: Defaults to true. If you quit vim with autorestart enabled, vim will start back up automatically. Otherwise, typing :q in normal mode will make pterosaur unusable.
+**autorestart**: Defaults to true. If you quit vim with autorestart enabled, vim will start back up automatically. Otherwise, typing :q in normal mode will make Pterosaur unusable.
 
-**restartnow**: Set this to true to restart pterosaur's vim instance. Especially useful if you don't have autorestart enabled or if you switched vimbinaries and don't want to restart Firefox. This automatically sets back to false after half a second so that it can be used again.
+**restartnow**: Set this to true to restart Pterosaur's vim instance. Especially useful if you don't have autorestart enabled or if you switched vimbinaries and don't want to restart Firefox. This automatically sets back to false after half a second so that it can be used again.
 
 Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestart command.
 
-**vimbinary**: Set this to the path of the vim binary you want pterosaur to use. Pick a [terminal vim binary with +clientserver enabled](#vim-info).
+**vimbinary**: Set this to the path of the vim binary you want Pterosaur to use. Pick a [terminal vim binary with +clientserver enabled](#vim-info).
 
-**debugtty**: Set this to a tty to display pterosaurs running vim process on that tty. Type `tty` in any terminal window to get the string you'll need to type. It should look something like `/dev/pts/0`
+**debugtty**: Set this to a tty to display Pterosaur's running vim process on that tty. Type `tty` in any terminal window to get the string you'll need to type. It should look something like `/dev/pts/0`
 
-**rcfile**: Set this to a file (default: ~/.pterosaurrc) to have pterosaur's vim load that file on startup. This is useful for pterosaur-specific vim settings.
+**rcfile**: Set this to a file (default: ~/.pterosaurrc) to have Pterosaur's vim load that file on startup. This is useful for Pterosaur-specific vim settings.
 
 ##Vim Info
 Pterosaur requires that you use a terminal version of vim with +clientserver support compiled in. You can test your vim's clientserver support by running:
 
     vim --version | grep clientserver
 
-+clientserver is usually good enough, but if you want to use plugins that call vim's "input()" function in pterosaur you also need to have vim compiled without gui support. (Often terminal vim can be run in gui mode with a -g flag. Even if you never use the -g flag, support for this breaks the "input()" function in headless vim.)
++clientserver is usually good enough, but if you want to use plugins that call vim's "input()" function in Pterosaur you also need to have vim compiled without gui support. (Often terminal vim can be run in gui mode with a -g flag. Even if you never use the -g flag, support for this breaks the "input()" function in headless vim.)
 
 The easiest way to make sure you have +clientserver is to install your distro's "biggest" vim package. If you want to build an appropriate vim yourself, here's an example:
 
@@ -79,9 +80,9 @@ In this case, make sure to edit firefox's **about:config** and set [extensions.p
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
 
 ##Privacy
-Be aware that since pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
+Be aware that since Pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, Pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
 
-By default Pterosaur is disabled in private browsing mode. You can enable pterosaur in prvate browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
+By default Pterosaur is disabled in private browsing mode. You can enable Pterosaur in prvate browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
 
 ##Bugs
 - If you find a bug, please create a github issue.
