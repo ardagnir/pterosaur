@@ -80,7 +80,7 @@ In this case, make sure to edit firefox's **about:config** and set [extensions.p
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
 - If you have MacPorts you can install vim with +clientserver using:
 
-    sudo port install vim +huge +x11
+`sudo port install vim +huge +x11`
 
 - MacPorts will install vim to something like /opt/local/bin/vim. Make sure to set that as your [vimbinary](#configuration)
 
