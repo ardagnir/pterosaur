@@ -665,17 +665,16 @@ function remoteExpr(expr){
 }
 
 function createChromeSandbox(){
-  return new Components.utils.Sandbox(thisWindow.document.nodePrincipal, {wantXrays:false});
+  return new Components.utils.Sandbox(thisWindow.document.nodePrincipal);
 }
 
 function createSandbox(){
   var doc = textBox.ownerDocument || thisWindow.content;
   var protocol = doc.location.protocol;
   var host = doc.location.host;
-  //I don't think these can be non-strings, but there's no harm in being paranoid.
   if (typeof protocol === "string" && typeof host === "string")
   {
-    return new Components.utils.Sandbox(protocol + "//" + host, {wantXrays:false});
+    return new Components.utils.Sandbox(protocol + "//" + host);
   }
 }
 
@@ -721,11 +720,11 @@ function textBoxGetSelection_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.wrapped = thisWindow.content.wrappedJSObject;
-  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  sandbox.content = thisWindow.content;
+  sandbox.editor = textBox.parentNode;
   sandbox.stringify = JSON.stringify;
   var sandboxScript="\
-    var aceEditor = wrapped.ace.edit(editor);\
+    var aceEditor = content.wrappedJSObject.ace.edit(editor);\
     range =  stringify(aceEditor.getSession().getSelection().getRange());\
   ";
   Components.utils.evalInSandbox(sandboxScript, sandbox);
@@ -734,6 +733,7 @@ function textBoxGetSelection_ace(){
 
 function textBoxGetSelection_codeMirror(){
   var sandboxScript="\
+    editor = editor.wrappedJSObject || editor;\
     var anchor = editor.CodeMirror.getCursor('anchor');\
     var head = editor.CodeMirror.getCursor('head');\
     var rangeObj = {};\
@@ -759,7 +759,7 @@ function textBoxGetSelection_codeMirror(){
     var sandbox = createSandbox();
     if (!sandbox)
       return;
-    sandbox.editor = textBox.wrappedJSObject;
+    sandbox.editor = textBox;
     sandbox.stringify = JSON.stringify;
     Components.utils.evalInSandbox(sandboxScript, sandbox);
   }
@@ -860,10 +860,10 @@ function textBoxSetSelection_ace(start, end){
     return;
   sandbox.start = start
   sandbox.end = end
-  sandbox.wrapped = thisWindow.content.wrappedJSObject;
-  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  sandbox.content = thisWindow.content;
+  sandbox.editor = textBox.parentNode;
   var sandboxScript="\
-    var aceEditor = wrapped.ace.edit(editor);\
+    var aceEditor = content.wrappedJSObject.ace.edit(editor);\
     start = start.split(',');\
     end = end.split(',');\
     aceEditor.getSession().getSelection().setSelectionRange(\
@@ -877,6 +877,7 @@ function textBoxSetSelection_codeMirror(start, end){
   var sandboxScript="\
     start = start.split(',');\
     end = end.split(',');\
+    editor = editor.wrappedJSObject || editor;\
     editor.CodeMirror.setSelection({'line':parseInt(start[2]), 'ch':parseInt(start[1])}, {'line':parseInt(end[2]), 'ch':parseInt(end[1])});\
   "
 
@@ -895,7 +896,7 @@ function textBoxSetSelection_codeMirror(start, end){
       return;
     sandbox.start = start;
     sandbox.end = end;
-    sandbox.editor = textBox.wrappedJSObject;
+    sandbox.editor = textBox;
 
     Components.utils.evalInSandbox(sandboxScript, sandbox);
   }
@@ -943,10 +944,10 @@ function textBoxSetValue_ace(newVal){
   if (!sandbox)
     return;
   sandbox.newVal = newVal;
-  sandbox.wrapped = thisWindow.content.wrappedJSObject;
-  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  sandbox.content = thisWindow.content;
+  sandbox.editor = textBox.parentNode;
   var sandboxScript="\
-    var aceEditor = wrapped.ace.edit(editor);\
+    var aceEditor = content.wrappedJSObject.ace.edit(editor);\
     if (aceEditor.getSession().getValue()!=newVal){\
       aceEditor.getSession().setValue(newVal);\
     }\
@@ -956,6 +957,7 @@ function textBoxSetValue_ace(newVal){
 
 function textBoxSetValue_codeMirror(newVal){
   var sandboxScript="\
+    editor = editor.wrappedJSObject || editor;\
     if (editor.CodeMirror.getValue()!=newVal){\
       editor.CodeMirror.setValue(newVal);\
     }\
@@ -974,7 +976,7 @@ function textBoxSetValue_codeMirror(newVal){
     if (!sandbox)
       return;
     sandbox.newVal = newVal
-    sandbox.editor = textBox.wrappedJSObject;
+    sandbox.editor = textBox;
     Components.utils.evalInSandbox(sandboxScript, sandbox);
   }
 }
@@ -1003,10 +1005,10 @@ function textBoxGetValue_ace(){
   var sandbox = createSandbox();
   if (!sandbox)
     return;
-  sandbox.wrapped = thisWindow.content.wrappedJSObject;
-  sandbox.editor = textBox.parentNode.wrappedJSObject;
+  sandbox.content = thisWindow.content;
+  sandbox.editor = textBox.parentNode;
   var sandboxScript="\
-    var aceEditor = wrapped.ace.edit(editor);\
+    var aceEditor = content.wrappedJSObject.ace.edit(editor);\
     value = aceEditor.getSession().getValue();\
   "
   Components.utils.evalInSandbox(sandboxScript, sandbox);
@@ -1021,6 +1023,7 @@ function textBoxGetValue_ace(){
 
 function textBoxGetValue_codeMirror(){
   var sandboxScript="\
+    editor = editor.wrappedJSObject || editor;\
     value = editor.CodeMirror.getValue();\
   "
 
@@ -1035,7 +1038,7 @@ function textBoxGetValue_codeMirror(){
     var sandbox = createSandbox();
     if (!sandbox)
       return;
-    sandbox.editor = textBox.wrappedJSObject;
+    sandbox.editor = textBox;
     Components.utils.evalInSandbox(sandboxScript, sandbox);
   }
   //Make sure it's a string to avoid letting malicious code escape.
