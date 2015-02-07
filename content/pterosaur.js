@@ -335,7 +335,7 @@ function updateVim(){
     vimStdin.write(tempSendToVim);
     unsent=0;
     webKeyTimeout = thisWindow.setTimeout(function() {
-      if (!leanVim() && stateCheck() && [ESC, '\r', '\t', ''].indexOf(lastKey) == -1){
+      if (!leanVim() && stateCheck() && [ESC, GS, '\r', '\t', ''].indexOf(lastKey) == -1){
         handleKeySending(lastKey);
       }
     }, 250);
@@ -1362,6 +1362,10 @@ function specialKeyHandler(key) {
           }
         }
 
+        if(behavior == "web" && key == "<Tab>") {
+          queueForVim(GS);
+        }
+
         if(borrowed.modes.main == borrowed.modes.VIM_SELECT || textBoxType != "normal" || ["INPUT", "HTML:INPUT"].indexOf(textBox.nodeName.toUpperCase()) == -1){
           //We can't send the tab/return yet if we're in select because we'll break autocompletes that highlight the completion. We also don't want to return when it will send us to a new line.
           allowedToSend = false;
@@ -1751,6 +1755,7 @@ var vimFile = null;
 
 var vimStdin = null;
 var ESC = '\x1b';
+var GS  = '\x1d';
 
 var unsent = 1;
 
