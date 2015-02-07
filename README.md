@@ -78,6 +78,11 @@ In this case, make sure to edit firefox's **about:config** and set [extensions.p
 ##Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
+- If you have MacPorts you can install vim with +clientserver using:
+
+   sudo port install vim +huge +x11
+
+- MacPorts will install vim to something like /opt/local/bin/vim. Make sure to set that as your [vimbinary](#configuration)
 
 ##Privacy
 Be aware that since Pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, Pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
