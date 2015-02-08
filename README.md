@@ -24,6 +24,8 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
     make
     make install
 
+*Mac users may need to install the xpi from the Firefox addon screen instead of using `make install`*
+
 ##How it works
 Pterosaur uses [vimbed](http://github.com/ardagnir/vimbed) to run an actual vim instance in the background and routes keystrokes through vim.
 
