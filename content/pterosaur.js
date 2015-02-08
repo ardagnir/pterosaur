@@ -67,7 +67,7 @@ try{
 catch (e){
 }
 
-defaultPrefs.setBoolPref("contentonly", false);
+defaultPrefs.setBoolPref("contentonly", true);
 defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
 defaultPrefs.setBoolPref("restartnow", false);

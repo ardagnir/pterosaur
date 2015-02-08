@@ -39,7 +39,7 @@ Pterosaur can be configured by editing various configuration options. These can 
 
 **enabled**: set to false to disable Pterosaur
 
-**contentonly**: When set to false, Pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to false.
+**contentonly**: When set to false, Pterosaur uses vim in the chrome areas of the browser window (like the awesomebar and firebug). When set to true, only web content uses vim. Defaults to true.
 
 **allowprivate**: By default, Pterosaur will *not* send keys typed in private browsing mode to vim. If you set this to true, it will not treat private browsing any differently than normal browsing.
 
@@ -56,6 +56,16 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 **debugtty**: Set this to a tty to display Pterosaur's running vim process on that tty. Type `tty` in any terminal window to get the string you'll need to type. It should look something like `/dev/pts/0`
 
 **rcfile**: Set this to a file (default: ~/.pterosaurrc) to have Pterosaur's vim load that file on startup. This is useful for Pterosaur-specific vim settings.
+
+##FAQ
+**Q:** Why isn't Pterosaur working in firebug?<br/>
+**A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false
+
+**Q:** Can I use gvim with Pterosaur?<br/>
+**A:** Usually, yes. Pterosaur automatically tells vim to run in the console using the "-v" flag. If typing "gvim -v" on your computer brings up a console vim, you can probably use it for pterosaur. Make sure to set the [vimbinary](#configuration) to gvim.
+
+**Q:** Why am I having issues deleting text?<br/>
+**A:** Pterosaur uses your vim settings, which may prevent you from deleting text depending on your `set backspace` value. You can change this for all of vim in your ~/.vimrc, or just pterosaur in the ~/.pterosaurrc.
 
 ##Vim Info
 Pterosaur requires that you use a terminal version of vim with +clientserver support compiled in. You can test your vim's clientserver support by running:
