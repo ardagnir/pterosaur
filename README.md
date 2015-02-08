@@ -45,6 +45,8 @@ Pterosaur can be configured by editing various configuration options. These can 
 
 **autorestart**: Defaults to true. If you quit vim with autorestart enabled, vim will start back up automatically. Otherwise, typing :q in normal mode will make Pterosaur unusable.
 
+**verbose**: Causes pterosaur to display extra information to the browser console.
+
 **restartnow**: Set this to true to restart Pterosaur's vim instance. Especially useful if you don't have autorestart enabled or if you switched vimbinaries and don't want to restart Firefox. This automatically sets back to false after half a second so that it can be used again.
 
 Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestart command.

@@ -72,6 +72,7 @@ defaultPrefs.setBoolPref("enabled", true);
 defaultPrefs.setBoolPref("autorestart", true);
 defaultPrefs.setBoolPref("restartnow", false);
 defaultPrefs.setBoolPref("allowPrivate", false);
+defaultPrefs.setBoolPref("verbose", false);
 defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
@@ -1057,15 +1058,19 @@ function cleanupForTextbox() {
         pterFocused.ownerDocument.removeEventListener("click", pterClicked, false);
       }
       catch(e){
-         //This is probably a dead object error. We don't need to remove the event in that case.
-         console.log("Caught error (dead object errors are ok): " + e);
+        if (prefs.getBoolPref("verbose")) {
+          //This is probably a dead object error. We don't need to remove the event in that case.
+          console.log("Caught error (dead object errors are ok): " + e);
+        }
       }
       pterFocused = null;
     }
     if(!pluginType) {
       modeLine.style.display="none";
     }
-    console.log("cleanup");
+    if (prefs.getBoolPref("verbose")) {
+      console.log("cleanup");
+    }
     unsent=1;
 }
 
@@ -1184,7 +1189,9 @@ function updateTextbox(preserveMode) {
       vimCommand = vimCommand.replace(/<columnEnd>/, cursorPos.end.column);
       vimCommand = vimCommand.replace(/<preserveMode>/, preserveMode);
 
-      console.log(vimCommand);
+      if (prefs.getBoolPref("verbose")) {
+        console.log(vimCommand);
+      }
 
       remoteExpr(vimCommand);
     } else if(pluginType == "vimperator") {
@@ -1684,7 +1691,9 @@ function startVimbed() {
         }
       },
       stderr: function(data){
-        console.log("Stderr: " + data);
+        if (prefs.getBoolPref("verbose")) {
+          console.log("Stderr: " + data);
+        }
         if (data.indexOf("--servername") != -1) {
           thisWindow.setTimeout(function(){
             borrowed.echoerr("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled.");
@@ -1694,11 +1703,15 @@ function startVimbed() {
         }
       },
       done: function(result){
-        console.log("Vim shutdown");
+        if (prefs.getBoolPref("verbose")) {
+          console.log("Vim shutdown");
+        }
         //If vim closes early, restart it.
         if(thisUid == uid && prefs.getBoolPref("autorestart") && !vimbedError) {
           vimRestartTimeout = thisWindow.setTimeout(function(){
-            console.log("Restarting vim");
+            if (prefs.getBoolPref("verbose")) {
+              console.log("Restarting vim");
+            }
             startVimProcess();
           }, 200);
         }
