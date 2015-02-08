@@ -347,7 +347,7 @@ var stateCheckTimeout = null;
 var pollsSkipped = 0;
 
 function stateCheckTimeoutFunc(){
-  if (vimNsIProc.isRunning)
+  if (vimNsIProc && vimNsIProc.isRunning)
   {
     stateCheckTimeout = thisWindow.setTimeout(stateCheckTimeoutFunc, 50);
     return;
@@ -1554,9 +1554,7 @@ function cleanupPterosaur() {
     }
 }
 
-var vimbedError;
 function startVimbed() {
-  vimbedError = false;
   vimFile = null;
   try{
     vimFile = thisWindow.FileUtils.File(prefs.getCharPref("vimbinary"));
@@ -1568,12 +1566,13 @@ function startVimbed() {
     }
   }
 
-  if (vimFile){
+  if (vimFile && vimFile.exists()){
     vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
     vimNsIProc.init(vimFile)
   } else {
     vimNsIProc = null;
     borrowed.echoerr("No vim instance found. Please set one using the 'extensions.pterosaur.vimbinary' preference in about:config.");
+    stateCheck();
     return false;
   }
 
@@ -1699,7 +1698,7 @@ function startVimbed() {
             borrowed.echoerr("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled.");
           }, 500);
           killVimbed();
-          vimbedError = true;
+          stateCheck();
         }
       },
       done: function(result){
@@ -1707,7 +1706,7 @@ function startVimbed() {
           console.log("Vim shutdown");
         }
         //If vim closes early, restart it.
-        if(thisUid == uid && prefs.getBoolPref("autorestart") && !vimbedError) {
+        if(thisUid == uid && prefs.getBoolPref("autorestart")) {
           vimRestartTimeout = thisWindow.setTimeout(function(){
             if (prefs.getBoolPref("verbose")) {
               console.log("Restarting vim");
