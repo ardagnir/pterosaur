@@ -59,7 +59,7 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 
 ##FAQ
 **Q:** Why isn't Pterosaur working in firebug?<br/>
-**A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false
+**A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false.
 
 **Q:** Can I use gvim with Pterosaur?<br/>
 **A:** Usually, yes. Pterosaur automatically tells vim to run in the console using the "-v" flag. If typing "gvim -v" on your computer brings up a console vim, you can probably use it for pterosaur. Make sure to set the [vimbinary](#configuration) to gvim.
