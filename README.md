@@ -3,8 +3,9 @@ Pterosaur
 
 Pterosaur gives you the full power of Vim and your vimrc in each Firefox text field.
 
-![Demo](http://i.imgur.com/MuUj2hZ.gif)
+![Demo](http://i.imgur.com/po3fTlW.gif)
 
+*Pterosaur supports most vim plugins. This demo uses Pterosaur v1.0 with the [vim-surround](http://github.com/tpope/vim-surround) plugin and a mod of the [invader-vim](http://github.com/mattn/invader-vim) script.*
 
 ##Requirements
 - Pterosaur requires [Vim](http://www.vim.org).
