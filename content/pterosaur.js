@@ -1425,7 +1425,7 @@ function specialKeyHandler(key) {
 //Returns true if the non-newline text is the same but the text is longer. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
 function newLineCheck(value){
   var newVal = textBoxGetValue();
-  return newVal.replace(/\n/g,"") === value.replace(/\n/g,"") && newVal.length>value.length;
+  return newVal.replace(/[^\n]/g,"") > value.replace(/[^\n]/g,"");
 }
 
 function spaceCheck(value){
