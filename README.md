@@ -14,6 +14,10 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 - Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
 ##Installing
+###The Easy Way:
+Click [here](http://ardagnir.github.io/pterosaur.xpi)
+
+###The Normal Way:
 **Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, just move pterosuar *out* of the Pentadactyl plugins directory and `git pull`)
 
     git clone --recursvie http://github.com/ardagnir/pterosaur
@@ -24,7 +28,7 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
     make
     make install
 
-*Mac users may need to install the xpi from the Firefox addon screen instead of using `make install`*
+*`make install` won't work for Mac users. Manually install the xpi after the `make` or use "The Easy Way" above.*
 
 ##How it works
 Pterosaur uses [vimbed](http://github.com/ardagnir/vimbed) to run an actual vim instance in the background and routes keystrokes through vim.
