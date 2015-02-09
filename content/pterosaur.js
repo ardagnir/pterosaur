@@ -904,18 +904,26 @@ function textBoxSetSelection_codeMirror(start, end){
 }
 
 function htmlToText(inText) {
-  var tmp = thisWindow.content.document.createElement('div');
-  inText = inText.replace(/\\/g, '\\\\'); //Double backslashes so we can use them as escapes.
-  tmp.innerHTML = inText.replace(/<br[^>]*>/g, 'n\\n').replace(/&nbsp;/g, ' '); //Preserve newlines
-  return tmp.textContent.replace(/n\\n/g, '\n').replace(/\\\\/g, '\\');
+  //Note that this function does not convert all html correctly. It just needs to convert html in contenteditables.
+  //The results are treated as text so incorrect conversion is not a security issue.
+  return inText.replace(/<br[^>]*>/g, '\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 }
 
-function textToHtml(inText) {
-  //Spacing rationale
-  //  /^ /mg and  /  /g replacements stop whitespace from collapsing
-  //  / $/ replacement is because firefox doesn't show a selection when it's
-  //    selecting the last space in a line unless that spaces is an &nbsp 
-  return inText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ /mg, '&nbsp;').replace(/  /g, ' &nbsp;').replace(/ $/mg, '&nbsp;').replace(/\n/g, '<br>')
+function setText(node, text){
+  var nbsp = '\u00a0'
+  text = text.replace(/^ /mg, nbsp).replace(/  /g, ' '+nbsp).replace(/ $/mg, nbsp)
+  while(node.firstChild) {
+    node.removeChild(node.firstChild);
+  }
+
+  var lines = text.split('\n')
+  var last = lines.length - 1;
+  lines.forEach(function(line, index){
+    node.appendChild(thisWindow.content.document.createTextNode(line));
+    if(index != last){
+      node.appendChild(thisWindow.content.document.createElement('br'));
+    }
+  })
 }
 
 function textBoxSetValue(newVal) {
@@ -931,10 +939,10 @@ function textBoxSetValue(newVal) {
       break;
     case "contentEditable":
     case "designMode":
-      var newHtml = textToHtml(newVal)+"<br>";//Design mode needs the trailing newline
-      if (textBox.rootElement.innerHTML != newHtml)
+      var newText = newVal + "\n";
+      if (htmlToText(textBox.rootElement.innerHTML) != newText)
       {
-        textBox.rootElement.innerHTML = newHtml
+        setText(textBox.rootElement, newText);
       }
       break;
   }
@@ -1250,13 +1258,13 @@ function handleKeySending(key) {
   } else if (["contentEditable", "designMode"].indexOf(textBoxType) != -1){
     skipKeyPress = true;
     try{
-      var value = textBox.rootElement.innerHTML; //We don't need to translate this, since it's going right back in. Doing the same thing with the cursor isn't quite as easy.
+      var value = htmlToText(textBox.rootElement.innerHTML);
       var cursorPos = textBoxGetSelection()
       var oldFocus = borrowed.focusedElement();
 
       borrowed.feedkey(key);
       if (oldFocus == borrowed.focusedElement()) {
-        textBox.rootElement.innerHTML = value;
+        setText(textBox.rootElement, value);
         textBoxSetSelectionFromSaved(cursorPos);
       }
     } finally{
