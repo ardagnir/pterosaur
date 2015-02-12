@@ -20,7 +20,7 @@ Click [here](http://ardagnir.github.io/pterosaur.xpi)
 ###The Normal Way:
 **Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, just move pterosuar *out* of the Pentadactyl plugins directory and `git pull`)
 
-    git clone --recursvie http://github.com/ardagnir/pterosaur
+    git clone --recursive http://github.com/ardagnir/pterosaur
 
 **Step 2:** Make and install pterosaur.
 
