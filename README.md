@@ -103,6 +103,10 @@ Note that if you install a new vim binary, some distro-based vim settings you mi
 
 `sudo port install vim +huge +x11`
 
+- if you have HomeBrew:
+
+`brew install vim --with-client-server`
+
 - MacPorts will install vim to something like /opt/local/bin/vim. Make sure to set that as your [vimbinary](#configuration).
 - Note that if you install a new vim binary, some vim settings you might take for granted, such as `set backspace += start` might need to be defined in your vimrc
 
