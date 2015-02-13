@@ -99,13 +99,13 @@ Note that if you install a new vim binary, some distro-based vim settings you mi
 ##Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
-- If you have MacPorts you can install vim with +clientserver using:
-
-`sudo port install vim +huge +x11`
-
-- if you have HomeBrew:
+- If you have Homebrew, you can install vim with +clientserver using:
 
 `brew install vim --with-client-server`
+
+- If you have MacPorts, use:
+
+`sudo port install vim +huge +x11`
 
 - MacPorts will install vim to something like /opt/local/bin/vim. Make sure to set that as your [vimbinary](#configuration).
 - Note that if you install a new vim binary, some vim settings you might take for granted, such as `set backspace += start` might need to be defined in your vimrc
