@@ -275,6 +275,7 @@ function setupPluginConnections(){
 }
 this.getTextBox = function(){return textBox;}
 this.getTextBoxType = function(){return textBoxType;}
+this.getGameTest = function(){return gameTest;}
 this.strictVim = strictVim;
 this.leanVim = leanVim;
 this.useFullVim = useFullVim;
@@ -327,10 +328,6 @@ function updateVim(){
       return;
     }
 
-    if (pollTimeout && vimMode != "c"){
-      thisWindow.clearTimeout(pollTimeout);
-      pollTimeout = null;
-    }
     let tempSendToVim = sendToVim;
     sendToVim = "";
     vimStdin.write(tempSendToVim);
@@ -353,10 +350,6 @@ function stateCheckTimeoutFunc(){
     return;
   }
   stateCheckTimeout = null
-  if(gameTest > 0)
-  {
-    gameTest--;
-  }
   if(stateCheck()) {
     if (pollsSkipped < 3 && borrowed.modes.main !== borrowed.modes.VIM_COMMAND){
       pollsSkipped++;
@@ -438,7 +431,19 @@ function stateCheck(){
     return true;
 }
 
+var lastVal = null;
+var lastMeta = null;
 function updateFromVim(){
+    let val = tmpfile.read();
+    let metadata = metaTmpfile.read();
+    let messages = messageTmpfile.read();
+
+    //Exit immediately if nothing happens. (This is just for performance. It's not needed for correct behavior.)
+    if(metadata === lastMeta && val === lastVal && (!messages || messages === "\n")) {
+      callPoll();
+      return;
+    }
+
     if(vimNsIProc.isRunning){
       thisWindow.setTimeout(updateFromVim, 10);
       return;
@@ -452,9 +457,9 @@ function updateFromVim(){
       return;
     }
 
-    var foundChange = false;
+    lastVal = val;
+    lastMeta = metadata;
 
-    let val = tmpfile.read();
     //Vim textfiles are new-line terminated, but browser text vals aren't neccesarily
     if (val !== '')
       val = val.slice(0,-1)
@@ -465,14 +470,14 @@ function updateFromVim(){
       return;
     }
 
-    let metadata = metaTmpfile.read().split('\n');
+
+    metadata = metadata.split('\n');
     vimMode = metadata[0];
 
     if (vimMode === "c") {
       if (borrowed.modes.main !== borrowed.modes.VIM_COMMAND)
       {
         borrowed.modes.push(borrowed.modes.VIM_COMMAND);
-        foundChange = true;
       }
       if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
       {
@@ -489,7 +494,6 @@ function updateFromVim(){
             modestring = "COMMAND "
           borrowed.echo(modestring + metadata[1]);
         }
-        foundChange = true;
       }
     }
     else{
@@ -504,7 +508,6 @@ function updateFromVim(){
         }
     }
 
-    let messages = messageTmpfile.read();
     if (messages && messages!=="\n" && vimMode!="c")
     {
       //TODO: If another message is written right now, we could lose it.
@@ -525,7 +528,6 @@ function updateFromVim(){
         textBoxSetValue(val)
       }
       savedText = val;
-      foundChange = true;
     }
 
     if (textBoxType) {
@@ -545,7 +547,6 @@ function updateFromVim(){
             || savedCursorEnd.row != cursorPos.end.row || savedCursorEnd.column != cursorPos.end.column) {
           savedCursorStart = cursorPos.start;
           savedCursorEnd = cursorPos.end;
-          foundChange = true;
         }
     }
 
@@ -556,11 +557,7 @@ function updateFromVim(){
     else if (vimMode === "n" && borrowed.modes.main !== borrowed.modes.VIM_NORMAL)
     {
       //If unsent, this has to be outdated info. Don't bother
-      if(unsent){
-        foundChange = false;
-      }
-      else
-      {
+      if(!unsent) {
         borrowed.echo("");
         if (borrowed.modes.main !== borrowed.modes.INSERT)
         {
@@ -572,11 +569,7 @@ function updateFromVim(){
     else if ((vimMode === "v" || vimMode ==="V") && borrowed.modes.main !==borrowed.modes.VIM_VISUAL)
     {
       //If unsent, this has to be outdated info. Don't bother.
-      if(unsent){
-        foundChange = false;
-      }
-      else
-      {
+      if(!unsent) {
         borrowed.echo("");
         if (borrowed.modes.main !== borrowed.modes.INSERT)
         {
@@ -614,16 +607,12 @@ function updateFromVim(){
       borrowed.modes.push(borrowed.modes.VIM_INSERT);
     }
 
-    if (foundChange){
-      if (pollTimeout){
-        thisWindow.clearTimeout(pollTimeout);
-        pollTimeout = null;
-      }
-      if (gameTest>0) {
-        gameTest--;
-      }
-    } else {
-      callPoll();
+    if (pollTimeout){
+      thisWindow.clearTimeout(pollTimeout);
+      pollTimeout = null;
+    }
+    if (vimMode !== "c" && gameTest <= 40) {
+      pollTimeout = thisWindow.setTimeout(function(){ pollTimeout = null }, 100);
     }
 }
 
@@ -641,12 +630,8 @@ function pollTimeoutFunc(){
 }
 
 function callPoll(){
-  if (gameTest < 10)
-  {
-    gameTest++;
-  }
   if (!pollTimeout){
-    var pollTimer = (vimMode == "c" || gameTest > 4 ? 1 : 250)
+    var pollTimer = (vimMode == "c" || gameTest > 40 ? 1 : 250)
     //if vimMode == "c"(vimMode == "c" 1 : );
     pollTimeout = thisWindow.setTimeout(pollTimeoutFunc, pollTimer);
   }
@@ -912,18 +897,44 @@ function htmlToText(inText) {
 function setText(node, text){
   var nbsp = '\u00a0'
   text = text.replace(/^ /mg, nbsp).replace(/  /g, ' '+nbsp).replace(/ $/mg, nbsp)
-  while(node.firstChild) {
-    node.removeChild(node.firstChild);
-  }
 
   var lines = text.split('\n')
   var last = lines.length - 1;
-  lines.forEach(function(line, index){
-    node.appendChild(thisWindow.content.document.createTextNode(line));
-    if(index != last){
-      node.appendChild(thisWindow.content.document.createElement('br'));
+  var failure = false;
+
+  if (node.childNodes.length == last*2) {
+    for (var i = 0; i < last; i++) {
+      var currentNode = node.childNodes[i*2];
+      if (currentNode.nodeType === 3) {
+        if (currentNode.textContent !== lines[i]) {
+          currentNode.textContent = lines[i];
+        }
+      } else {
+        failure = true;
+        break;
+      }
+      if(node.childNodes[i*2+1].nodeName !== "BR") {
+        failure = true;
+        break;
+      }
     }
-  })
+  } else {
+    failure = true;
+  }
+
+  if (failure) {
+    while (node.firstChild) {
+      node.removeChild(node.firstChild);
+    }
+
+    var lines = text.split('\n')
+    lines.forEach(function(line, index) {
+      if (index != last) {
+        node.appendChild(thisWindow.content.document.createTextNode(line));
+        node.appendChild(thisWindow.content.document.createElement('br'));
+      }
+    })
+  }
 }
 
 function textBoxSetValue(newVal) {
@@ -1111,9 +1122,12 @@ function updateTextbox(preserveMode) {
     unsent=1
     vimGame = false;
 
+    //Saved values are processed. "last" values are unprocessed values of vimbed files
     savedText = null;
     savedCursorStart = null;
     savedCursorEnd = null;
+    lastVal = null;
+    lastMeta = null;
 
     textBox = borrowed.focusedElement();
 
@@ -1340,6 +1354,9 @@ function queueForVim(key) {
   sendToVim += key;
   if (key === ESC){
     sendToVim += '\x00'; //If we actually pressed an escape key, send a null byte afterwards so vim doesn't wait for the rest of the sequence.
+  }
+  if (gameTest > 0){
+    gameTest -= 6;
   }
   updateVim();
 }
@@ -1621,9 +1638,6 @@ function startVimbed() {
   }
   env_variables.push("TERM="+TERM);
 
-  var stdoutTimeout;
-
-
   var pterosaurRcExists = false;
 
   try{
@@ -1661,9 +1675,6 @@ function startVimbed() {
       //TODO: Rather than waiting to update, maybe update right away and leave a standing allowance of 25 ms to update without changes if we receive one?
       //This only makes sense if we make upate without changes faster by checking directly against saved.
       stdout: function(data){
-        if(stdoutTimeout){
-          thisWindow.clearTimeout(stdoutTimeout);
-        }
         var debugtty = prefs.getCharPref("debugtty");
         if(debugtty){
           if (debugtty != oldDebug){
@@ -1687,10 +1698,11 @@ function startVimbed() {
         }
 
         if (thisUid == uid){
-          stdoutTimeout = thisWindow.setTimeout(function(){
-            updateFromVim();
-            stdoutTimeout = null;
-          }, 25)
+          if(gameTest < 60){
+            gameTest++;
+          }
+
+          updateFromVim();
         }
       },
       stderr: function(data){
