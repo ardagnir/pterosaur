@@ -906,7 +906,7 @@ function textBoxSetSelection_codeMirror(start, end){
 function htmlToText(inText) {
   //Note that this function does not convert all html correctly. It just needs to convert html in contenteditables.
   //The results are treated as text so incorrect conversion is not a security issue.
-  return inText.replace(/<br[^>]*>/g, '\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  return inText.replace(/<br[^>]*>/g, '\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
 }
 
 function setText(node, text){
