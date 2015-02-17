@@ -285,7 +285,7 @@ thisWindow.setTimeout(startVimbed, 1);
 
 function useFullVim(){
   var focusedElement = borrowed.focusedElement();
-  if(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument != thisWindow.content.document)
+  if(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument.URL.substring(0,7) === "chrome:")
     return false;
   if (focusedElement && focusedElement.type === "password")
     return false;
