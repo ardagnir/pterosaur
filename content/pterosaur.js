@@ -93,6 +93,8 @@ var vimGame = false; //If vim is changing on it's own without user input (like i
 
 var pterosaurModes;
 
+var PASS_THROUGH = {};
+
 function setupPluginConnections(){
   var head;
   var newPluginType;
@@ -135,7 +137,6 @@ function setupPluginConnections(){
       focusedElement: function() {return head.focusedElement;},
       echo: function(msg){head.echo(msg, head.plugins.commandline.FORCE_SINGLELINE);},
       echoerr: head.echoerr,
-      Events: head.plugins.Events,
       feedkey: head.plugins.events.feedkeys,
       focus: function(element){borrowed.focus(element)},
       editor: head.plugins.editor,
@@ -166,7 +167,6 @@ function setupPluginConnections(){
       focusedElement: function() {return head.focus;},
       echo: function(msg){head.echo(msg, head.plugins.commandline.FORCE_SINGLELINE);},
       echoerr: head.echoerr,
-      Events: head.plugins.Events,
       //feedkey: head.plugins.events.feedkeys,
       feedkey: pterosaur.minidactyl.feedkey,
       focus: function(element){if (element) {element.focus()}},
@@ -227,7 +227,6 @@ function setupPluginConnections(){
           return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
         }
       },
-      Events: {PASS_THROUGH: {}}
     }
     borrowed.modes.main = borrowed.modes.INSERT;
     borrowed.modes.updateModeline();
@@ -1382,7 +1381,7 @@ function getKeyBehavior(textBoxType, key) {
 //We want to manually handle carriage returns and tabs because otherwise forms can be submitted or fields can be tabbed out of before the textfield can finish updating.
 function specialKeyHandler(key) {
     if (handlingSpecialKey || textBoxType == "") {
-      return borrowed.Events.PASS_THROUGH;
+      return PASS_THROUGH;
     }
     var behavior = getKeyBehavior(textBoxType, key)
     if (behavior !== "vim") {
@@ -1527,7 +1526,7 @@ function cleanupPterosaur() {
             ["Handle backspace key"],
             function(){
               if(skipKeyPress){
-                return borrowed.Events.PASS_THROUGH;
+                return PASS_THROUGH;
               }
               queueForVim("\b");
             });
@@ -1569,7 +1568,7 @@ function cleanupPterosaur() {
               ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
               function () {
                   borrowed.editor.expandAbbreviation(borrowed.modes.INSERT);
-                  return borrowed.Events.PASS_THROUGH;
+                  return PASS_THROUGH;
           });
         }
     }
