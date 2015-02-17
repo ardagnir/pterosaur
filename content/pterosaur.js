@@ -1429,7 +1429,7 @@ function specialKeyHandler(key) {
             allowedToSend = true;
             updateVim();
           }
-        }, 200) //Delay is to make sure forms are updated from vim before being submitted.
+        }, 100) //Delay is to make sure forms are updated from vim before being submitted.
     }
     else {
         if (key === "<Return>") {
