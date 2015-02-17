@@ -170,7 +170,7 @@ function setupPluginConnections(){
       //feedkey: head.plugins.events.feedkeys,
       feedkey: pterosaur.minidactyl.feedkey,
       focus: function(element){if (element) {element.focus()}},
-      editor: head.plugins.editor,
+      editor: null,
       mappings: {
         add: function(mode, keylist, desc, callback){
           keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
