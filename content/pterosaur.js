@@ -1164,7 +1164,15 @@ function updateTextbox(preserveMode) {
         textBox = textBox.parentNode.parentNode;
       }
       else if (["INPUT", "TEXTAREA", "HTML:INPUT", "HTML:TEXTAREA"].indexOf(textBox.nodeName.toUpperCase()) >= 0) {
-        textBoxType = "normal";
+        try{
+          //This will throw if I'm an input type that isn't textish
+          textBox.selectionStart;
+
+          textBoxType = "normal";
+        }
+        catch(e){
+          textBoxType = "";
+        }
       }
       else {
         if(borrowed.editor){
