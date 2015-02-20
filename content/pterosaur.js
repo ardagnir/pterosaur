@@ -772,7 +772,16 @@ function textBoxSetSelectionFromSaved(saved){
 }
 
 function convertRowColumnToIndex(text, row, column){
-  return (","+text).split("\n").slice(0,row).join().length + parseInt(column);
+  var column = parseInt(column);
+  var lines = text.split("\n");
+  if(row >= lines.length)
+    row = lines.length - 1;
+  var rowlength = lines[row].length;
+  value = lines.slice(0, row).join("").length + parseInt(row);
+  if(column > rowlength)
+    return value + rowlength
+  else
+    return value + column
 }
 
 function textBoxSetSelection(start, end){
