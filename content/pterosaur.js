@@ -1116,7 +1116,6 @@ function updateTextbox(preserveMode) {
       return;
     }
 
-    var vimpInsert = false;
     lastKey = "";
     unsent=1
     vimGame = false;
@@ -1144,7 +1143,6 @@ function updateTextbox(preserveMode) {
       if(borrowed.focusedElement().isContentEditable) {
         if(borrowed.focusedElement().offsetHeight == 0){
           textBoxType = ""; //This is probably google doc type stuff that we can't handle.
-          vimpInsert = true;
         } else {
           var doc = textBox.ownerDocument || thisWindow.content;
 
@@ -1215,10 +1213,8 @@ function updateTextbox(preserveMode) {
       }
 
       remoteExpr(vimCommand);
-    } else if(pluginType == "vimperator") {
-      if (vimpInsert){
-        borrowed.modes.main = borrowed.modes.INSERT;
-      } else {
+    } else if(pluginType === "vimperator") {
+      if (borrowed.modes.main !== borrowed.modes.INSERT) {
         borrowed.modes.main = borrowed.modes.NORMAL;
       }
     }
