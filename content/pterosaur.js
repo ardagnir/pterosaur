@@ -1199,18 +1199,20 @@ function updateTextbox(preserveMode) {
     }
 
     if (textBoxType) {
-      if(borrowed.modes.main == borrowed.modes.INSERT){
-        borrowed.modes.push(borrowed.modes.VIM_INSERT);
-      }
       if(!pluginType){
         modeLine.style.display="block";
       }
-      if (textBox) {
-          var text = textBoxGetValue()
-          var cursorPos = textBoxGetSelection()
-          savedCursorStart = cursorPos.start;
-          savedCursorEnd = cursorPos.end;
+
+      var text = textBoxGetValue()
+      var cursorPos = textBoxGetSelection()
+      savedCursorStart = cursorPos.start;
+      savedCursorEnd = cursorPos.end;
+
+      if(borrowed.modes.main == borrowed.modes.INSERT) {
+        borrowed.modes.push(borrowed.modes.VIM_INSERT);
       }
+
+      textBoxSetSelectionFromSaved(cursorPos);
 
       if (!tmpfile.write(text+"\n"))
         throw Error("io.cantEncode");
