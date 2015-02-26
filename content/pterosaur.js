@@ -318,7 +318,7 @@ function updateVim(){
     }
     if (!stateCheck() || vimNsIProc.isRunning) //Yes, we just checked isrunning, but it has a good chance of changing due to statecheck
     {
-      if(!useFullVim() || textBoxType == "")
+      if(!useFullVim() || textBoxType === "")
       {
         sendToVim = "";
       } else {
@@ -331,11 +331,18 @@ function updateVim(){
     sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
-    webKeyTimeout = thisWindow.setTimeout(function() {
-      if (!leanVim() && stateCheck() && [ESC, GS, '\r', '\t', ''].indexOf(lastKey) == -1){
-        handleKeySending(lastKey);
-      }
-    }, 250);
+    webKeyTimeout = thisWindow.setTimeout(webKeyTimeoutFunc, 250);
+  }
+}
+
+function webKeyTimeoutFunc() {
+  console.log(lastKey);
+  if (!leanVim() && [ESC, GS, '\r', '\t', ''].indexOf(lastKey) == -1){
+    if(stateCheck() && !vimNsIProc.isRunning) {
+      handleKeySending(lastKey);
+    } else if (useFullVim() && textBoxType !== "") {
+      webKeyTimeout = thisWindow.setTimeout(webKeyTimeoutFunc, 50);
+    }
   }
 }
 
@@ -1125,7 +1132,10 @@ function updateTextbox(preserveMode) {
       return;
     }
 
-    lastKey = "";
+    if(lastKey === ESC) {
+      lastKey = "";
+    }
+
     unsent=1
     vimGame = false;
 
