@@ -327,7 +327,7 @@ function updateVim(){
       return;
     }
 
-    let tempSendToVim = sendToVim;
+    var tempSendToVim = sendToVim;
     sendToVim = "";
     vimStdin.write(tempSendToVim);
     unsent=0;
@@ -440,9 +440,9 @@ function stateCheck(){
 var lastVal = null;
 var lastMeta = null;
 function updateFromVim(){
-    let val = tmpfile.read();
-    let metadata = metaTmpfile.read();
-    let messages = messageTmpfile.read();
+    var val = tmpfile.read();
+    var metadata = metaTmpfile.read();
+    var messages = messageTmpfile.read();
 
     //Exit immediately if nothing happens. (This is just for performance. It's not needed for correct behavior.)
     if(metadata === lastMeta && val === lastVal && (!messages || messages === "\n")) {
@@ -488,7 +488,7 @@ function updateFromVim(){
       if (metadata[1] !=="" && metadata[1] !== lastVimCommand)
       {
         lastVimCommand = metadata[1];
-        let modestring = "";
+        var modestring = "";
         if (metadata[1][0] == "@")
           borrowed.echo("INPUT: " + metadata[1].slice(1));
         else
@@ -692,8 +692,8 @@ function textBoxGetSelection(){
       return {"start": {"row": 1, "column": 1}, "end": {"row":1, "column": 1}};
     case "contentEditable":
     case "designMode":
-      let fromBeginning = pterosaur.minidactyl.nodeContents(textBox.rootElement);
-      let oldRange = textBox.selection.getRangeAt(0);
+      var fromBeginning = pterosaur.minidactyl.nodeContents(textBox.rootElement);
+      var oldRange = textBox.selection.getRangeAt(0);
 
       fromBeginning.setEnd(oldRange.startContainer, oldRange.startOffset);
       var preStart = htmlToText(pterosaur.minidactyl.stringify(fromBeginning, true));
@@ -802,7 +802,7 @@ function textBoxSetSelection(start, end){
     case "normal":
       start = start.split(',');
       end = end.split(',');
-      let value = textBox.value;
+      var value = textBox.value;
       textBox.setSelectionRange(convertRowColumnToIndex(value, start[2], start[1]), convertRowColumnToIndex(value, end[2], end[1]));
       break;
     case "contentEditable":
@@ -810,11 +810,11 @@ function textBoxSetSelection(start, end){
       start = start.split(",")
       end = end.split(",")
 
-      let range = pterosaur.minidactyl.nodeContents(textBox.rootElement);
-      let nodes = textBox.rootElement.childNodes;
-      let nodeIndex = 0;
-      let row = 0;
-      let length = nodes.length;
+      var range = pterosaur.minidactyl.nodeContents(textBox.rootElement);
+      var nodes = textBox.rootElement.childNodes;
+      var nodeIndex = 0;
+      var row = 0;
+      var length = nodes.length;
       while(row<start[2] && nodeIndex < length-1)
       {
         if (nodes[nodeIndex]) {
@@ -1330,7 +1330,7 @@ function onKeyPress(eventList) {
       }
     }
 
-    let inputChar = pterosaur.minidactyl.stringifyEvent(eventList[0]);
+    var inputChar = pterosaur.minidactyl.stringifyEvent(eventList[0]);
 
     if (inputChar[0] === "<"){
       switch(inputChar) {
