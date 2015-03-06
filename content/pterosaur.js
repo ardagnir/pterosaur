@@ -76,6 +76,7 @@ defaultPrefs.setBoolPref("verbose", false);
 defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
+defaultPrefs.setCharPref("exitkey", "<Esc>");
 
 var borrowed;
 var modeLine;
@@ -1331,6 +1332,11 @@ function onKeyPress(eventList) {
 
     var inputChar = pterosaur.minidactyl.stringifyEvent(eventList[0]);
 
+    if((borrowed.modes.main == borrowed.modes.VIM_NORMAL || lastKey === ESC) && inputChar === prefs.getCharPref("exitkey")){
+      borrowed.modes.reset();
+      return KILL;
+    }
+
     if (inputChar[0] === "<"){
       switch(inputChar) {
         case "<Space>":
@@ -1522,7 +1528,6 @@ function handleStrictVim() {
     }
 }
 
-
 function cleanupPterosaur() {
     usingFullVim = useFullVim();
     if (usingFullVim) {
@@ -1535,7 +1540,7 @@ function cleanupPterosaur() {
             ["<Esc>", "<C-[>"],
             ["Handle escape key"],
             function(){
-              if (vimMode === "n" || lastKey === ESC)
+              if (prefs.getCharPref("exitkey") === "<Esc>" && (vimMode === "n" || lastKey === ESC))
               {
                 borrowed.modes.reset();
               }

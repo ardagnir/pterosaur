@@ -63,6 +63,8 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 
 **rcfile**: Set this to a file (default: ~/.pterosaurrc) to have Pterosaur's vim load that file on startup. This is useful for Pterosaur-specific vim settings.
 
+**exitkey**: Pressing this key will cause the textbox to lose focus if pressed in normal mode or immediately following an Escape press. The default value is `<Esc>`. Control values can be used in the form `<C-a>` or `<C-S-A>` (case sensitive).
+
 ##FAQ
 **Q:** Why isn't Pterosaur working in firebug?<br/>
 **A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false.
