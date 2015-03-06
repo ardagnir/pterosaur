@@ -77,6 +77,7 @@ defaultPrefs.setCharPref("vimbinary", vimPath);
 defaultPrefs.setCharPref("debugtty", "");
 defaultPrefs.setCharPref("rcfile", "~/.pterosaurrc");
 defaultPrefs.setCharPref("exitkey", "<Esc>");
+defaultPrefs.setCharPref("envoverrides", "");
 
 var borrowed;
 var modeLine;
@@ -1655,16 +1656,42 @@ function startVimbed() {
   if (!messageTmpfile)
       throw Error("io.cantCreateTempFile");
 
+  var env_overrides = prefs.getCharPref("envoverrides").split(" ");
+  var override_dict = {};
+
+  for (var index in env_overrides)
+  {
+    var override = env_overrides[index];
+    var colonIndex = override.indexOf("=");
+    if (colonIndex !== -1) {
+      override_dict[override.substring(0, colonIndex)] = override;
+    }
+  }
+
   var TERM = Environment.get("TERM");
 
   if (!TERM || TERM === "linux")
     TERM = "xterm";
 
   var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
-  for (var index = 0, len = env_variables.length; index < len; index++){
-    env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
+  for (var index = 0, len = env_variables.length; index < len; index++) {
+    if(override_dict[env_variables[index]]){
+      var tmp = override_dict[env_variables[index]];
+      delete override_dict[env_variables[index]];
+      env_variables[index] = tmp;
+    }
+    else
+      env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
   }
-  env_variables.push("TERM="+TERM);
+  if(override_dict["TERM"]) {
+    env_variables.push(override_dict["TERM"])
+    delete override_dict["TERM"]
+  }
+  else
+    env_variables.push("TERM=" + TERM);
+
+  for (key in override_dict)
+    env_variables.push(override_dict[key])
 
   var pterosaurRcExists = false;
 

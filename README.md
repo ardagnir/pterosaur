@@ -65,6 +65,8 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 
 **exitkey**: Pressing this key will cause the textbox to lose focus if pressed in normal mode or immediately following an Escape press. The default value is `<Esc>`. Control values can be used in the form `<C-a>` or `<C-S-A>` (case sensitive).
 
+**envoverrides**: A space seperated list of environment variables with values used to to override the defaults when calling vim. For example, you might set this value to something like "DISPLAY=:0 XAUTHORITY=/home/me/.Xauthority" if you are using firefox with X11 forwarding. Most environment variables not specified here will inherit their values from Firefox.
+
 ##FAQ
 **Q:** Why isn't Pterosaur working in firebug?<br/>
 **A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false.
