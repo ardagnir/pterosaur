@@ -109,7 +109,7 @@ function setupPluginConnections(){
     newPluginType = "";
   }
 
-  thisWindow.setTimeout(setupPluginConnections, 5);
+  thisWindow.setTimeout(setupPluginConnections, 5000);
   if(pluginType == newPluginType){
     return;
   }
