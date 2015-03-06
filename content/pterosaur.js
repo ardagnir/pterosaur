@@ -329,14 +329,13 @@ function updateVim(){
 
     var tempSendToVim = sendToVim;
     sendToVim = "";
-    vimStdin.write(tempSendToVim);
+    vimStdin.write(unescape(encodeURIComponent(tempSendToVim))); //Converts to UTF8
     unsent=0;
     webKeyTimeout = thisWindow.setTimeout(webKeyTimeoutFunc, 250);
   }
 }
 
 function webKeyTimeoutFunc() {
-  console.log(lastKey);
   if (!leanVim() && [ESC, GS, '\r', '\t', ''].indexOf(lastKey) == -1){
     if(stateCheck() && !vimNsIProc.isRunning) {
       handleKeySending(lastKey);
