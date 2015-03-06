@@ -132,6 +132,7 @@ function setupPluginConnections(){
   pterosaur.minidactyl.setPluginType(pluginType);
 
   if (pluginType == "dactyl") {
+    PASS_THROUGH = head.plugins.Events.PASS; //Pentadactyl now wants Events.PASS here
     borrowed = {
       modes: head.plugins.modes,
       commands: head.plugins.commands,
@@ -162,6 +163,7 @@ function setupPluginConnections(){
     borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
   }
   else if (pluginType == "vimperator") {
+    PASS_THROUGH = {};
     borrowed = {
       modes: head.plugins.modes,
       commands: head.plugins.commands,
@@ -198,6 +200,7 @@ function setupPluginConnections(){
         });
 
   } else {
+    PASS_THROUGH = {};
     borrowed = {
       modes: {"INSERT": {char:'I', name: ""},
               addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
