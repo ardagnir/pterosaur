@@ -1,0 +1,72 @@
+#!/usr/bin/env python2
+import asyncproc
+import subprocess
+import json
+import sys
+import struct
+import time
+
+running_processes = dict()
+
+# Helper function that sends a message to the webapp.
+def send_message(message):
+   # Write message size.
+  sys.stdout.write(str(struct.pack('I', len(message))))
+  # Write the message itself.
+  sys.stdout.write(message)
+  sys.stdout.flush()
+
+
+def read_func():
+  message_number = 0
+  if 0:
+    # Read the message length (first 4 bytes).
+    text_length_bytes = sys.stdin.read(4)
+
+    if len(text_length_bytes) == 0:
+      if queue:
+        queue.put(None)
+      sys.exit(0)
+
+
+    # Unpack message length as 4 byte integer.
+    text_length = struct.unpack('i', bytes(text_length_bytes, 'UTF-8'))[0]
+    message = sys.stdin.read(text_length).decode('utf-8')
+  else:
+    #message = '{"async": 1, "command": ["vim"], "type": "start", "key": "vim"}'
+    message = '{"command": ["which", "vim"], "key": "findpath"}'
+    #sys.stdin.readline()
+
+  # Read the text (JSON object) of the message.
+  message = json.loads(message)
+
+  #TODO: JSON parse
+
+  if message.get("async", 0):
+    key = message["key"]
+    mtype = message["type"]
+    if mtype == "start":
+      if key in running_processes:
+        running_processes[key].kill(9)
+      running_processes[key] = asyncproc.Process(message["command"])
+    elif mtype == "stdin":
+      running_processes[key].stdin.write(message["value"])
+    elif mtype == "kill":
+      running_processes[key].kill()
+  else:
+    #send_message(('"'+"{'result': '%s', 'key': '%s'}"+'"') % (subprocess.check_output(message["command"]), message["key"]))
+    send_message('"a"')
+
+def process_output(key):
+  stdout =  running_processes[key].read()
+  stderr =  running_processes[key].readerr()
+  if len(stdout):
+    send_message('{"proc": "%s", "type": "stdout", "value": "%s"}' % (key, stdout))
+  if len(stderr):
+    send_message('{"proc": "%s", "type": "stderr", "value": %s}' % (key, stderr))
+
+read_func()
+while 1:
+  time.sleep(.01)
+  for key in running_processes:
+    process_output(key)

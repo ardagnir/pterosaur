@@ -40,19 +40,20 @@
  *   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  *   DEALINGS IN THE SOFTWARE.
  */
-'use strict';
 
-let EXPORTED_SYMBOLS = ["minidactyl"];
+var EXPORTED_SYMBOLS = ["minidactyl"];
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cr = Components.results;
+if(typeof Components !== "undefined"){
+  var Cc = Components.classes;
+  var Ci = Components.interfaces;
+  var Cr = Components.results;
 
-var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
+  var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
 
-Components.utils.import("resource://gre/modules/FileUtils.jsm");
+  Components.utils.import("resource://gre/modules/FileUtils.jsm");
+}
 
-var minidactyl = function(console, window, editing, focusManager, pluginType){
+function minidactyl(console, window, editing, focusManager, pluginType){
     this.console = console;
     this.window = window;
     this.editing = editing;
@@ -74,14 +75,14 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             return "";
 
         if (node instanceof Ci.nsIDOMNode) {
-            let range = node.ownerDocument.createRange();
+            var range = node.ownerDocument.createRange();
             range.selectNode(node);
             node = range;
         }
-        let doc = (node.getRangeAt ? node.getRangeAt(0) : node).startContainer;
+        var doc = (node.getRangeAt ? node.getRangeAt(0) : node).startContainer;
         doc = doc.ownerDocument || doc;
 
-        let encoder = Cc["@mozilla.org/layout/htmlCopyEncoder;1"].createInstance(Ci.nsIDocumentEncoder)
+        var encoder = Cc["@mozilla.org/layout/htmlCopyEncoder;1"].createInstance(Ci.nsIDocumentEncoder)
 
         encoder.init(doc, "text/unicode", encoder.OutputRaw|encoder.OutputPreformatted);
         if (node instanceof Ci.nsISelection)
@@ -89,16 +90,17 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         else if (node instanceof Ci.nsIDOMRange)
             encoder.setRange(node);
 
-        let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString)
+        var str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString)
         str.data = encoder.encodeToString();
 
 
         if (html)
             return str.data;
 
-        let [result, length] = [{}, {}];
+        var result = {};
+        var length = {};
         
-        let converter = Cc["@mozilla.org/widget/htmlformatconverter"].createInstance("nsIFromatConverter")
+        var converter = Cc["@mozilla.org/widget/htmlformatconverter"].createInstance("nsIFromatConverter")
         converter.convert("text/html", str, str.data.length*2, "text/unicode", result, length);
         return result.value.QueryInterface(Ci.nsISupportsString).data;
     };
@@ -119,8 +121,8 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         if (event.dactylString)
             return event.dactylString;
 
-        let key = null;
-        let modifier = "";
+        var key = null;
+        var modifier = "";
 
         if (event.globKey)
             modifier += "*-";
@@ -132,7 +134,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             modifier += "M-";
 
         if (/^key/.test(event.type)) {
-            let charCode = event.type == "keyup" ? 0 : event.charCode; // Why? --Kris
+            var charCode = event.type == "keyup" ? 0 : event.charCode; // Why? --Kris
             if (charCode == 0) {
                 if (event.keyCode in this.code_key) {
                     key = this.code_key[event.keyCode];
@@ -193,8 +195,10 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
                     // or if the shift has been forced for a non-alphabetical character by the user while :map-ping
                     if (key !== key.toLowerCase() && (event.ctrlKey || event.altKey || event.metaKey) || event.dactylShift)
                         modifier += "S-";
-                    if (/^\s$/.test(key))
-                        key = let (s = charCode.toString(16)) "U" + "0000".substr(4 - s.length) + s;
+                    if (/^\s$/.test(key)) {
+                        s = charCode.toString(16);
+                        key = "U" + "0000".substr(4 - s.length) + s;
+                    }
                     else if (modifier.length == 0)
                         return key;
                 }
@@ -249,17 +253,18 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             //return this.File(bin);
 
         //TODO: WINDOWS_COMPAT
-        let PATH_SEPERATOR=":";
-        let dirs = Environment.get("PATH")
+        var PATH_SEPERATOR=":";
+        var dirs = Environment.get("PATH")
                            .split(PATH_SEPERATOR);
 
         //TODO: WINDOWS_COMPAT Windows tries the CWD first TODO: desirable?
         //if (config.OS.isWindows)
             //dirs = [io.cwd].concat(dirs);
 
-        for (let [, dir] in Iterator(dirs))
+        for (dira in Iterator(dirs))
+            dir = dira[1];
             try {
-                let file = FileUtils.File(dir);
+                var file = FileUtils.File(dir);
 
                 file.append(bin);
 
@@ -270,8 +275,8 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
                 // automatically try to add the executable path extensions on windows
                 /*
                 if (config.OS.isWindows) {
-                    let extensions = services.environment.get("PATHEXT").split(";");
-                    for (let [, extension] in Iterator(extensions)) {
+                    var extensions = services.environment.get("PATHEXT").split(";");
+                    for (var [, extension] in Iterator(extensions)) {
                         file = dir.child(bin + extension);
                         if (file.exists())
                             return file;
@@ -300,9 +305,9 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
      */
     //NOTE: Do not use with pentadactyl. Use pentadactyl's feedkeys instead.
     this.feedkey = function (key, focusedElement) {
-      let evt_obj = thisInst.parse(key)[0];
+      var evt_obj = thisInst.parse(key)[0];
       ["keydown", "keypress", "keyup"].forEach(function(type){
-        let evt = {};
+        var evt = {};
         for(var dictKey in evt_obj){
           evt[dictKey] = evt_obj[dictKey];
         }
@@ -310,7 +315,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         evt['key'] = key;
         evt['bubbles'] = true;
         evt['cancelable'] = true;
-        //let evt = update({}, evt_obj, { type: type });
+        //var evt = update({}, evt_obj, { type: type });
         if (type !== "keypress" && !evt.keyCode)
           evt.keyCode = evt._keyCode || 0;
 
@@ -319,13 +324,13 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         //evt.dactylSavedEvents = savedEvents;
         //DOM.Event.feedingEvent = evt;
 
-        //let doc = document.commandDispatcher.focusedWindow.document;
+        //var doc = document.commandDispatcher.focusedWindow.document;
 //TODO_DESIGNMODE
-        let doc = thisInst.window.content.document;
+        var doc = thisInst.window.content.document;
 
         
         //dactyl.focusedElement
-        let target = thisInst.focusManager.getFocusedElementForWindow(thisInst.window, true, {})
+        var target = thisInst.focusManager.getFocusedElementForWindow(thisInst.window, true, {})
           || ["complete", "interactive"].indexOf(doc.readyState) >= 0 && doc.documentElement
           || doc.defaultView;
 
@@ -333,9 +338,9 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             //["<Return>", "<Space>"].indexOf(key) == -1)
          // target = target.ownerDocument.documentElement;
 
-        //let event = DOM.Event(doc, type, evt_obj);
-        //let event = target.ownerDocument.createEvent('KeyEvents');
-        let event = new thisInst.window.KeyboardEvent(type, evt);
+        //var event = DOM.Event(doc, type, evt_obj);
+        //var event = target.ownerDocument.createEvent('KeyEvents');
+        var event = new thisInst.window.KeyboardEvent(type, evt);
         //if (!evt_obj.dactylString && !mode)
           thisInst.dispatchEvent(target, event, evt);
         //else if (type === "keypress")
@@ -377,10 +382,18 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
               //this.feedingEvent = null;
           }
     };
+    this.createDir = function(path) {
+      dir = FileUtils.File(path);
+      dir.create(Ci.nsIFile.NORMAL_FILE_TYPE, 448) //0o700
+
+    }
     this.wrappedFile = function( file ) {
       var MODE_WRONLY = 0x02;
       var MODE_CREATE = 0x08;
       var MODE_TRUNCATE = 0x20;
+
+      file = FileUtils.File(file);
+      file.create(Ci.nsIFile.NORMAL_FILE_TYPE, 384) //0o600
 
       this.write = function(text){
         function getStream(defaultChar) {
@@ -388,20 +401,22 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
           stream.init(ofstream, encoding, 0, defaultChar)
           return stream;
         }
-        let mode = MODE_WRONLY | MODE_CREATE | MODE_TRUNCATE;
-        let perms = 0o600;
-        let ofstream = Components.classes["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
+        var mode = MODE_WRONLY | MODE_CREATE | MODE_TRUNCATE;
+        var perms = 384; //0o600
+        var ofstream = Components.classes["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
         ofstream.init(file, mode, perms, 0);
-        let encoding = 'UTF8';
+        var encoding = 'UTF8';
         try{
           var ocstream = getStream(0);
           ocstream.writeString(text)
         }
-        catch (e if e.result == Cr.NS_ERROR_LOSS_OF_SIGNIFICANT_DATA) {
+        catch (e) {
+          if (e.result == Cr.NS_ERROR_LOSS_OF_SIGNIFICANT_DATA) {
             ocstream.close();
             ocstream = getStream("?".charCodeAt(0));
             ocstream.writeString(text);
             return false;
+          }
         }
         finally {
             try {
@@ -425,8 +440,8 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             icstream.init(ifstream, encoding || File.defaultEncoding, 4096, // buffer size
                     icstream.DEFAULT_REPLACEMENT_CHARACTER);
 
-            let buffer = [];
-            let str = {};
+            var buffer = [];
+            var str = {};
             while (icstream.readString(4096, str) != 0)
                 buffer.push(str.value);
             return buffer.join("");
@@ -439,7 +454,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
       this.path = file.path;
     };
     this.nodeContents = function nodeContents(node) {
-      let range = node.ownerDocument.createRange();
+      var range = node.ownerDocument.createRange();
       try {
         range.selectNodeContents(node);
       }
@@ -459,7 +474,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         if (thisInst.editing()){
           var callback = thisInst.keyHandler.mappings[thisInst.stringifyEvent(e)];
           if (callback) {
-            let returnVal = callback();
+            var returnVal = callback();
             if(!returnVal) {
               e.stopPropagation();
               e.preventDefault();
@@ -475,7 +490,7 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
         //override this
       },
       keypress: function(e){
-        let returnVal = thisInst.keyHandler.onKeyPress(e);
+        var returnVal = thisInst.keyHandler.onKeyPress(e);
         if(!returnVal) {
           e.stopPropagation();
           e.preventDefault();
@@ -484,20 +499,22 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
       }
     };
 
-    if(this.pluginType != "dactyl"){
-      thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
-      thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
-    }
-
-    this.setPluginType = function(newPluginType){
-      if(this.pluginType != "dactyl"){
-        thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
-        thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
-      }
-      this.pluginType = newPluginType;
+    if(thisInst.window) {
       if(this.pluginType != "dactyl"){
         thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
         thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
+      }
+
+      this.setPluginType = function(newPluginType){
+        if(this.pluginType != "dactyl"){
+          thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
+          thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
+        }
+        this.pluginType = newPluginType;
+        if(this.pluginType != "dactyl"){
+          thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
+          thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
+        }
       }
     }
 
@@ -508,15 +525,18 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
       }
     }
 
-    this.parse = function parse(input, unknownOk=true) {
+    this.parse = function parse(input, unknownOk) {
         //if (isArray(input))
          //   return array.flatten(input.map(k => this.parse(k, unknownOk)));
 
-        let out = [];
-        for (let match in thisInst.iterateRegex(/<.*?>?>|[^<]|<(?!.*>)/g, input)) {
-            let evt_str = match[0];
+        if (unknownOk == null)
+          unknownOk = true;
 
-            let evt_obj = { ctrlKey: false, shiftKey: false, altKey: false, metaKey: false,
+        var out = [];
+        for (var match in thisInst.iterateRegex(/<.*?>?>|[^<]|<(?!.*>)/g, input)) {
+            var evt_str = match[0];
+
+            var evt_obj = { ctrlKey: false, shiftKey: false, altKey: false, metaKey: false,
                             keyCode: 0, charCode: 0, type: "keypress" };
 
             if (evt_str.length == 1) {
@@ -525,7 +545,11 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
                 evt_obj.shiftKey = evt_str !== evt_str.toLowerCase();
             }
             else {
-                let [match, modifier, keyname] = evt_str.match(/^<((?:[*12CASM⌘]-)*)(.+?)>$/i) || [false, '', ''];
+                var array = evt_str.match(/^<((?:[*12CASM⌘]-)*)(.+?)>$/i) || [false, '', ''];
+                match = array[0];
+                modifier = array[1];
+                keyname = arrray[2];
+
                 modifier = new Set(modifier.toUpperCase());
                 keyname = keyname.toLowerCase();
                 evt_obj.dactylKeyname = keyname;
@@ -574,18 +598,27 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
             if (evt_obj.keyCode == 60 || evt_obj.charCode == 60)
                 evt_obj.charCode = evt_obj.keyCode = 60; // <lt>
 
-            evt_obj.modifiers = (evt_obj.ctrlKey  && Ci.nsIDOMNSEvent.CONTROL_MASK)
-                              | (evt_obj.altKey   && Ci.nsIDOMNSEvent.ALT_MASK)
-                              | (evt_obj.shiftKey && Ci.nsIDOMNSEvent.SHIFT_MASK)
-                              | (evt_obj.metaKey  && Ci.nsIDOMNSEvent.META_MASK);
+            //evt_obj.modifiers = this.calcEventModifiers();
+            if (this.browser === "firefox"){
+              evt_obj.modifiers = (evt_obj.ctrlKey  && Ci.nsIDOMNSEvent.CONTROL_MASK)
+                                | (evt_obj.altKey   && Ci.nsIDOMNSEvent.ALT_MASK)
+                                | (evt_obj.shiftKey && Ci.nsIDOMNSEvent.SHIFT_MASK)
+                                | (evt_obj.metaKey  && Ci.nsIDOMNSEvent.META_MASK);
+            } else { 
+              evt_obj.modifiers = (evt_obj.ctrlKey  && 2)
+                                | (evt_obj.altKey   && 1)
+                                | (evt_obj.shiftKey && 4)
+                                | (evt_obj.metaKey  && 8);
+            }
 
             out.push(evt_obj);
         }
         return out;
     };
-    this.iterateRegex = function iterate(regexp, string, lastIndex) {
+
+    this.iterateRegex = function * iterate(regexp, string, lastIndex) {
         regexp.lastIndex = lastIndex = lastIndex || 0;
-        let match;
+        var match;
         while (match = regexp.exec(string)) {
             lastIndex = regexp.lastIndex;
             yield match;
@@ -594,5 +627,5 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
                 break;
         }
     };
-    this.pseudoKeys = Set(["count", "leader", "nop", "pass"]);
+    this.pseudoKeys = new Set(["count", "leader", "nop", "pass"]);
 }

@@ -1,0 +1,1 @@
+pter = new pterosaurWindow

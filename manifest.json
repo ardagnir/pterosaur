@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+
+  "name": "Pterosaur",
+  "description": "This extension makes all text vim",
+  "version": "1.0",
+
+  "background": {
+    "scripts": ["content/chromium.js", "content/pterosaur.js", "content/minidactyl.jsm", "chromestrap.js"]
+  },
+
+  "permissions": [
+    "activeTab",
+    "nativeMessaging"
+  ]
+}

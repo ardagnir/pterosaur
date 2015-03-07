@@ -47,19 +47,39 @@ function pterosaurWindow(thisWindow){
 var pterosaur = this;
 
 var pluginType = "placeholder";
+var browserType;
 
-Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
-Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
-Components.utils.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
+if (typeof Components !== "undefined"){
+  Components.utils.import("chrome://pterosaur/content/subprocess.jsm");
+  Components.utils.import("chrome://pterosaur/content/minidactyl.jsm");
+  Components.utils.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
+  browserType = "firefox";
+} else {
+  browserType = "chromium";
+}
 
-var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
-var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
-var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
-var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getDefaultBranch("extensions.pterosaur.");
+if(browserType === "firefox") {
+  var focusManager = Components.classes["@mozilla.org/focus-manager;1"] .getService(Components.interfaces.nsIFocusManager);
+  var Environment = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
+  var prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.pterosaur.");
+  var defaultPrefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getDefaultBranch("extensions.pterosaur.");
 
-pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, "");
+  pterosaur.minidactyl = new minidactyl(console, thisWindow, function(){return textBoxType !== ""}, focusManager, "");
+  setTimeout = thisWindow.setTimeout;
+  alert = thisWindow.alert;
+  var createProcess = function(){ return Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);}
+} else if (browserType === "chromium") {
+  pterosaur.minidactyl = new minidactyl(console, null, function(){return textBoxType !== ""}, null, "");
+  var prefs = {setBoolPref: function(){}, setCharPref: function(){}, getBoolPref: function(){}, getCharPref: function(){}};
+  var defaultPrefs = prefs;
+  for (var x in chromium_compat){
+    pterosaur.minidactyl[x] = chromium_compat[x]
+  }
+  var createProcess = function() {return new chromium_compat.singleProc;}
+  subprocess = chromium_compat.subprocess;
+}
 
-var vimNsIProc = null;
+var vimMessageProc = null;
 var vimPath = "";
 try{
   vimPath = pterosaur.minidactyl.pathSearch("vim").path;
@@ -100,7 +120,11 @@ var PASS_THROUGH = {};
 function setupPluginConnections(){
   var head;
   var newPluginType;
-  if (typeof thisWindow.dactyl != "undefined"){
+  if(browserType == "chromium"){
+    head = null;
+    newPluginType = "";
+  }
+  else if (typeof thisWindow.dactyl != "undefined"){
     head = thisWindow.dactyl;
     newPluginType = "dactyl";
   } else if (typeof thisWindow.liberator != "undefined"){
@@ -111,7 +135,8 @@ function setupPluginConnections(){
     newPluginType = "";
   }
 
-  thisWindow.setTimeout(setupPluginConnections, 5000);
+  setTimeout(setupPluginConnections, 5000);
+
   if(pluginType == newPluginType){
     return;
   }
@@ -120,16 +145,18 @@ function setupPluginConnections(){
   pluginType = newPluginType;
 
 
-  if(!pluginType) {
-    modeLine = thisWindow.document.createElement('div');
-    modeText = thisWindow.document.createTextNode('');
-    modeLine.appendChild(modeText);
-    thisWindow.document.getElementById("main-window").appendChild(modeLine)
-  } else if (!oldPluginType) {
-    modeLine.parentNode.removeChild(modeLine);
-  }
+  if(browserType === "firefox"){
+    if(!pluginType) {
+      modeLine = thisWindow.document.createElement('div');
+      modeText = thisWindow.document.createTextNode('');
+      modeLine.appendChild(modeText);
+      thisWindow.document.getElementById("main-window").appendChild(modeLine)
+    } else if (!oldPluginType) {
+      modeLine.parentNode.removeChild(modeLine);
+    }
 
-  pterosaur.minidactyl.setPluginType(pluginType);
+    pterosaur.minidactyl.setPluginType(pluginType);
+  }
 
   if (pluginType == "dactyl") {
     PASS_THROUGH = head.plugins.Events.PASS; //Pentadactyl now wants Events.PASS here
@@ -208,7 +235,11 @@ function setupPluginConnections(){
               pop: function(){borrowed.modes.main = borrowed.modes.INSERT; borrowed.modes.updateModeline();},
               push: function(mode){borrowed.modes.main = mode; borrowed.modes.updateModeline()},
               reset: function(){focusManager.clearFocus(thisWindow);},
-              updateModeline: function(){modeText.textContent = borrowed.modes.main.name.replace("VIM_","");}
+              updateModeline: function(){
+                if(browserType === "firefox") {
+                  modeText.textContent = borrowed.modes.main.name.replace("VIM_","");
+                }
+              }
       },
       commands: null,
       options: null,
@@ -218,10 +249,10 @@ function setupPluginConnections(){
           borrowed.modes.updateModeline();
         }
         else {
-          thisWindow.setTimeout(function(){modeText.textContent = out},1);
+          setTimeout(function(){modeText.textContent = out},1);
         }
       },
-      echoerr: function(out) {thisWindow.alert(out)},
+      echoerr: function(out) {alert(out)},
       feedkey: pterosaur.minidactyl.feedkey,
       focus: function(element){if (element) {element.focus()}},
       editor: null,
@@ -286,13 +317,17 @@ this.useFullVim = useFullVim;
 
 setupPluginConnections();
 
-thisWindow.setTimeout(startVimbed, 1);
+setTimeout(startVimbed, 1);
+
+function isPassword(){
+  return focusedElement && focusedElement.type === "password"
+}
 
 function useFullVim(){
   var focusedElement = borrowed.focusedElement();
   if(prefs.getBoolPref("contentonly") && focusedElement && focusedElement.ownerDocument.URL.substring(0,7) === "chrome:")
     return false;
-  if (focusedElement && focusedElement.type === "password")
+  if (isPassword())
     return false;
   if (PrivateBrowsingUtils.isWindowPrivate(thisWindow) && !prefs.getBoolPref("allowPrivate"))
     return false;
@@ -317,17 +352,17 @@ function updateVim(){
       thisWindow.clearTimeout(webKeyTimeout);
       webKeyTimeout = null;
     }
-    if(vimNsIProc.isRunning){
-      thisWindow.setTimeout(updateVim, 10);
+    if(vimMessageProc.isRunning){
+      setTimeout(updateVim, 10);
       return;
     }
-    if (!stateCheck() || vimNsIProc.isRunning) //Yes, we just checked isrunning, but it has a good chance of changing due to statecheck
+    if (!stateCheck() || vimMessageProc.isRunning) //Yes, we just checked isrunning, but it has a good chance of changing due to statecheck
     {
       if(!useFullVim() || textBoxType === "")
       {
         sendToVim = "";
       } else {
-        thisWindow.setTimeout(updateVim, 10);
+        setTimeout(updateVim, 10);
       }
       return;
     }
@@ -336,16 +371,16 @@ function updateVim(){
     sendToVim = "";
     vimStdin.write(unescape(encodeURIComponent(tempSendToVim))); //Converts to UTF8
     unsent=0;
-    webKeyTimeout = thisWindow.setTimeout(webKeyTimeoutFunc, 250);
+    webKeyTimeout = setTimeout(webKeyTimeoutFunc, 250);
   }
 }
 
 function webKeyTimeoutFunc() {
   if (!leanVim() && [ESC, GS, '\r', '\t', ''].indexOf(lastKey) == -1){
-    if(stateCheck() && !vimNsIProc.isRunning) {
+    if(stateCheck() && !vimMessageProc.isRunning) {
       handleKeySending(lastKey);
     } else if (useFullVim() && textBoxType !== "") {
-      webKeyTimeout = thisWindow.setTimeout(webKeyTimeoutFunc, 50);
+      webKeyTimeout = setTimeout(webKeyTimeoutFunc, 50);
     }
   }
 }
@@ -354,9 +389,9 @@ var stateCheckTimeout = null;
 var pollsSkipped = 0;
 
 function stateCheckTimeoutFunc(){
-  if (vimNsIProc && vimNsIProc.isRunning)
+  if (vimMessageProc && vimMessageProc.isRunning)
   {
-    stateCheckTimeout = thisWindow.setTimeout(stateCheckTimeoutFunc, 50);
+    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, 50);
     return;
   }
   stateCheckTimeout = null
@@ -377,7 +412,7 @@ function stateCheck(){
       pollsSkipped = 0;
     }
 
-    stateCheckTimeout = thisWindow.setTimeout(stateCheckTimeoutFunc, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
+    stateCheckTimeout = setTimeout(stateCheckTimeoutFunc, borrowed.modes.main === borrowed.modes.VIM_COMMAND ? 250 : 500);
 
     if (usingFullVim !== useFullVim())
       cleanupPterosaur();
@@ -393,7 +428,7 @@ function stateCheck(){
       killVimbed();
       restarting = true;
       //The delay here is mostly so you can see the about:config value change.
-      thisWindow.setTimeout(function(){
+      setTimeout(function(){
         restarting = false;
         prefs.setBoolPref("restartnow", false);
         startVimbed();
@@ -454,15 +489,15 @@ function updateFromVim(){
       return;
     }
 
-    if(vimNsIProc.isRunning){
-      thisWindow.setTimeout(updateFromVim, 10);
+    if(vimMessageProc.isRunning){
+      setTimeout(updateFromVim, 10);
       return;
     }
 
-    if (!stateCheck() || vimNsIProc.isRunning)
+    if (!stateCheck() || vimMessageProc.isRunning)
     {
       if(useFullVim() && textBoxType) {
-        thisWindow.setTimeout(updateFromVim, 10);
+        setTimeout(updateFromVim, 10);
       }
       return;
     }
@@ -476,7 +511,7 @@ function updateFromVim(){
     else
     {
       //If we don't have any text at all, we caught the file right as it was emptied and we don't know anything.
-      thisWindow.setTimeout(updateFromVim, 20);
+      setTimeout(updateFromVim, 20);
       return;
     }
 
@@ -622,7 +657,7 @@ function updateFromVim(){
       pollTimeout = null;
     }
     if (vimMode !== "c" && gameTest <= 40) {
-      pollTimeout = thisWindow.setTimeout(function(){ pollTimeout = null }, 100);
+      pollTimeout = setTimeout(function(){ pollTimeout = null }, 100);
     }
 }
 
@@ -631,11 +666,11 @@ function updateFromVim(){
 var gameTest = 0;
 
 function pollTimeoutFunc(){
-    if(!vimNsIProc.isRunning){
+    if(!vimMessageProc.isRunning){
       pollTimeout = null;
       remoteExpr("Vimbed_Poll()");
     }else{
-      pollTimeout = thisWindow.setTimeout(pollTimeoutFunc, 50);
+      pollTimeout = setTimeout(pollTimeoutFunc, 50);
     }
 }
 
@@ -643,17 +678,17 @@ function callPoll(){
   if (!pollTimeout){
     var pollTimer = (vimMode == "c" || gameTest > 40 ? 1 : 250)
     //if vimMode == "c"(vimMode == "c" 1 : );
-    pollTimeout = thisWindow.setTimeout(pollTimeoutFunc, pollTimer);
+    pollTimeout = setTimeout(pollTimeoutFunc, pollTimer);
   }
 }
 
 function remoteExpr(expr){
   //The standard way to do this is:
-  //  vimNsIProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  expr], 4);
+  //  vimMessageProc.run(false,["--servername", "pterosaur_" + uid, '--remote-expr',  expr], 4);
   //but the below way is 5 times faster because remote-expr from the command line is so slow.
   //We could speed this up farther by just keeping a vim instance open just for sending remote_exprs, but this is good enough for now.
   try{
-    vimNsIProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-v", "-s", "/dev/null"], 7);
+    vimMessageProc.run(false,["+call remote_expr('pterosaur_" + uid + "', '" + expr + "')", "+q!", "-u", "NONE", "-v", "-s", "/dev/null"], 7);
   }
   catch (e){
     console.trace();
@@ -1127,12 +1162,12 @@ function setupForTextbox() {
 }
 
 function pterClicked(){
-  thisWindow.setTimeout(stateCheck, 1);
+  setTimeout(stateCheck, 1);
 }
 
 function updateTextbox(preserveMode) {
-    if (vimNsIProc.isRunning){
-      thisWindow.setTimeout(function(){updateTextbox(preserveMode);}, 25);
+    if (vimMessageProc.isRunning){
+      setTimeout(function(){updateTextbox(preserveMode);}, 25);
       return;
     }
 
@@ -1367,7 +1402,7 @@ function onKeyPress(eventList) {
           if (inputChar.slice(0,3)==="<C-" && inputChar.length == 5) {
             queueForVim(String.fromCharCode(inputChar[3].charCodeAt(0)-96));
           } else {
-            thisWindow.setTimeout(stateCheck,1);
+            setTimeout(stateCheck,1);
             return PASS;
           }
       }
@@ -1440,7 +1475,7 @@ function specialKeyHandler(key) {
           }
         }
 
-        thisWindow.setTimeout( function() {
+        setTimeout( function() {
           handlingSpecialKey=true;
           try {
             var value = textBoxGetValue() //Preserve the old value so the Return doesn't change it.
@@ -1620,33 +1655,22 @@ function startVimbed() {
   }
 
   if (vimFile && vimFile.exists()){
-    vimNsIProc = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
-    vimNsIProc.init(vimFile)
+    vimMessageProc = createProcess();
+    vimMessageProc.init(vimFile)
   } else {
-    vimNsIProc = null;
+    vimMessageProc = null;
     borrowed.echoerr("No vim instance found. Please set one using the 'extensions.pterosaur.vimbinary' preference in about:config.");
     stateCheck();
     return false;
   }
 
   uid = Math.floor(Math.random()*0x100000000).toString(16)
-  dir = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid);
-  tmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
-  metaTmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
-  messageTmpfile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
-  vimbedFile = thisWindow.FileUtils.File("/tmp/vimbed/pterosaur_"+uid+"/vimbed.vim");
+  pterosaur.minidactyl.createDir("/tmp/vimbed/pterosaur_"+uid);
 
-
-  dir.create(thisWindow.Ci.nsIFile.DIRECTORY_TYPE, 0o700);
-  tmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  metaTmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  messageTmpfile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-  vimbedFile.create(thisWindow.Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
-
-  tmpfile = new pterosaur.minidactyl.wrappedFile(tmpfile);
-  metaTmpfile = new pterosaur.minidactyl.wrappedFile(metaTmpfile);
-  messageTmpfile = new pterosaur.minidactyl.wrappedFile(messageTmpfile);
-  vimbedFile = new pterosaur.minidactyl.wrappedFile(vimbedFile);
+  tmpfile = new pterosaur.minidactyl.wrappedFile("/tmp/vimbed/pterosaur_"+uid+"/contents.txt");
+  metaTmpfile = new pterosaur.minidactyl.wrappedFile("/tmp/vimbed/pterosaur_"+uid+"/meta.txt");
+  messageTmpfile = new pterosaur.minidactyl.wrappedFile("/tmp/vimbed/pterosaur_"+uid+"/messages.txt");
+  vimbedFile = new pterosaur.minidactyl.wrappedFile("/tmp/vimbed/pterosaur_"+uid+"/vimbed.vim");
 
   copyVimbedFile(vimbedFile);
 
@@ -1659,42 +1683,44 @@ function startVimbed() {
   if (!messageTmpfile)
       throw Error("io.cantCreateTempFile");
 
-  var env_overrides = prefs.getCharPref("envoverrides").split(" ");
-  var override_dict = {};
+  if(browserType === "firefox") {
+    var env_overrides = prefs.getCharPref("envoverrides").split(" ");
+    var override_dict = {};
 
-  for (var index in env_overrides)
-  {
-    var override = env_overrides[index];
-    var colonIndex = override.indexOf("=");
-    if (colonIndex !== -1) {
-      override_dict[override.substring(0, colonIndex)] = override;
+    for (var index in env_overrides)
+    {
+      var override = env_overrides[index];
+      var colonIndex = override.indexOf("=");
+      if (colonIndex !== -1) {
+        override_dict[override.substring(0, colonIndex)] = override;
+      }
     }
-  }
 
-  var TERM = Environment.get("TERM");
+    var TERM = Environment.get("TERM");
 
-  if (!TERM || TERM === "linux")
-    TERM = "xterm";
+      if (!TERM || TERM === "linux")
+        TERM = "xterm";
 
-  var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
-  for (var index = 0, len = env_variables.length; index < len; index++) {
-    if(override_dict[env_variables[index]]){
-      var tmp = override_dict[env_variables[index]];
-      delete override_dict[env_variables[index]];
-      env_variables[index] = tmp;
+    var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
+    for (var index = 0, len = env_variables.length; index < len; index++) {
+      if(override_dict[env_variables[index]]){
+        var tmp = override_dict[env_variables[index]];
+        delete override_dict[env_variables[index]];
+        env_variables[index] = tmp;
+      }
+      else
+        env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
+    }
+    if(override_dict["TERM"]) {
+      env_variables.push(override_dict["TERM"])
+      delete override_dict["TERM"]
     }
     else
-      env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
-  }
-  if(override_dict["TERM"]) {
-    env_variables.push(override_dict["TERM"])
-    delete override_dict["TERM"]
-  }
-  else
-    env_variables.push("TERM=" + TERM);
+      env_variables.push("TERM=" + TERM);
 
-  for (key in override_dict)
-    env_variables.push(override_dict[key])
+    for (key in override_dict)
+      env_variables.push(override_dict[key])
+  }
 
   var pterosaurRcExists = false;
 
@@ -1707,7 +1733,7 @@ function startVimbed() {
 
   var startVimProcess = function(){
     var thisUid = uid;
-    vimProcess = subprocess.call({ url: thisWindow.URL,
+    vimProcess = subprocess.call({
       command: vimFile.path,
       arguments: function(){
         var toCall = ["--servername", "pterosaur_" + uid,
@@ -1768,7 +1794,7 @@ function startVimbed() {
           console.log("Stderr: " + data);
         }
         if (data.indexOf("--servername") != -1) {
-          thisWindow.setTimeout(function(){
+          setTimeout(function(){
             borrowed.echoerr("Pterosaur requires vim with +clientserver enabled. \nThe vim binary '" + vimFile.path + "' does not have +clientserver enabled.");
           }, 500);
           killVimbed();
@@ -1781,7 +1807,7 @@ function startVimbed() {
         }
         //If vim closes early, restart it.
         if(thisUid == uid && prefs.getBoolPref("autorestart")) {
-          vimRestartTimeout = thisWindow.setTimeout(function(){
+          vimRestartTimeout = setTimeout(function(){
             if (prefs.getBoolPref("verbose")) {
               console.log("Restarting vim");
             }
@@ -1795,6 +1821,9 @@ function startVimbed() {
 }
 
 function copyVimbedFile(destination){
+  if (browserType !== "firefox") {
+    return;
+  }
   var request = new thisWindow.XMLHttpRequest();
   request.open("GET", "chrome://pterosaur/content/vimbed/plugin/vimbed.vim", true);  // async=true
   request.responseType = "text";
@@ -1873,7 +1902,7 @@ this.onUnload = function(){
 }
 }
 
-exports.setup = function(thisWindow, startupAttempts){
+exports.setup = function setup(thisWindow, startupAttempts){
   var head;
   if (typeof thisWindow.dactyl != "undefined"){
     if (thisWindow.dactyl.fullyInitialized){
@@ -1885,11 +1914,11 @@ exports.setup = function(thisWindow, startupAttempts){
   if(head || startupAttempts > 0){
     thisWindow.pterosaurWindow = (new pterosaurWindow(thisWindow));
   } else {
-    thisWindow.setTimeout(function(){exports.setup(thisWindow, (startupAttempts || 0) + 1);}, 300);
+    setTimeout(function(){exports.setup(thisWindow, (startupAttempts || 0) + 1);}, 300);
   }
 }
 
-exports.shutdown = function(thisWindow){
+exports.shutdown = function shutdown(thisWindow){
   if(thisWindow.pterosaurWindow)
     thisWindow.pterosaurWindow.onUnload()
 }
