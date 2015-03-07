@@ -1348,7 +1348,7 @@ function onKeyPress(eventList) {
           queueForVim(' ');
           break;
         case "<Tab>":
-          return specialKeyHandler("<Tab>"); //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
+          return specialKeyHandler("<Tab>") === PASS_THROUGH; //At this point, websites already might have done their thing with tab. But if we grab it any earlier, we always move to the next field.
         //These are already handled by lean VIM. If we're not leaning vim, let's let the browser handle them.
         case "<Up>":
           return PASS;
@@ -1473,7 +1473,7 @@ function specialKeyHandler(key) {
         }
     }
     if(key==="<Tab>")
-      return false;
+      return !PASS_THROUGH;
 }
 
 //Returns true if the non-newline text is the same but the text is longer. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
