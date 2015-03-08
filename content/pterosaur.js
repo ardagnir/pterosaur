@@ -129,10 +129,7 @@ function setupPluginConnections(){
     modeLine.parentNode.removeChild(modeLine);
   }
 
-  pterosaur.minidactyl.setPluginType(pluginType);
-
   if (pluginType == "dactyl") {
-    PASS_THROUGH = head.plugins.Events.PASS; //Pentadactyl now wants Events.PASS here
     borrowed = {
       modes: head.plugins.modes,
       commands: head.plugins.commands,
@@ -143,12 +140,17 @@ function setupPluginConnections(){
       feedkey: head.plugins.events.feedkeys,
       focus: function(element){borrowed.focus(element)},
       editor: head.plugins.editor,
-      mappings: head.plugins.mappings.builtin,
+      mappings: {
+        add: function(mode, keylist, desc, callback){
+          keylist.forEach( function(key){ pterosaur.minidactyl.keyHandler.addKeyDown(key, callback);});
+        }, remove: function(mode, key){
+          return pterosaur.minidactyl.keyHandler.removeKeyDown(key);
+        }
+      },
     }
 
     if(usingFullVim){
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Space>");
-      borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
+      head.plugins.mappings.builtin.remove(borrowed.modes.INSERT, "<Space>");
     }
 
     borrowed.commands.add(["pterosaurrestart"],
@@ -159,11 +161,8 @@ function setupPluginConnections(){
         }, {
           argCount: "0",
         });
-
-    borrowed.modes.INSERT.params.onKeyPress = onKeyPress;
   }
   else if (pluginType == "vimperator") {
-    PASS_THROUGH = {};
     borrowed = {
       modes: head.plugins.modes,
       commands: head.plugins.commands,
@@ -200,7 +199,6 @@ function setupPluginConnections(){
         });
 
   } else {
-    PASS_THROUGH = {};
     borrowed = {
       modes: {"INSERT": {char:'I', name: ""},
               addMode: function(name, object) { borrowed.modes[name] = object; borrowed.modes[name].name = name;},
@@ -1472,8 +1470,7 @@ function specialKeyHandler(key) {
           queueForVim("\t");
         }
     }
-    if(key==="<Tab>")
-      return !PASS_THROUGH;
+    return !PASS_THROUGH;
 }
 
 //Returns true if the non-newline text is the same but the text is longer. Useful in figuring out if carriage return added a line(which we should ignore) or did something special
@@ -1536,8 +1533,7 @@ function cleanupPterosaur() {
     usingFullVim = useFullVim();
     if (usingFullVim) {
         if(pluginType == "dactyl"){
-          borrowed.mappings.remove(borrowed.modes.INSERT, "<Space>");
-          borrowed.mappings.remove(borrowed.modes.INSERT, "<Return>");
+          thisWindow.dactyl.plugins.mappings.builtin.remove(borrowed.modes.INSERT, "<Space>");
         }
         borrowed.mappings.add(
             [borrowed.modes.VIM_INSERT],
@@ -1550,6 +1546,7 @@ function cleanupPterosaur() {
               }
               else {
                 queueForVim(ESC);
+                return false;
               }
             });
 
@@ -1597,10 +1594,10 @@ function cleanupPterosaur() {
         borrowed.mappings.remove( borrowed.modes.VIM_INSERT, "<S-Return>");
 
         if(pluginType == "dactyl") {
-          borrowed.mappings.add([borrowed.modes.INSERT],
-              ["<Space>", "<Return>"], "Expand Insert mode abbreviation",
+          thisWindow.dactyl.plugins.mappings.builtin.add([borrowed.modes.INSERT],
+              ["<Space>"], "Expand Insert mode abbreviation",
               function () {
-                  borrowed.editor.expandAbbreviation(borrowed.modes.INSERT);
+                  thisWindow.dactyl.plugins.editor.expandAbbreviation(borrowed.modes.INSERT);
                   return PASS_THROUGH;
           });
         }

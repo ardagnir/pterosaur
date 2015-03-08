@@ -484,28 +484,12 @@ var minidactyl = function(console, window, editing, focusManager, pluginType){
       }
     };
 
-    if(this.pluginType != "dactyl"){
-      thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
-      thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
-    }
-
-    this.setPluginType = function(newPluginType){
-      if(this.pluginType != "dactyl"){
-        thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
-        thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
-      }
-      this.pluginType = newPluginType;
-      if(this.pluginType != "dactyl"){
-        thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
-        thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
-      }
-    }
+    thisInst.window.addEventListener("keydown", thisInst.keyHandler.keydown, true);
+    thisInst.window.addEventListener("keypress", thisInst.keyHandler.keypress, true);
 
     this.shutdown = function(){
-      if(this.pluginType != "dactyl"){
-        thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
-        thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
-      }
+      thisInst.window.removeEventListener("keydown", thisInst.keyHandler.keydown, true);
+      thisInst.window.removeEventListener("keypress", thisInst.keyHandler.keypress, true);
     }
 
     this.parse = function parse(input, unknownOk=true) {
