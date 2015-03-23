@@ -38,7 +38,7 @@ Pterosaur attempts to be unobtrusive, so even though it edits every non-password
 ##Pentadactyl/Vimperator Integration
 Pterosaur integrates well with both Pentadactyl and Vimperator.
 
-While Pterosaur allows you to edit text with vim, Pentadactyl and Vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [build it yourself](http://5digits.org/coding) for newer versions of Firefox.)
+While Pterosaur allows you to edit text with vim, Pentadactyl and Vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [download the nightly build](http://5digits.org/nightlies) for newer versions of Firefox.)
 
 ##Configuration
 Pterosaur can be configured by editing various configuration options. These can be edited in Firefox through the **about:config** or in Pentadactyl/Vimperator using the **:set!** command. All the following extensions begin with **extensions.pterosaur.**
