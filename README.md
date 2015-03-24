@@ -119,7 +119,7 @@ Note that if you install a new vim binary, some distro-based vim settings you mi
 ##Privacy
 Be aware that since Pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, Pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
 
-By default Pterosaur is disabled in private browsing mode. You can enable Pterosaur in prvate browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
+By default Pterosaur is disabled in private browsing mode. You can enable Pterosaur in private browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
 
 ##Bugs
 - If you find a bug, please create a github issue.
