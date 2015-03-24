@@ -7,6 +7,8 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 
 *Pterosaur supports most vim plugins. This demo uses Pterosaur v1.0 with the [vim-surround](http://github.com/tpope/vim-surround) plugin and a mod of the [invader-vim](http://github.com/mattn/invader-vim) script.*
 
+**Note: Due to the rules of my new employer, I likely won't be able to continue contributing to or maintaining Pterosaur as a Firefox addon for the forseeable future. Pterosaur works through Firefox 38, which should be in ESR until mid-2016. Hopefully, I will have made a Chromium version well before then. I apologize to everybody who's workflow will be disrupted. Pterosaur is free software. There is nothing stopping you from forking it.**
+
 ##Requirements
 - Pterosaur requires [Vim](http://www.vim.org).
 - Your vim version needs to have [+clientserver](#vim-info) support compiled in. Run `vim --version | grep clientserver` to check. (You want a plus sign)
