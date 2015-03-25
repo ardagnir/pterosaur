@@ -1,6 +1,6 @@
 **Note: THIS PROJECT IS NO LONGER MAINTAINED**
 
-**Due to the rules of my new employer, I likely won't be able to continue contributing to or maintaining Pterosaur as a Firefox addon for the forseeable future. Pterosaur works through Firefox 38, which should be in ESR until mid-2016. Hopefully, I will have made a Chromium version well before then. I apologize to everybody who's workflow will be disrupted. Pterosaur is free software. There is nothing stopping you from forking it.**
+**Due to the rules of my new employer, I likely won't be able to continue contributing to or maintaining Pterosaur as a Firefox addon for the foreseeable future. Pterosaur works through Firefox 38, which should be in ESR until mid-2016. Hopefully, I will have made a Chromium version well before then. I apologize to everybody whose workflow will be disrupted. Pterosaur is free software. There is nothing stopping you from forking it.**
 
 Pterosaur
 =========
