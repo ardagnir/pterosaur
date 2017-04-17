@@ -1673,22 +1673,17 @@ function startVimbed() {
   if (!TERM || TERM === "linux")
     TERM = "xterm";
 
-  var env_variables = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
-  for (var index = 0, len = env_variables.length; index < len; index++) {
-    if(override_dict[env_variables[index]]){
-      var tmp = override_dict[env_variables[index]];
-      delete override_dict[env_variables[index]];
-      env_variables[index] = tmp;
-    }
-    else
-      env_variables[index] = env_variables[index] + "=" + Environment.get(env_variables[index]);
+  if (!override_dict.hasOwnProperty("TERM"))
+    override_dict["TERM"] = "TERM=" + TERM;
+
+  var env_variables = [];
+
+  var env_vars_to_copy = ["DISPLAY", "USER", "XDG_VTNR", "XDG_SESSION_ID", "SHELL", "PATH", "LANG", "SHLVL", "XDG_SEAT", "HOME", "LOGNAME", "WINDOWPATH", "XDG_RUNTIME_DIR", "XAUTHORITY"];
+  for (var index = 0, len = env_vars_to_copy.length; index < len; index++) {
+    var to_copy = env_vars_to_copy[index];
+    if (Environment.exists(to_copy) && !override_dict.hasOwnProperty(to_copy))
+      env_variables.push(to_copy + "=" + Environment.get(to_copy))
   }
-  if(override_dict["TERM"]) {
-    env_variables.push(override_dict["TERM"])
-    delete override_dict["TERM"]
-  }
-  else
-    env_variables.push("TERM=" + TERM);
 
   for (key in override_dict)
     env_variables.push(override_dict[key])
