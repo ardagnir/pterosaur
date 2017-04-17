@@ -11,17 +11,17 @@ Pterosaur gives you the full power of Vim and your vimrc in each Firefox text fi
 
 *Pterosaur supports most vim plugins. This demo uses Pterosaur v1.0 with the [vim-surround](http://github.com/tpope/vim-surround) plugin and a mod of the [invader-vim](http://github.com/mattn/invader-vim) script.*
 
-##Requirements
+## Requirements
 - Pterosaur requires [Vim](http://www.vim.org).
 - Your vim version needs to have [+clientserver](#vim-info) support compiled in. Run `vim --version | grep clientserver` to check. (You want a plus sign)
 - Pterosaur works best in GNU/Linux.
 - Pterosaur also works in OSX [(but read the OSX section first)](#mac-osx-notes)
 
-##Installing
-###The Easy Way:
+## Installing
+### The Easy Way:
 Click [here](http://ardagnir.github.io/pterosaur.xpi)
 
-###The Normal Way:
+### The Normal Way:
 **Step 1:** Clone pterosaur. (If you're updating from a pre-1.0 version, just move pterosuar *out* of the Pentadactyl plugins directory and `git pull`)
 
     git clone --recursive http://github.com/ardagnir/pterosaur
@@ -34,17 +34,17 @@ Click [here](http://ardagnir.github.io/pterosaur.xpi)
 
 *`make install` won't work for Mac users. Manually install the xpi after the `make` or use "The Easy Way" above.*
 
-##How it works
+## How it works
 Pterosaur uses [vimbed](http://github.com/ardagnir/vimbed) to run an actual vim instance in the background and routes keystrokes through vim.
 
 Pterosaur attempts to be unobtrusive, so even though it edits every non-password textbox with vim, it starts out in vim's insert mode and enters vim's select mode when you select text with the mouse. This allows you to use traditional firefox mouse behavior, while still being able to leave insert mode and use anything you want from vim.
 
-##Pentadactyl/Vimperator Integration
+## Pentadactyl/Vimperator Integration
 Pterosaur integrates well with both Pentadactyl and Vimperator.
 
 While Pterosaur allows you to edit text with vim, Pentadactyl and Vimperator will give you vim like control over the rest of your browser. If you haven't already, you should consider installing one of them. (IMO Pentadactyl is better, but you have to [build it yourself](http://5digits.org/coding) for newer versions of Firefox.)
 
-##Configuration
+## Configuration
 Pterosaur can be configured by editing various configuration options. These can be edited in Firefox through the **about:config** or in Pentadactyl/Vimperator using the **:set!** command. All the following extensions begin with **extensions.pterosaur.**
 
 **enabled**: set to false to disable Pterosaur
@@ -71,7 +71,7 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 
 **envoverrides**: A space seperated list of environment variables with values used to to override the defaults when calling vim. For example, you might set this value to something like "DISPLAY=:0 XAUTHORITY=/home/me/.Xauthority" if you are using firefox with X11 forwarding. Most environment variables not specified here will inherit their values from Firefox.
 
-##FAQ
+## FAQ
 **Q:** Why isn't Pterosaur working in firebug?<br/>
 **A:** By default, pterosaur is only enbled for web content. You can enable it for browser chrome and extensions by setting [extensions.pterosaur.contentonly](#configuration) to false.
 
@@ -81,7 +81,7 @@ Pentadactyl and Vimperator users can also restart vim using the :pterosaurrestar
 **Q:** Why am I having issues deleting text?<br/>
 **A:** Pterosaur uses your vim settings, which may prevent you from deleting text depending on your `set backspace` value. You can change this for all of vim in your ~/.vimrc, or just pterosaur in the ~/.pterosaurrc.
 
-##Vim Info
+## Vim Info
 Pterosaur requires that you use a terminal version of vim with +clientserver support compiled in. You can test your vim's clientserver support by running:
 
     vim --version | grep clientserver
@@ -104,7 +104,7 @@ In this case, make sure to edit firefox's **about:config** and set [extensions.p
 
 Note that if you install a new vim binary, some distro-based vim settings you might take for granted, such as `set backspace += start` might need to be defined in your vimrc.
 
-##Mac OSX notes
+## Mac OSX notes
 - Pterosaur requires XQuartz to function on OSX. *(This is a requirement of vim's +clientserver functionality.)*
 - Pterosaur will **not** work with MacVim. You need to install a standard vim program with +clientserver using MacPorts or Homebrew.
 - If you have Homebrew, you can install vim with +clientserver using:
@@ -118,17 +118,17 @@ Note that if you install a new vim binary, some distro-based vim settings you mi
 - MacPorts will install vim to something like /opt/local/bin/vim. Make sure to set that as your [vimbinary](#configuration).
 - Note that if you install a new vim binary, some vim settings you might take for granted, such as `set backspace += start` might need to be defined in your vimrc
 
-##Privacy
+## Privacy
 Be aware that since Pterosaur sends all your keystrokes through vim, it can temporarily store sensitive data on your computer. For this reason, Pterosaur is automatically disabled for password fields. There is no such protection for other data, such as credit card numbers. You can wipe this data by quiting vim and destroying the `/tmp/vimbed/pterosaur*` directory. It should also automatically be destroyed when you quit Firefox.
 
 By default Pterosaur is disabled in private browsing mode. You can enable Pterosaur in prvate browsing by setting [extensions.pterosaur.allowprivate](#configuration) to true.
 
-##Bugs
+## Bugs
 - If you find a bug, please create a github issue.
 
 - Pterosaur does not yet support vim mode for google docs and will fail over to normal editing.
 
-##Troubleshooting
+## Troubleshooting
 Pterosaur should "just work", but if it doesn't:
 
 1. Make sure you are running master. It is the stable version.
@@ -141,10 +141,10 @@ Pterosaur should "just work", but if it doesn't:
 
 6. If there's still a problem, create an issue and let me know the results of steps 3 and 4, as well as your operating system, firefox version, the webpage you're having problems with, and if you're running Pentadactyl/Vimperator.
 
-##Hacking/Contributing
+## Hacking/Contributing
 - One of the best ways to contribute is to report bugs in the issues section.
 
 - You can also submit patches to fix issues. Find an issue that isn't assigned and let me know you're working on it.
 
-##License
+## License
 AGPL v3
